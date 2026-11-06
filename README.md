@@ -1,5 +1,7 @@
 # BagSmith
 
+[![CurseForge](https://img.shields.io/badge/CurseForge-Download-F16436?style=for-the-badge&logo=curseforge&logoColor=white)](https://www.curseforge.com/wow/addons/bagsmith) [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/shweepy) [![Discord](https://img.shields.io/badge/Discord-Join_the_Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/uYfcHPkcar)
+
 Spreadsheet-style bags for WoW Forever.
 
 BagSmith replaces the game's bags with one window you can arrange your way: everything in a list or a grid of

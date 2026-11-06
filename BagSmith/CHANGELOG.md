@@ -42,6 +42,8 @@ Fixed:
 - Item icons in your bags lose a second frame the game had started drawing (a white frame on common items, a
   heavier rarity border), so they match BagSmith's own look.
 - Classic style: no more dark strips hanging below some of the bottom tabs.
+- Currencies under a header you've collapsed in the game's currency list no longer disappear from your pinned
+  currencies, or from what your other characters see.
 - A BagSmith menu opened from Settings now closes when you click elsewhere or press Escape, and the Icon Corners
   menus end with Cancel.
 - Settings wording: "Icons view" for the view everywhere, and the Item Icons labels drop the repeated "on Icons"

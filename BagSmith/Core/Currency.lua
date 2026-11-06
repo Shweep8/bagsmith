@@ -9,6 +9,18 @@ local ADDON, ns = ...
 local Currency = {}
 ns.Currency = Currency
 
+-- (1.5.0-beta11) Currencies BagSmith knows of: seen in the list this session, your favorites, and this character's
+-- last save.
+Currency.known, Currency.lastSeen = {}, {}
+function Currency:KnownIDs()
+	local ids = {}
+	for id in pairs(self.known) do ids[id] = true end
+	for _, key in ipairs((ns.db and ns.db.fav) or {}) do local id = tonumber(tostring(key):match("^c:(%d+)$")); if id then ids[id] = true end end
+	local cache = _G.BagSmithDB and BagSmithDB.cache
+	local entry = cache and ns.CharKey and cache[ns:CharKey()]
+	for key in pairs((entry and entry.currencies) or {}) do local id = tonumber(tostring(key):match("^c:(%d+)$")); if id then ids[id] = true end end
+	return ids
+end
 local function walletList()
 	local out = {}
 	if not (C_CurrencyInfo and C_CurrencyInfo.GetCurrencyListSize) then return out end
@@ -16,8 +28,11 @@ local function walletList()
 	-- collapsed headers from an addon fires CURRENCY_DISPLAY_UPDATE, which
 	-- would trigger another read: an easy way to spin forever.
 	local n = C_CurrencyInfo.GetCurrencyListSize()
+	local listed, anyCollapsed = {}, false
 	for idx = 1, n do
 		local info = C_CurrencyInfo.GetCurrencyListInfo(idx)
+		-- (a header that isn't known to be expanded may be hiding currencies)
+		if info and info.isHeader and info.isHeaderExpanded ~= true then anyCollapsed = true end
 		if info and not info.isHeader and info.name then
 			local id
 			if C_CurrencyInfo.GetCurrencyListLink and C_CurrencyInfo.GetCurrencyIDFromLink then
@@ -28,6 +43,37 @@ local function walletList()
 			if id then
 				out[#out + 1] = { key = "c:" .. id, id = id, name = info.name, icon = info.iconFileID,
 					count = info.quantity or 0, quality = info.quality or 1, source = "Wallet" }
+				listed[id] = true
+				Currency.known[id] = true
+				Currency.lastSeen[id] = out[#out]
+			end
+		end
+	end
+	-- (1.5.0-beta11, audit F4) A collapsed header hides its currencies from the list, though you still have them.
+	-- Every currency BagSmith knows of (seen this session, a favorite, or in this character's last save) that the
+	-- list doesn't show is asked for by its ID, which doesn't depend on headers (and fires no events). Only while the
+	-- list is readable: an empty list (the logout teardown) stays "unavailable", so the logout rule keeps the last
+	-- good capture instead of zeros.
+	-- A currency the game no longer has (the lookup by ID finds nothing, or says it isn't discovered) is dropped.
+	-- Where a client can't look a currency up by its ID, a missing currency keeps the balance last seen this session
+	-- only while some header is collapsed (or doesn't say), since that's what can hide it; with every header open, a
+	-- missing currency really is gone. (Its balance may be out of date until its header is opened again.)
+	if n > 0 then
+		local lookup = C_CurrencyInfo.GetCurrencyInfo
+		for id in pairs(Currency:KnownIDs()) do
+			if not listed[id] then
+				local info = lookup and lookup(id)
+				if lookup then
+					if info and info.name and info.name ~= "" and info.discovered ~= false then
+						out[#out + 1] = { key = "c:" .. id, id = id, name = info.name, icon = info.iconFileID,
+							count = info.quantity or 0, quality = info.quality or 1, source = "Wallet" }
+						listed[id] = true
+					end
+				elseif anyCollapsed and Currency.lastSeen[id] then
+					local e = Currency.lastSeen[id]
+					out[#out + 1] = { key = e.key, id = e.id, name = e.name, icon = e.icon, count = e.count, quality = e.quality, source = "Wallet" }
+					listed[id] = true
+				end
 			end
 		end
 	end

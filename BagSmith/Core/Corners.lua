@@ -166,6 +166,8 @@ function C:SetSlot(corner, index, id)
 	local list = ns.db.iconCorners[corner]
 	local cur = list[index]
 	if id == cur then return end
+	-- (1.5.0-beta11, audit F2) nothing in a corner's first slot means the corner shows nothing, backups included
+	if id == nil and index == 1 then return C:ClearCorner(corner) end
 	if id == nil then
 		if cur and cur ~= C.PROTECTED then table.remove(list, index); C:Seen(cur) end
 	else
@@ -180,6 +182,19 @@ function C:SetSlot(corner, index, id)
 		end
 		C:Seen(id)
 	end
+	C:Normalize()
+	C:Touch(corner); C:Changed()
+end
+-- (1.5.0-beta11, audit F2) None on a corner's first dropdown: the corner shows nothing, backups included. The stack
+-- count is protected, so a corner holding it keeps it (its dropdown is locked and offers no None).
+function C:ClearCorner(corner)
+	if not ns.db or not C.LABEL[corner] then return end
+	local list = ns.db.iconCorners[corner]
+	local keep = {}
+	for _, id in ipairs(list) do
+		if id == C.PROTECTED then keep[#keep + 1] = id else C:Seen(id) end
+	end
+	ns.db.iconCorners[corner] = keep
 	C:Normalize()
 	C:Touch(corner); C:Changed()
 end
@@ -244,7 +259,8 @@ function C:Details(b, rec)
 		itemLink = rec.link, itemID = rec.itemID, quality = rec.quality, itemLevel = rec.ilvl,
 		isBound = rec.isBound and true or false, itemCount = rec.count or 1, icon = rec.icon,
 		isJunk = (ns.Junk and ns.Junk:IsJunk(rec)) and true or false,
-		classID = rec.classID, subClassID = rec.subClassID, itemName = rec.name,
+		-- (1.5.0-beta11, audit F1) BagSmith's records spell it subclassID; the public field is subClassID
+		classID = rec.classID, subClassID = rec.subclassID or rec.subClassID, itemName = rec.name,
 	}
 	if not rec.cached and rec.bag and rec.slot then
 		d.bagID, d.slotID = rec.bag, rec.slot
@@ -263,7 +279,9 @@ function C:Details(b, rec)
 		if k == "tooltipInfo" then
 			local ok, info = pcall(t.tooltipGetter)
 			info = ok and info or nil
-			rawset(t, "tooltipInfo", info or false)
+			-- (1.5.0-beta11, audit F3) only real data is kept: while the game's tooltip data isn't ready, the next ask
+			-- (a retry, or after the item's data arrives) tries again instead of remembering "unavailable"
+			if ok and info then rawset(t, "tooltipInfo", info) end
 			return info
 		end
 	end })
@@ -491,7 +509,7 @@ end
 -- is hidden).
 ------------------------------------------------------------------------
 C.SAMPLE = { itemID = 0, name = "Sample Item", icon = "Interface\\Icons\\INV_Chest_Cloth_17", quality = 2, count = 20, ilvl = 24,
-	classID = 4, subClassID = 1, cached = true, display = true }
+	classID = 4, subclassID = 1, cached = true, display = true }
 function C:RowCountOnIcon()
 	local cols = ns.db and ns.db.cols
 	return not (type(cols) == "table" and ns.IndexOf(cols, "c"))

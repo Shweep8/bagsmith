@@ -6364,7 +6364,7 @@ end)()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	local WN = n.WhatsNew
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
-	check(toc:find("## Version: 1%.5%.0%-beta10\n") and toc:find("## X%-Date: 2026%-11%-05"), "the TOC version is 1.5.0-beta10 (the Disenchant Helper and prompts), dated 23 October 2026")
+	check(toc:find("## Version: 1%.5%.0%-beta11\n") and toc:find("## X%-Date: 2026%-11%-05"), "the TOC version is 1.5.0-beta11 (the Disenchant Helper and prompts), dated 23 October 2026")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end

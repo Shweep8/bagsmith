@@ -71,7 +71,7 @@ status; *Options* opens the page you registered. `/bs mine` runs your command.
 
 ## 5. Testing it
 
-This repository's `tests` folder includes `tests/plugins_example_tests.lua`,
-which shows how the example is tested against a mock client: load BagSmith, load your folder with
-`tests/companion_loader.lua`, fire the two `ADDON_LOADED` events, and assert through the API. Run it with
+This repository's `tests` folder includes `tests/plugins_example_tests.lua`, which shows how the example is
+tested against a mock client: load BagSmith, load your folder with `tests/companion_loader.lua`, fire the two
+`ADDON_LOADED` events, and assert through the API. Run it with
 `python3 tools/run_tests.py tests/plugins_example_tests.lua`.

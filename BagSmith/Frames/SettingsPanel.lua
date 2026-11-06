@@ -837,7 +837,8 @@ function Panel:CornerCards()
 	local function choices(corner, index, cur, forAdd)
 		local items, here = {}, ns.db.iconCorners[corner] or {}
 		if not forAdd and index == 1 and cur ~= C.PROTECTED then
-			items[#items + 1] = { text = "None", onClick = function() C:SetSlot(corner, index, nil); refresh() end }
+			-- (1.5.0-beta11, audit F2) None empties the whole corner, backups included
+			items[#items + 1] = { text = "None", onClick = function() C:ClearCorner(corner); refresh() end }
 		end
 		for _, id in ipairs(C.order) do
 			local inHere = ns.IndexOf(here, id) ~= nil
