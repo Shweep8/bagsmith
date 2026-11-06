@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: BagSmith Example Plugin
+## Notes: A starter plugin for BagSmith's plugin API: counts the items in the open bag view and can say so in chat. No item actions. Not shipped with BagSmith.
+## Version: 1.0.0
+## Author: BagSmith
+## Dependencies: BagSmith
+## X-BagSmith-Plugin: bagsmith-example
+## X-BagSmith-API: 1
+## X-BagSmith-API-Minor: 0
+
+Example.lua

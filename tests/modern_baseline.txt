@@ -1,0 +1,346 @@
+# Modern baseline: prod 0.13.0's Modern layout and "look" color lines.
+# History: recorded from prod 0.9.19; differences since then, each intended:
+#   0.10.0  bank.bankBar   -10 (was -6): Bank Bags strip sits 10 px below the toolbar
+#   0.10.0  bagwin.scroll  -12 (was -4): bag windows' grid sits 8 px clear of the header band
+#   0.10.1  search, tools, bank.tools: the search row ends where the toolbar ends
+#           (Filter's right edge lines up with Icons), and the toolbar spans the
+#           window instead of taking its width from the search row
+#   0.10.5  footer: the bag and reagent icons with their counts became one
+#           button each (main.8.1, main.8.2, bank.9.1), styled like the other
+#           text buttons; the separate count texts are gone
+#   0.11.0-beta2  settings.4: a "What's New" button at the bottom left of
+#           Settings (later Settings children renumber)
+#   0.12.0-beta1  the Travel Mode button (signpost) beside the close button in
+#           the bags window's title row (main.2.6); later title-row children
+#           renumber. Travel Mode is off in these scenarios.
+#   0.12.0-beta2  a thin divider (main.2.r4) between the tool icons and the
+#           Travel Mode and close buttons
+#   0.13.0-beta2  the Junk column (on by default) in the bags and bank
+#           windows' header: one more separator and column grip
+#   0.13.0-beta4  Settings: the category list is 170 px wide (was 150) for
+#           "Automations & Actions", with two new pages (Automations &
+#           Actions, Key Bindings)
+#   0.13.0-beta9  the Favorite (star) and Currency (wallet) columns before Junk
+#           (more header separators and grips); the currency drawer's list
+#           ends above its new Add Item box
+#   0.13.0-beta10 the Favorite, Currency and Junk header icons are one
+#           BagSmith family tinted the header text's color
+#   0.13.0-beta10  the Favorite, Currency and Junk header icons are one
+#           BagSmith family in the header text color
+#   0.13.0-rc4  a list that fits has no scrollbar and takes its lane back
+#           (right inset 0, was 22); the footer's bag-strip button
+#   0.13.0-rc5  the bag-strip button is 72 wide with the new icon, tinted
+#   0.13.0-rc6  the bag-strip button is 62 wide, its icon in the toolbar grey
+#   0.13.2  Settings: an About button above What's New
+#   0.14.0-beta15  Filter panel: the rows below Category sit on a sub-frame (the Category row refills in place)
+#   0.14.0-rc5    Filter panel: the sub-frame below Category has a height (the client drew nothing on it before)
+#   0.15.0-beta6  settings: the Settings list gains Dynamic Sections and Custom Sections (Sections became Standard Sections)
+#   0.15.0-beta7  settings.sub: the profile line stops short of the new Settings search box
+#   0.15.0-beta8  settings: the list folds (sub-pages shown only under the open page); Sections, Columns and Sheets carry a small arrow
+# Re-record from the current build only when a Modern change is intended, after
+# diffing old against new, and list it here.
+# 0.16 development: the Settings sidebar gained a Plugins page (settings.3.12); the only change from the 0.15.0 snapshot.
+title | w=nil h=26 shown=true | TOPLEFT,window,TOPLEFT,12,-12 ; TOPRIGHT,window,TOPRIGHT,-12,-12
+scroll | w=nil h=nil shown=true | TOPLEFT,header,BOTTOMLEFT,0,-2 ; BOTTOMRIGHT,tabs,TOPRIGHT,0,4
+tabs | w=nil h=22 shown=true | BOTTOMLEFT,window,BOTTOMLEFT,12,40 ; BOTTOMRIGHT,window,BOTTOMRIGHT,-12,40
+tabAdd | w=20 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,386,-0
+tabEdit | w=20 h=20 shown=true | 
+footer | w=nil h=26 shown=true | BOTTOMLEFT,window,BOTTOMLEFT,12,12 ; BOTTOMRIGHT,window,BOTTOMRIGHT,-12,12
+header | w=nil h=20 shown=true | TOPLEFT,tools,BOTTOMLEFT,0,-4 ; TOPRIGHT,tools,BOTTOMRIGHT,0,-4
+btnSort | w=96 h=20 shown=true | LEFT,tools,LEFT,250,0
+btnMerge | w=92 h=20 shown=true | LEFT,tools,LEFT,354,0
+btnFilter | w=64 h=22 shown=true | LEFT,BagSmithFrameSearch,RIGHT,6,0
+scrollbar | w=nil h=nil shown=true | TOPLEFT,scroll,TOPRIGHT,6,-2 ; BOTTOMLEFT,scroll,BOTTOMRIGHT,6,2
+search | w=nil h=26 shown=true | TOPLEFT,title,BOTTOMLEFT,4,-2 ; TOPRIGHT,title,BOTTOMLEFT,516,-2
+tools | w=nil h=26 shown=true | TOPLEFT,BagSmithFrameSearch,BOTTOMLEFT,-4,-4 ; TOPRIGHT,title,BOTTOMRIGHT,0,-32
+tab1 | w=40 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,0,-0
+tab2 | w=40 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,42,-0
+tab3 | w=82 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,84,-0
+tab4 | w=82 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,168,-0
+tab5 | w=46 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,252,-0
+tab6 | w=40 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,300,-0
+tab7 | w=40 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,342,-0
+drawer.scroll | w=nil h=nil shown=true | TOPLEFT,BagSmithDrawer,TOPLEFT,8,-50 ; BOTTOMRIGHT,BagSmithDrawer,BOTTOMRIGHT,-26,72
+drawer.import | w=150 h=22 shown=true | BOTTOMLEFT,BagSmithDrawer,BOTTOMLEFT,12,10
+drawer.hint | w=nil h=nil shown=true | TOPLEFT,nil,TOPLEFT,12,-34 ; TOPRIGHT,nil,TOPRIGHT,-12,-34
+drawer.rows | w=240
+settings.title | w=nil h=nil shown=true | LEFT,frame,RIGHT,8,0
+settings.nav | w=170 h=nil shown=true | TOPLEFT,Frame,BOTTOMLEFT,0,-12 ; BOTTOMLEFT,BagSmithSettings,BOTTOMLEFT,12,14
+settings.scroll | w=nil h=nil shown=true | TOPLEFT,Frame,TOPRIGHT,16,0 ; BOTTOMRIGHT,BagSmithSettings,BOTTOMRIGHT,-34,14
+settings.sub | w=nil h=nil shown=true | LEFT,frame,RIGHT,10,0 ; RIGHT,BagSmithSettingsSearch,LEFT,-12,0
+filter.title | w=nil h=nil shown=true | TOPLEFT,nil,TOPLEFT,14,-11
+filter.search | w=nil h=24 shown=true | TOPLEFT,Frame,TOPLEFT,18,-38 ; TOPRIGHT,Frame,TOPRIGHT,-14,-38
+bagwin.title | w=nil h=26 shown=true | TOPLEFT,BagSmithBag1,TOPLEFT,12,-12 ; TOPRIGHT,BagSmithBag1,TOPRIGHT,-12,-12
+bagwin.scroll | w=nil h=nil shown=true | TOPLEFT,Frame,BOTTOMLEFT,0,-12 ; BOTTOMRIGHT,BagSmithBag1,BOTTOMRIGHT,-12,12
+bagwin.titleText | w=nil h=nil shown=true | LEFT,frame,RIGHT,6,0 ; RIGHT,frame,LEFT,-10,0
+bank.tools | h=26 | TOPLEFT,BagSmithBankFrameSearch,BOTTOMLEFT,-4,-4 ; TOPRIGHT,Frame,BOTTOMRIGHT,0,-32
+bank.bankBar | h=48 | TOPLEFT,banktools,BOTTOMLEFT,0,-10 ; TOPRIGHT,banktools,BOTTOMRIGHT,0,-10
+bank.header | h=20 | TOPLEFT,bankBar,BOTTOMLEFT,0,-4 ; TOPRIGHT,bankBar,BOTTOMRIGHT,0,-4
+bank.scroll | h=nil | TOPLEFT,bankheader,BOTTOMLEFT,0,-2 ; BOTTOMRIGHT,Frame,TOPRIGHT,0,4
+look main bg=0.10,0.10,0.08,0.98 border=0.36,0.33,0.28,1.00
+look main.r1 color=1.00,1.00,1.00,0.04
+look main.2.r1 color=0.93,0.91,0.88,1.00
+look main.2.r2 text=0.93,0.91,0.88,1.00
+look main.2.r3 text=0.56,0.55,0.51,1.00
+look main.2.r4 color=0.23,0.22,0.20,1.00
+look main.2.1.r1 color=0.62,0.60,0.55,1.00
+look main.2.2.r1 color=0.62,0.60,0.55,1.00
+look main.2.3.r1 color=0.62,0.60,0.55,1.00
+look main.2.4.r1 color=0.62,0.60,0.55,1.00
+look main.2.5.r1 color=0.62,0.60,0.55,1.00
+look main.2.6.r1 color=0.62,0.60,0.55,1.00
+look main.2.7 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.2.7.r1 text=0.56,0.55,0.51,1.00
+look main.2.7.r3 color=0.62,0.60,0.55,1.00
+look main.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.4.r1 text=0.56,0.55,0.51,1.00
+look main.5.r1 text=0.56,0.55,0.51,1.00
+look main.5.r2 text=0.56,0.55,0.51,1.00
+look main.5.1 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.5.1.r1 color=0.23,0.22,0.20,1.00
+look main.5.1.r2 color=0.23,0.22,0.20,1.00
+look main.5.1.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00
+look main.5.1.1.r1 text=0.56,0.55,0.51,1.00
+look main.5.1.2 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
+look main.5.1.2.r1 text=0.93,0.91,0.88,1.00
+look main.5.1.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00
+look main.5.1.3.r1 text=0.56,0.55,0.51,1.00
+look main.5.2.r1 color=0.62,0.60,0.55,1.00
+look main.5.3 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.5.3.r1 text=0.56,0.55,0.51,1.00
+look main.5.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.5.4.r1 text=0.56,0.55,0.51,1.00
+look main.5.5 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.5.5.r1 color=0.23,0.22,0.20,1.00
+look main.5.5.1 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
+look main.5.5.1.r1 text=0.93,0.91,0.88,1.00
+look main.5.5.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00
+look main.5.5.2.r1 text=0.56,0.55,0.51,1.00
+look main.6.r1 color=0.23,0.22,0.20,1.00
+look main.6.r2 color=1.00,1.00,1.00,0.08
+look main.6.r3 color=1.00,1.00,1.00,0.08
+look main.6.r4 color=1.00,1.00,1.00,0.08
+look main.6.r5 color=1.00,1.00,1.00,0.08
+look main.6.r6 color=1.00,1.00,1.00,0.08
+look main.6.r7 color=1.00,1.00,1.00,0.08
+look main.6.r8 color=1.00,1.00,1.00,0.08
+look main.6.r9 color=1.00,1.00,1.00,0.08
+look main.6.r10 color=1.00,1.00,1.00,0.08
+look main.6.1.r1 text=0.56,0.55,0.51,1.00
+look main.6.2.r1 text=0.56,0.55,0.51,1.00
+look main.6.3.r1 text=0.56,0.55,0.51,1.00
+look main.6.4.r1 text=0.56,0.55,0.51,1.00
+look main.6.5.r1 text=0.56,0.55,0.51,1.00
+look main.6.6.r1 text=0.56,0.55,0.51,1.00
+look main.6.7.r1 text=0.56,0.55,0.51,1.00
+look main.6.8.r1 text=0.56,0.55,0.51,1.00
+look main.6.8.r2 color=0.56,0.55,0.51,1.00
+look main.6.9.r1 text=0.56,0.55,0.51,1.00
+look main.6.9.r2 color=0.56,0.55,0.51,1.00
+look main.6.10.r1 text=0.56,0.55,0.51,1.00
+look main.6.10.r2 color=0.56,0.55,0.51,1.00
+look main.6.11.r1 color=0.98,0.78,0.46,0.25
+look main.6.12.r1 color=0.98,0.78,0.46,0.25
+look main.6.13.r1 color=0.98,0.78,0.46,0.25
+look main.6.14.r1 color=0.98,0.78,0.46,0.25
+look main.6.15.r1 color=0.98,0.78,0.46,0.25
+look main.6.16.r1 color=0.98,0.78,0.46,0.25
+look main.6.17.r1 color=0.98,0.78,0.46,0.25
+look main.6.18.r1 color=0.98,0.78,0.46,0.25
+look main.6.19.r1 color=0.98,0.78,0.46,0.25
+look main.7.1 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
+look main.7.1.r1 text=0.93,0.91,0.88,1.00
+look main.7.2 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.7.2.r1 text=0.56,0.55,0.51,1.00
+look main.7.3 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.7.3.r1 text=0.56,0.55,0.51,1.00
+look main.7.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.7.4.r1 text=0.56,0.55,0.51,1.00
+look main.7.5 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.7.5.r1 text=0.56,0.55,0.51,1.00
+look main.7.6 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.7.6.r1 text=0.56,0.55,0.51,1.00
+look main.7.7 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.7.7.r1 text=0.56,0.55,0.51,1.00
+look main.7.8.r1 color=0.62,0.60,0.55,1.00
+look main.8.r1 color=0.23,0.22,0.20,1.00
+look main.8.r2 text=0.84,0.83,0.79,1.00
+look main.8.r3 text=0.98,0.78,0.46,1.00
+look main.8.1 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.8.1.r1 text=0.56,0.55,0.51,1.00
+look main.8.1.r2 color=0.56,0.55,0.51,1.00
+look main.8.2 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.8.2.r1 text=0.56,0.55,0.51,1.00
+look main.8.2.r2 color=0.56,0.55,0.51,1.00
+look main.8.3 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.8.3.r1 text=0.56,0.55,0.51,1.00
+look main.8.3.r2 color=0.62,0.60,0.55,1.00
+look drawer bg=0.10,0.10,0.08,0.98 border=0.36,0.33,0.28,1.00
+look drawer.r2 text=0.56,0.55,0.51,1.00
+look drawer.1.r1 color=0.62,0.60,0.55,1.00
+look drawer.2.1.1.r1 text=0.93,0.91,0.88,1.00
+look drawer.2.1.1.r2 text=0.56,0.55,0.51,1.00
+look drawer.2.1.1.r3 color=0.23,0.22,0.20,1.00
+look drawer.2.1.2.r1 text=0.93,0.91,0.88,1.00
+look drawer.2.1.2.r2 text=0.56,0.55,0.51,1.00
+look drawer.2.1.2.r3 color=0.23,0.22,0.20,1.00
+look drawer.2.1.3.r2 text=0.84,0.83,0.79,1.00
+look drawer.2.1.3.r3 text=0.56,0.55,0.51,1.00
+look drawer.2.1.3.r4 text=0.84,0.83,0.79,1.00
+look drawer.2.1.3.1.r1 color=0.40,0.40,0.40,1.00
+look drawer.2.1.4.r2 text=0.84,0.83,0.79,1.00
+look drawer.2.1.4.r3 text=0.56,0.55,0.51,1.00
+look drawer.2.1.4.r4 text=0.84,0.83,0.79,1.00
+look drawer.2.1.4.1.r1 color=0.40,0.40,0.40,1.00
+look drawer.3 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look drawer.3.r1 text=0.56,0.55,0.51,1.00
+look settings bg=0.10,0.10,0.08,1.00 border=0.36,0.33,0.28,1.00
+look settings.r1 color=1.00,1.00,1.00,0.04
+look settings.2.r1 color=0.93,0.91,0.88,1.00
+look settings.2.r2 text=0.93,0.91,0.88,1.00
+look settings.2.r3 text=0.56,0.55,0.51,1.00
+look settings.2.1.r1 color=0.62,0.60,0.55,1.00
+look settings.3.r1 color=0.23,0.22,0.20,1.00
+look settings.3.1.r1 text=0.56,0.55,0.51,1.00
+look settings.3.2.r1 text=0.93,0.91,0.88,1.00
+look settings.3.2.r2 color=0.98,0.78,0.46,1.00
+look settings.3.3.r1 text=0.56,0.55,0.51,1.00
+look settings.3.4.r1 text=0.56,0.55,0.51,1.00
+look settings.3.5.r1 text=0.56,0.55,0.51,1.00
+look settings.3.5.r2 color=0.56,0.55,0.51,1.00
+look settings.3.6.r1 text=0.56,0.55,0.51,1.00
+look settings.3.6.r2 color=0.56,0.55,0.51,1.00
+look settings.3.7.r1 text=0.56,0.55,0.51,1.00
+look settings.3.7.r2 color=0.56,0.55,0.51,1.00
+look settings.3.8.r1 text=0.56,0.55,0.51,1.00
+look settings.3.9.r1 text=0.56,0.55,0.51,1.00
+look settings.3.9.r2 color=0.56,0.55,0.51,1.00
+look settings.3.10.r1 text=0.56,0.55,0.51,1.00
+look settings.3.11.r1 text=0.56,0.55,0.51,1.00
+look settings.3.12.r1 text=0.56,0.55,0.51,1.00
+look settings.3.13.r1 text=0.56,0.55,0.51,1.00
+look settings.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look settings.4.r1 text=0.56,0.55,0.51,1.00
+look settings.5 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look settings.5.r1 text=0.56,0.55,0.51,1.00
+look filter bg=0.07,0.07,0.06,1.00 border=0.36,0.33,0.28,1.00
+look filter.r1 text=0.93,0.91,0.88,1.00
+look filter.r2 text=0.56,0.55,0.51,1.00
+look filter.r3 text=0.98,0.78,0.46,1.00
+look filter.r4 text=0.98,0.78,0.46,1.00
+look filter.2.r1 color=0.62,0.60,0.55,1.00
+look filter.10.r1 text=0.98,0.78,0.46,1.00
+look filter.10.r2 text=0.98,0.78,0.46,1.00
+look filter.10.4.r1 text=0.98,0.78,0.46,1.00
+look filter.10.4.r2 text=0.98,0.78,0.46,1.00
+look filter.10.4.r3 text=0.84,0.83,0.79,1.00
+look filter.10.4.r4 text=0.84,0.83,0.79,1.00
+look filter.10.4.r5 text=0.84,0.83,0.79,1.00
+look filter.10.4.r6 text=0.56,0.55,0.51,1.00
+look filter.10.4.r7 color=0.23,0.22,0.20,1.00
+look filter.10.4.r8 text=0.98,0.78,0.46,1.00
+look filter.10.4.r9 text=0.56,0.55,0.51,1.00
+look filter.10.4.5 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.10.4.5.r1 text=0.56,0.55,0.51,1.00
+look filter.11 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.11.r1 text=0.56,0.55,0.51,1.00
+look filter.12 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.12.r1 text=0.56,0.55,0.51,1.00
+look bagwin bg=0.10,0.10,0.08,0.98 border=0.36,0.33,0.28,1.00
+look bagwin.r1 color=1.00,1.00,1.00,0.04
+look bagwin.2.r1 color=0.93,0.91,0.88,1.00
+look bagwin.2.r2 text=0.93,0.91,0.88,1.00
+look bagwin.2.r4 text=0.56,0.55,0.51,1.00
+look bagwin.2.1.r1 color=0.62,0.60,0.55,1.00
+look bank bg=0.10,0.10,0.08,0.98 border=0.36,0.33,0.28,1.00
+look bank.r1 color=1.00,1.00,1.00,0.04
+look bank.2.r1 color=0.93,0.91,0.88,1.00
+look bank.2.r2 text=0.93,0.91,0.88,1.00
+look bank.2.r3 text=0.56,0.55,0.51,1.00
+look bank.2.1.r1 color=0.62,0.60,0.55,1.00
+look bank.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.4.r1 text=0.56,0.55,0.51,1.00
+look bank.5.r1 text=0.56,0.55,0.51,1.00
+look bank.5.r2 text=0.56,0.55,0.51,1.00
+look bank.5.1 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.5.1.r1 color=0.23,0.22,0.20,1.00
+look bank.5.1.r2 color=0.23,0.22,0.20,1.00
+look bank.5.1.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00
+look bank.5.1.1.r1 text=0.56,0.55,0.51,1.00
+look bank.5.1.2 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
+look bank.5.1.2.r1 text=0.93,0.91,0.88,1.00
+look bank.5.1.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00
+look bank.5.1.3.r1 text=0.56,0.55,0.51,1.00
+look bank.5.2 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.5.2.r1 text=0.56,0.55,0.51,1.00
+look bank.5.3 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.5.3.r1 text=0.56,0.55,0.51,1.00
+look bank.5.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.5.4.r1 color=0.23,0.22,0.20,1.00
+look bank.5.4.1 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
+look bank.5.4.1.r1 text=0.93,0.91,0.88,1.00
+look bank.5.4.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00
+look bank.5.4.2.r1 text=0.56,0.55,0.51,1.00
+look bank.6 bg=1.00,1.00,1.00,0.04 border=1.00,1.00,1.00,0.08
+look bank.6.r1 text=0.98,0.78,0.46,1.00
+look bank.6.r2 text=0.56,0.55,0.51,1.00
+look bank.6.1 bg=0.00,0.00,0.00,0.35 border=1.00,1.00,1.00,0.12
+look bank.6.2 bg=0.00,0.00,0.00,0.35 border=1.00,1.00,1.00,0.12
+look bank.6.3 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.06
+look bank.6.3.r2 color=0.62,0.60,0.55,1.00
+look bank.6.4 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.06 alpha=0.40
+look bank.6.5 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.06 alpha=0.40
+look bank.6.6 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.06 alpha=0.40
+look bank.6.7 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.06 alpha=0.40
+look bank.6.8 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.06 alpha=0.40
+look bank.7.r1 color=0.23,0.22,0.20,1.00
+look bank.7.r2 color=1.00,1.00,1.00,0.08
+look bank.7.r3 color=1.00,1.00,1.00,0.08
+look bank.7.r4 color=1.00,1.00,1.00,0.08
+look bank.7.r5 color=1.00,1.00,1.00,0.08
+look bank.7.r6 color=1.00,1.00,1.00,0.08
+look bank.7.r7 color=1.00,1.00,1.00,0.08
+look bank.7.r8 color=1.00,1.00,1.00,0.08
+look bank.7.r9 color=1.00,1.00,1.00,0.08
+look bank.7.r10 color=1.00,1.00,1.00,0.08
+look bank.7.1.r1 text=0.56,0.55,0.51,1.00
+look bank.7.2.r1 text=0.56,0.55,0.51,1.00
+look bank.7.3.r1 text=0.56,0.55,0.51,1.00
+look bank.7.4.r1 text=0.56,0.55,0.51,1.00
+look bank.7.5.r1 text=0.56,0.55,0.51,1.00
+look bank.7.6.r1 text=0.56,0.55,0.51,1.00
+look bank.7.7.r1 text=0.56,0.55,0.51,1.00
+look bank.7.8.r1 text=0.56,0.55,0.51,1.00
+look bank.7.8.r2 color=0.56,0.55,0.51,1.00
+look bank.7.9.r1 text=0.56,0.55,0.51,1.00
+look bank.7.9.r2 color=0.56,0.55,0.51,1.00
+look bank.7.10.r1 text=0.56,0.55,0.51,1.00
+look bank.7.10.r2 color=0.56,0.55,0.51,1.00
+look bank.7.11.r1 color=0.98,0.78,0.46,0.25
+look bank.7.12.r1 color=0.98,0.78,0.46,0.25
+look bank.7.13.r1 color=0.98,0.78,0.46,0.25
+look bank.7.14.r1 color=0.98,0.78,0.46,0.25
+look bank.7.15.r1 color=0.98,0.78,0.46,0.25
+look bank.7.16.r1 color=0.98,0.78,0.46,0.25
+look bank.7.17.r1 color=0.98,0.78,0.46,0.25
+look bank.7.18.r1 color=0.98,0.78,0.46,0.25
+look bank.7.19.r1 color=0.98,0.78,0.46,0.25
+look bank.8.1 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
+look bank.8.1.r1 text=0.93,0.91,0.88,1.00
+look bank.8.2 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.8.2.r1 text=0.56,0.55,0.51,1.00
+look bank.8.3 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.8.3.r1 text=0.56,0.55,0.51,1.00
+look bank.8.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.8.4.r1 text=0.56,0.55,0.51,1.00
+look bank.8.5 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.8.5.r1 text=0.56,0.55,0.51,1.00
+look bank.8.6 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.8.6.r1 text=0.56,0.55,0.51,1.00
+look bank.8.7.r1 color=0.62,0.60,0.55,1.00
+look bank.9.r1 color=0.23,0.22,0.20,1.00
+look bank.9.r2 text=0.84,0.83,0.79,1.00
+look bank.9.r3 text=0.98,0.78,0.46,1.00
+look bank.9.1 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.9.1.r1 text=0.56,0.55,0.51,1.00
+look bank.9.1.r2 color=0.56,0.55,0.51,1.00

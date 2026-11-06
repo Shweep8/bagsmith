@@ -1,0 +1,10 @@
+<Bindings>
+	<Binding name="BAGSMITH_MARKJUNK" header="BAGSMITH" category="BINDING_CATEGORY_BAGSMITH">BagSmith_ToggleJunk()</Binding>
+	<Binding name="BAGSMITH_FAVORITE" category="BINDING_CATEGORY_BAGSMITH">BagSmith_ToggleFavorite()</Binding>
+	<Binding name="BAGSMITH_CURRENCYITEM" category="BINDING_CATEGORY_BAGSMITH">BagSmith_ToggleCurrencyItem()</Binding>
+	<Binding name="BAGSMITH_MOVESECTION" category="BINDING_CATEGORY_BAGSMITH">BagSmith_MoveToSection()</Binding>
+	<Binding name="BAGSMITH_TRAVEL" category="BINDING_CATEGORY_BAGSMITH">BagSmith_ToggleTravel()</Binding>
+	<Binding name="BAGSMITH_CURRENCY" category="BINDING_CATEGORY_BAGSMITH">BagSmith_ToggleCurrency()</Binding>
+	<Binding name="CLICK BagSmithDisenchantButton:LeftButton" category="BINDING_CATEGORY_BAGSMITH"/>
+	<Binding name="BAGSMITH_CONFIRMKEY" runOnUp="true" category="BINDING_CATEGORY_BAGSMITH">BagSmith_ConfirmKey(keystate)</Binding>
+</Bindings>

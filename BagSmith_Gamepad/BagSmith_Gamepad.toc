@@ -1,0 +1,17 @@
+## Interface: 16001
+## Title: BagSmith Gamepad (Alpha)
+## Notes: Alpha. Optional controller browsing for BagSmith: a D-pad highlight over bag items, item tooltips, and closing the bag with the controller. Incomplete; no item actions; combat hand-back not yet verified. Requires BagSmith 1.0.0 or later.
+## Version: 0.1.1
+## X-Date: 2026-11-05
+## Author: BagSmith
+## IconTexture: Interface\AddOns\BagSmith_Gamepad\Media\icon.tga
+## Dependencies: BagSmith
+## SavedVariables: BagSmithGamepadDB
+## X-BagSmith-Plugin: bagsmith-gamepad
+## X-BagSmith-API: 1
+## X-BagSmith-API-Minor: 0
+## X-Category: Bags & Inventory
+## X-License: Same terms as BagSmith (see CREDITS.txt and README.md)
+
+Bindings.xml
+Gamepad.lua

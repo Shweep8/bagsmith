@@ -1,0 +1,15 @@
+Copyright (c) 2026 Shweep. All rights reserved.
+
+BagSmith and BagSmith Gamepad (the BagSmith and BagSmith_Gamepad folders), and the tests and tools folders, are
+not licensed for reuse, modification or redistribution. You're welcome to read the code here and to install
+BagSmith from CurseForge (https://www.curseforge.com/wow/addons/bagsmith) or this repository's Releases.
+
+Exceptions, each under its own terms:
+
+- BagSmith_ExamplePlugin/ and docs/: MIT License (see the LICENSE file in each folder). Copy and adapt them
+  freely for your own addons.
+- BagSmith/Libs/: libraries embedded unmodified (LibStub, CallbackHandler-1.0, LibDataBroker-1.1, LibDBIcon-1.0),
+  each under its own authors' terms; see BagSmith/Libs/README.txt and the files in each library's folder.
+- BagSmith/Media/ui-bank.tga and ui-cog.tga: from game-icons.net, licensed Creative Commons BY 3.0
+  (https://creativecommons.org/licenses/by/3.0/): "Bank" by Delapouite, "Cog" by Lorc. Credited in
+  BagSmith/CREDITS.txt.

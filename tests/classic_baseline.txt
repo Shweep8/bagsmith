@@ -1,0 +1,921 @@
+# Classic baseline, recorded from beta7 and re-recorded for beta8 (positions,
+# sizes, layers and colors of every visible piece, per scenario).
+# beta7, reviewed against the same snapshot of beta6: the only differences
+# were the intended changes (corner filigree at 40%, flat gold bar on the
+# background layer, close buttons placed by the shared helper, currency
+# drawer moved clear of its border with 230-wide rows).
+# beta8, reviewed against beta7: the only difference is the bag window's
+# height (bagwin h), now held at the Classic minimum of 160.
+# The mock has no Blizzard close button or NineSlice in its template, so close
+# buttons show the fallback spot and the bag minimum uses the proven height.
+# Mock window heights are not real sizes (the mock's own GetHeight), but they
+# are stable, so a change still shows up here.
+# 0.10.1, reviewed against 0.10.0: the drag band ends at the search row
+# (bags 54, bank 29: the bank's Filter is fully clickable), the search row
+# ends where the toolbar ends, the toolbar spans the window, and a texture
+# index shift on the title row's icon buttons (Modern's hover wash, hidden
+# in Classic).
+# 0.10.4 (from beta1), reviewed against 0.10.3: only the column grips moved
+# (one per line between columns, none at the row's outer edge).
+# 0.10.5, reviewed against 0.10.4: only the footer changed (the bag and
+# reagent counts are now one Blizzard button each, 20 px tall, in the gold bar).
+# 0.11.0-beta2: the Settings window's new "What's New" button (settings.4,
+# dressed as a Blizzard button); later Settings children renumber.
+# 0.12.0-beta1: the Travel Mode button, a square button beside Blizzard's red
+# close button in the title strip (main.2.1); Settings stays on the row below
+# (main.2.2); later title-row children renumber; search boxes get an explicit
+# frame level above the drag band. Travel Mode is off in these scenarios.
+# 0.12.0-beta2: the Travel Mode button is a red button (22 px, the mock has no
+# blank red atlas so it shows the red panel-button fallback pieces) beside the
+# close button; the Modern divider stays hidden in Classic.
+# 0.12.0-beta3: the Travel Mode button is raised 2 px (TRAVEL_LIFT) to line up
+# with the close button's red face.
+# 0.12.0-beta4: the Travel Mode button is 24 px; without red button art (as in
+# the mock) the panel art sits inside a dark bronze rim.
+# 0.12.0-beta5: the Travel Mode button's lift is 0 px (with the map button
+# art it already lines up with the close button's face).
+# 0.13.0-beta2: the Junk column (on by default) adds a header separator and
+# column grip in the bags and bank windows.
+# 0.13.0-beta4: Settings' category list is 170 px wide (was 150), with two
+# new pages.
+# 0.13.0-beta9: the Favorite and Currency columns (header separators and
+# grips); the currency drawer's list ends above its Add Item box.
+# 0.13.0-beta10: the three column header icons are one family, tinted the
+# header text's color.
+# 0.13.0-beta10: the three column header icons are one BagSmith family in the
+# header text color.
+# 0.13.0-beta11: the column header icons are centered on their columns.
+# 0.13.0-rc3: new players start Scalable (600 x 560) instead of Fit to Items.
+# 0.13.0-rc4: a list that fits has no scrollbar (its lane given back); the
+# footer's bag-strip button.
+# 0.13.0-rc5: the bag-strip button is 72 wide with the new icon, tinted.
+# 0.13.0-rc6: the bag-strip button gets the Classic button art (62 x 20).
+# 0.13.0-rc13: new players' default width is 620 (the supported minimum).
+# 0.13.2: Settings: an About button above What's New.
+# 0.14.0-beta7: list rows' Item column makes room for the item menu button (on by default).
+# 0.14.0-beta15: Filter panel: the rows below Category sit on a sub-frame (the Category row refills in place).
+# 0.14.0-rc5: Filter panel: the sub-frame below Category has a height (the client drew nothing on it before).
+# 0.15.0-beta1: Bank Bags slots wear Blizzard's bag-slot frame (no flat border); an empty bought slot shows the empty bag picture.
+# 0.15.0-beta6: Settings list gains Dynamic Sections and Custom Sections (two more entries).
+# 0.15.0-beta7: Settings: the search box in the title row (right of the profile line).
+# 0.15.0-beta8: Settings list folds sub-pages under their page; arrows on Sections, Columns and Sheets.
+# Re-record only when a Classic change is intended, and note it here.
+# 0.16 development: the Settings sidebar gained a Plugins page (settings.3.12); the only change from the 0.15.0 snapshot.
+== classic
+look main bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=620 h=560 at=BOTTOMRIGHT,UIParent,BOTTOMRIGHT,-80,140
+look main.1 w=nil h=54 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look main.2 w=nil h=26 at=TOPLEFT,main,TOPLEFT,60,-26;TOPRIGHT,main,TOPRIGHT,-10,-26 level=3
+look main.2.r2 text=0.98,0.78,0.46,1.00
+look main.2.r3 text=0.60,0.55,0.45,1.00
+look main.2.1 w=24 h=24 at=RIGHT,main.12,LEFT,-1,0 level=11
+look main.2.1.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.1.r3 color=0.24,0.16,0.08,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,-2,2;BOTTOMRIGHT,parent,BOTTOMRIGHT,2,-2 layer=BACKGROUND/-1
+look main.2.1.r4 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,0,0;BOTTOMRIGHT,main.2.1,BOTTOM,0,0 layer=BACKGROUND/nil
+look main.2.1.r5 w=nil h=nil at=TOPRIGHT,parent,TOPRIGHT,0,0;BOTTOMLEFT,main.2.1,BOTTOM,0,0 layer=BACKGROUND/nil
+look main.2.2 w=26 h=26 at=RIGHT,Button,LEFT,0,0
+look main.2.2.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.2.r3 w=nil h=nil at= layer=BACKGROUND/nil
+look main.2.3 w=26 h=26 at=RIGHT,main.2.2,LEFT,0,0
+look main.2.3.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.3.r3 w=nil h=nil at= layer=BACKGROUND/nil
+look main.2.4 w=26 h=26 at=RIGHT,main.2.3,LEFT,0,0
+look main.2.4.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.4.r3 w=nil h=nil at= layer=BACKGROUND/nil
+look main.2.5 w=26 h=26 at=RIGHT,main.2.4,LEFT,0,0
+look main.2.5.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.5.r3 w=nil h=nil at= layer=BACKGROUND/nil
+look main.2.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=170 h=22 at=LEFT,frame,RIGHT,10,0
+look main.2.6.r1 text=1.00,1.00,1.00,1.00
+look main.2.6.r2 w=14 h=14 at=LEFT,parent,LEFT,6,0 layer=ARTWORK/nil
+look main.2.7 w=nil h=nil at= level=3
+look main.3 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-44,-2;TOPRIGHT,main.2,BOTTOMLEFT,464,-2 level=4
+look main.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,main.3,RIGHT,6,0
+look main.4.1 w=nil h=nil at=
+look main.5 w=nil h=26 at=TOPLEFT,main.3,BOTTOMLEFT,-4,-4;TOPRIGHT,main.2,BOTTOMRIGHT,0,-32
+look main.5.r1 text=0.56,0.55,0.51,1.00
+look main.5.r2 text=0.56,0.55,0.51,1.00
+look main.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=156 h=24 at=LEFT,main.5,LEFT,54,0
+look main.5.1.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=32 h=22 at=LEFT,main.5.1,LEFT,0,0 level=2
+look main.5.1.1.1 w=nil h=nil at=
+look main.5.1.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=74 h=22 at=LEFT,main.5.1,LEFT,32,0 level=4
+look main.5.1.2.1 w=nil h=nil at=
+look main.5.1.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=50 h=22 at=LEFT,main.5.1,LEFT,106,0 level=2
+look main.5.1.3.1 w=nil h=nil at=
+look main.5.2 w=24 h=24 at=LEFT,main.5,LEFT,214,0
+look main.5.2.r1 color=0.62,0.60,0.55,1.00 w=16 h=16 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.5.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=22 at=LEFT,main.5,LEFT,248,0
+look main.5.3.1 w=nil h=nil at=
+look main.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=22 at=LEFT,main.5,LEFT,352,0
+look main.5.4.1 w=nil h=nil at=
+look main.5.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,main.5,LEFT,486,0
+look main.5.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=45 h=22 at=LEFT,main.5.5,LEFT,0,0 level=4
+look main.5.5.1.1 w=nil h=nil at=
+look main.5.5.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=51 h=22 at=LEFT,main.5.5,LEFT,45,0 level=2
+look main.5.5.2.1 w=nil h=nil at=
+look main.6 w=nil h=20 at=TOPLEFT,main.5,BOTTOMLEFT,0,-4;TOPRIGHT,main.5,BOTTOMRIGHT,0,-4
+look main.6.r1 color=0.32,0.25,0.12,1.00 w=nil h=nil at=BOTTOMLEFT,parent,BOTTOMLEFT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look main.6.r2 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,42,0;BOTTOM,main.6,BOTTOMLEFT,42,0 layer=ARTWORK/nil
+look main.6.r3 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,168,0;BOTTOM,main.6,BOTTOMLEFT,168,0 layer=ARTWORK/nil
+look main.6.r4 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,264,0;BOTTOM,main.6,BOTTOMLEFT,264,0 layer=ARTWORK/nil
+look main.6.r5 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,306,0;BOTTOM,main.6,BOTTOMLEFT,306,0 layer=ARTWORK/nil
+look main.6.r6 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,378,0;BOTTOM,main.6,BOTTOMLEFT,378,0 layer=ARTWORK/nil
+look main.6.r7 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,462,0;BOTTOM,main.6,BOTTOMLEFT,462,0 layer=ARTWORK/nil
+look main.6.r8 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,510,0;BOTTOM,main.6,BOTTOMLEFT,510,0 layer=ARTWORK/nil
+look main.6.r9 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,540,0;BOTTOM,main.6,BOTTOMLEFT,540,0 layer=ARTWORK/nil
+look main.6.r10 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,570,0;BOTTOM,main.6,BOTTOMLEFT,570,0 layer=ARTWORK/nil
+look main.6.1 w=78 h=20 at=LEFT,main.6,LEFT,46,0
+look main.6.1.r1 text=0.60,0.55,0.45,1.00
+look main.6.2 w=28 h=20 at=LEFT,main.6,LEFT,4,0
+look main.6.2.r1 text=0.60,0.55,0.45,1.00
+look main.6.3 w=82 h=20 at=LEFT,main.6,LEFT,172,0
+look main.6.3.r1 text=0.60,0.55,0.45,1.00
+look main.6.4 w=28 h=20 at=LEFT,main.6,LEFT,268,0
+look main.6.4.r1 text=0.60,0.55,0.45,1.00
+look main.6.5 w=58 h=20 at=LEFT,main.6,LEFT,310,0
+look main.6.5.r1 text=0.60,0.55,0.45,1.00
+look main.6.6 w=70 h=20 at=LEFT,main.6,LEFT,382,0
+look main.6.6.r1 text=0.60,0.55,0.45,1.00
+look main.6.7 w=34 h=20 at=LEFT,main.6,LEFT,466,0
+look main.6.7.r1 text=0.60,0.55,0.45,1.00
+look main.6.8 w=16 h=20 at=LEFT,main.6,LEFT,514,0
+look main.6.8.r1 text=0.60,0.55,0.45,1.00
+look main.6.8.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,main.6,LEFT,525,0 layer=OVERLAY/nil
+look main.6.9 w=16 h=20 at=LEFT,main.6,LEFT,544,0
+look main.6.9.r1 text=0.60,0.55,0.45,1.00
+look main.6.9.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,main.6,LEFT,555,0 layer=OVERLAY/nil
+look main.6.10 w=16 h=20 at=LEFT,main.6,LEFT,574,0
+look main.6.10.r1 text=0.60,0.55,0.45,1.00
+look main.6.10.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,main.6,LEFT,585,0 layer=OVERLAY/nil
+look main.6.11 w=10 h=20 at=LEFT,main.6,LEFT,37,0 level=6
+look main.6.11.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.12 w=10 h=20 at=LEFT,main.6,LEFT,163,0 level=6
+look main.6.12.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.13 w=10 h=20 at=LEFT,main.6,LEFT,259,0 level=6
+look main.6.13.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.14 w=10 h=20 at=LEFT,main.6,LEFT,301,0 level=6
+look main.6.14.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.15 w=10 h=20 at=LEFT,main.6,LEFT,373,0 level=6
+look main.6.15.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.16 w=10 h=20 at=LEFT,main.6,LEFT,457,0 level=6
+look main.6.16.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.17 w=10 h=20 at=LEFT,main.6,LEFT,505,0 level=6
+look main.6.17.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.18 w=10 h=20 at=LEFT,main.6,LEFT,535,0 level=6
+look main.6.18.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.19 w=10 h=20 at=LEFT,main.6,LEFT,565,0 level=6
+look main.6.19.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.7 w=nil h=30 at=TOPLEFT,main,BOTTOMLEFT,12,3;TOPRIGHT,main,BOTTOMRIGHT,-12,3
+look main.7.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,0,-0
+look main.7.1.1 w=nil h=nil at=
+look main.7.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,42,-0
+look main.7.2.1 w=nil h=nil at=
+look main.7.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,main.7,TOPLEFT,84,-0
+look main.7.3.1 w=nil h=nil at=
+look main.7.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,main.7,TOPLEFT,168,-0
+look main.7.4.1 w=nil h=nil at=
+look main.7.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=46 h=28 at=TOPLEFT,main.7,TOPLEFT,252,-0
+look main.7.5.1 w=nil h=nil at=
+look main.7.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,300,-0
+look main.7.6.1 w=nil h=nil at=
+look main.7.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,342,-0
+look main.7.7.1 w=nil h=nil at=
+look main.7.8 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,main.7,TOPLEFT,386,-0
+look main.7.8.1 w=nil h=nil at=
+look main.8 w=nil h=26 at=BOTTOMLEFT,parent,BOTTOMLEFT,12,12;BOTTOMRIGHT,parent,BOTTOMRIGHT,-12,12
+look main.8.r2 text=0.84,0.83,0.79,1.00
+look main.8.r3 text=0.98,0.78,0.46,1.00
+look main.8.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=76 h=20 at=RIGHT,main.8,RIGHT,-18,0
+look main.8.1.1 w=nil h=nil at=
+look main.8.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=20 at=RIGHT,main.8.1,LEFT,-6,0
+look main.8.2.1 w=nil h=nil at=
+look main.8.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=62 h=20 at=RIGHT,main.8.2,LEFT,-6,0
+look main.8.3.1 w=nil h=nil at=
+look main.9 w=nil h=nil at=TOPLEFT,main.6,BOTTOMLEFT,0,-2;BOTTOMRIGHT,main.8,TOPRIGHT,0,6
+look main.10 w=16 h=16 at=BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4
+look main.10.r1 w=nil h=nil at= layer=ARTWORK/nil
+look main.11 w=nil h=nil at= level=1
+look main.11.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
+look main.11.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look main.11.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look main.11.r5 alpha=0.40 w=nil h=nil at=BOTTOMLEFT,main.8,TOPLEFT,-6,2 layer=BACKGROUND/3
+look main.11.r6 alpha=0.40 w=nil h=nil at=BOTTOMRIGHT,main.8,TOPRIGHT,6,2 layer=BACKGROUND/3
+look main.11.r8 color=0.04,0.03,0.03,0.55 w=nil h=nil at=TOPLEFT,main.8,TOPLEFT,-4,1;BOTTOMRIGHT,main.8,BOTTOMRIGHT,4,-2 layer=BACKGROUND/5
+look main.11.r9 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPLEFT,frame,TOPLEFT,0,0;TOPRIGHT,frame,TOPRIGHT,0,0 layer=BACKGROUND/6
+look main.11.r10 color=0.45,0.36,0.22,0.85 w=nil h=nil at=BOTTOMLEFT,frame,BOTTOMLEFT,0,0;BOTTOMRIGHT,frame,BOTTOMRIGHT,0,0 layer=BACKGROUND/6
+look main.11.r11 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPLEFT,frame,TOPLEFT,0,0;BOTTOMLEFT,frame,BOTTOMLEFT,0,0 layer=BACKGROUND/6
+look main.11.r12 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPRIGHT,frame,TOPRIGHT,0,0;BOTTOMRIGHT,frame,BOTTOMRIGHT,0,0 layer=BACKGROUND/6
+look main.12 w=nil h=nil at=TOPRIGHT,main,TOPRIGHT,-4,-4 level=11
+look drawer bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=280 h=560 at=TOPRIGHT,BagSmithFrame,TOPLEFT,-4,0
+look drawer.r2 text=0.60,0.55,0.45,1.00
+look drawer.1 w=nil h=nil at=TOPLEFT,drawer,TOPLEFT,12,-50;BOTTOMRIGHT,drawer,BOTTOMRIGHT,-32,78
+look drawer.1.1 w=230 h=100 at=
+look drawer.1.1.1 w=230 h=22 at=TOPLEFT,drawer.1.1,TOPLEFT,0,-0
+look drawer.1.1.1.r1 text=0.98,0.78,0.46,1.00
+look drawer.1.1.1.r2 text=0.60,0.55,0.45,1.00
+look drawer.1.1.1.r3 color=0.32,0.25,0.12,1.00 w=nil h=nil at=BOTTOMLEFT,parent,BOTTOMLEFT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look drawer.1.1.2 w=230 h=22 at=TOPLEFT,drawer.1.1,TOPLEFT,0,-24
+look drawer.1.1.2.r1 text=0.98,0.78,0.46,1.00
+look drawer.1.1.2.r2 text=0.60,0.55,0.45,1.00
+look drawer.1.1.2.r3 color=0.32,0.25,0.12,1.00 w=nil h=nil at=BOTTOMLEFT,parent,BOTTOMLEFT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look drawer.1.1.3 w=230 h=26 at=TOPLEFT,drawer.1.1,TOPLEFT,0,-48
+look drawer.1.1.3.r1 w=16 h=16 at=LEFT,drawer.1.1.3.1,RIGHT,4,0 layer=ARTWORK/nil
+look drawer.1.1.3.r2 text=0.84,0.83,0.79,1.00
+look drawer.1.1.3.r3 text=0.60,0.55,0.45,1.00
+look drawer.1.1.3.r4 text=0.84,0.83,0.79,1.00
+look drawer.1.1.3.1 w=18 h=18 at=LEFT,parent,LEFT,0,0
+look drawer.1.1.3.1.r1 color=0.40,0.40,0.40,1.00 w=nil h=nil at= layer=ARTWORK/nil
+look drawer.1.1.4 w=230 h=26 at=TOPLEFT,drawer.1.1,TOPLEFT,0,-74
+look drawer.1.1.4.r1 w=16 h=16 at=LEFT,drawer.1.1.4.1,RIGHT,4,0 layer=ARTWORK/nil
+look drawer.1.1.4.r2 text=0.84,0.83,0.79,1.00
+look drawer.1.1.4.r3 text=0.60,0.55,0.45,1.00
+look drawer.1.1.4.r4 text=0.84,0.83,0.79,1.00
+look drawer.1.1.4.1 w=18 h=18 at=LEFT,parent,LEFT,0,0
+look drawer.1.1.4.1.r1 color=0.40,0.40,0.40,1.00 w=nil h=nil at= layer=ARTWORK/nil
+look drawer.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=150 h=22 at=BOTTOMLEFT,drawer,BOTTOMLEFT,14,14
+look drawer.2.1 w=nil h=nil at=
+look drawer.3 w=256 h=22 at=BOTTOMLEFT,drawer,BOTTOMLEFT,20,44
+look drawer.4 w=nil h=nil at= level=1
+look drawer.4.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look drawer.4.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look drawer.5 w=nil h=nil at=TOPRIGHT,drawer,TOPRIGHT,-4,-4 level=11
+look settings bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=680 h=560 at=CENTER,UIParent,CENTER,0,40
+look settings.1 w=nil h=46 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look settings.2 w=nil h=28 at=TOPLEFT,settings,TOPLEFT,66,-26;TOPRIGHT,settings,TOPRIGHT,-12,-26 level=3
+look settings.2.r3 text=0.60,0.55,0.45,1.00
+look settings.2.1 w=200 h=20 at=RIGHT,settings.2,RIGHT,-30,0
+look settings.3 w=170 h=nil at=TOPLEFT,settings,TOPLEFT,12,-66;BOTTOMLEFT,settings,BOTTOMLEFT,12,14
+look settings.3.r1 color=0.32,0.25,0.12,1.00 w=nil h=nil at=TOPRIGHT,parent,TOPRIGHT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look settings.3.1 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-0;TOPRIGHT,parent,TOPRIGHT,-10,-0
+look settings.3.1.r1 text=0.60,0.55,0.45,1.00
+look settings.3.2 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-28;TOPRIGHT,parent,TOPRIGHT,-10,-28
+look settings.3.2.r1 text=0.98,0.78,0.46,1.00
+look settings.3.2.r2 color=0.98,0.78,0.46,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,0,-4;BOTTOMLEFT,parent,BOTTOMLEFT,0,4 layer=ARTWORK/nil
+look settings.3.3 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-56;TOPRIGHT,parent,TOPRIGHT,-10,-56
+look settings.3.3.r1 text=0.60,0.55,0.45,1.00
+look settings.3.4 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-84;TOPRIGHT,parent,TOPRIGHT,-10,-84
+look settings.3.4.r1 text=0.60,0.55,0.45,1.00
+look settings.3.5 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-112;TOPRIGHT,parent,TOPRIGHT,-10,-112
+look settings.3.5.r1 text=0.60,0.55,0.45,1.00
+look settings.3.5.r2 color=0.60,0.55,0.45,1.00 w=10 h=10 at=RIGHT,parent,RIGHT,-6,0 layer=ARTWORK/nil
+look settings.3.6 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-140;TOPRIGHT,parent,TOPRIGHT,-10,-140
+look settings.3.6.r1 text=0.60,0.55,0.45,1.00
+look settings.3.6.r2 color=0.60,0.55,0.45,1.00 w=10 h=10 at=RIGHT,parent,RIGHT,-6,0 layer=ARTWORK/nil
+look settings.3.7 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-168;TOPRIGHT,parent,TOPRIGHT,-10,-168
+look settings.3.7.r1 text=0.60,0.55,0.45,1.00
+look settings.3.7.r2 color=0.60,0.55,0.45,1.00 w=10 h=10 at=RIGHT,parent,RIGHT,-6,0 layer=ARTWORK/nil
+look settings.3.8 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-196;TOPRIGHT,parent,TOPRIGHT,-10,-196
+look settings.3.8.r1 text=0.60,0.55,0.45,1.00
+look settings.3.9 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-224;TOPRIGHT,parent,TOPRIGHT,-10,-224
+look settings.3.9.r1 text=0.60,0.55,0.45,1.00
+look settings.3.9.r2 color=0.60,0.55,0.45,1.00 w=10 h=10 at=RIGHT,parent,RIGHT,-6,0 layer=ARTWORK/nil
+look settings.3.10 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-252;TOPRIGHT,parent,TOPRIGHT,-10,-252
+look settings.3.10.r1 text=0.60,0.55,0.45,1.00
+look settings.3.11 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-280;TOPRIGHT,parent,TOPRIGHT,-10,-280
+look settings.3.11.r1 text=0.60,0.55,0.45,1.00
+look settings.3.12 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-308;TOPRIGHT,parent,TOPRIGHT,-10,-308
+look settings.3.12.r1 text=0.60,0.55,0.45,1.00
+look settings.3.13 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-336;TOPRIGHT,parent,TOPRIGHT,-10,-336
+look settings.3.13.r1 text=0.60,0.55,0.45,1.00
+look settings.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=160 h=22 at=BOTTOMLEFT,settings,BOTTOMLEFT,12,14
+look settings.4.1 w=nil h=nil at=
+look settings.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=160 h=22 at=BOTTOMLEFT,settings.4,TOPLEFT,0,6
+look settings.5.1 w=nil h=nil at=
+look settings.6 w=nil h=nil at=TOPLEFT,settings.3,TOPRIGHT,16,0;BOTTOMRIGHT,settings,BOTTOMRIGHT,-34,14
+look settings.7 w=nil h=nil at= level=1
+look settings.7.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
+look settings.7.r4 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look settings.7.r5 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look settings.8 w=nil h=nil at=TOPRIGHT,settings,TOPRIGHT,-4,-4 level=11
+look filter bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=480 h=642 at=TOPLEFT,BagSmithFrameSearch,BOTTOMLEFT,-4,-2
+look filter.r2 text=0.60,0.55,0.45,1.00
+look filter.r3 text=0.98,0.78,0.46,1.00
+look filter.r4 text=0.98,0.78,0.46,1.00
+look filter.1 w=nil h=34 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look filter.2 w=nil h=nil at= level=1
+look filter.2.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look filter.2.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look filter.3 w=nil h=nil at=TOPRIGHT,filter,TOPRIGHT,-4,-4 level=11
+look filter.4 w=nil h=24 at=TOPLEFT,parent,TOPLEFT,18,-38;TOPRIGHT,parent,TOPRIGHT,-14,-38
+look filter.5 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-124
+look filter.6 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,78,-124
+look filter.7 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,154,-124
+look filter.8 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,242,-124
+look filter.9 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,306,-124
+look filter.10 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,370,-124
+look filter.11 w=nil h=372 at=TOPLEFT,filter,TOPLEFT,0,-232;TOPRIGHT,filter,TOPRIGHT,0,-232
+look filter.11.r1 text=0.98,0.78,0.46,1.00
+look filter.11.r2 text=0.98,0.78,0.46,1.00
+look filter.11.1 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-26
+look filter.11.2 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,72,-26
+look filter.11.3 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,130,-26
+look filter.11.4 w=nil h=230 at=TOPLEFT,filter.11,TOPLEFT,0,-134;TOPRIGHT,filter.11,TOPRIGHT,0,-134
+look filter.11.4.r1 text=0.98,0.78,0.46,1.00
+look filter.11.4.r2 text=0.98,0.78,0.46,1.00
+look filter.11.4.r3 text=0.84,0.83,0.79,1.00
+look filter.11.4.r4 text=0.84,0.83,0.79,1.00
+look filter.11.4.r5 text=0.84,0.83,0.79,1.00
+look filter.11.4.r6 text=0.60,0.55,0.45,1.00
+look filter.11.4.r7 color=0.32,0.25,0.12,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,14,-136;TOPRIGHT,parent,TOPRIGHT,-14,-136 layer=ARTWORK/nil
+look filter.11.4.r8 text=0.98,0.78,0.46,1.00
+look filter.11.4.r9 text=0.60,0.55,0.45,1.00
+look filter.11.4.1 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-26
+look filter.11.4.2 w=26 h=22 at=LEFT,frame,RIGHT,10,0
+look filter.11.4.3 w=26 h=22 at=LEFT,frame,RIGHT,10,0
+look filter.11.4.4 w=322 h=24 at=TOPLEFT,parent,TOPLEFT,20,-174
+look filter.11.4.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=116 h=24 at=LEFT,filter.11.4.4,RIGHT,8,0
+look filter.11.4.5.1 w=nil h=nil at=
+look filter.11.5 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-80
+look filter.11.6 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,102,-80
+look filter.11.7 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,220,-80
+look filter.11.8 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-106
+look filter.11.9 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,156,-106
+look filter.12 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=80 h=24 at=BOTTOMLEFT,parent,BOTTOMLEFT,14,14
+look filter.12.1 w=nil h=nil at=
+look filter.13 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=70 h=24 at=BOTTOMRIGHT,parent,BOTTOMRIGHT,-14,14
+look filter.13.1 w=nil h=nil at=
+look filter.14 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-178
+look filter.15 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,78,-178
+look filter.16 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,184,-178
+look filter.17 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,272,-178
+look filter.18 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,378,-178
+look filter.19 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-204
+look filter.20 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,84,-204
+look filter.21 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,160,-204
+look filter.22 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,224,-204
+look filter.23 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,288,-204
+look bagwin bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=298 h=160 at=BOTTOMLEFT,UIParent,BOTTOMLEFT,-518,200
+look bagwin.1 w=nil h=44 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look bagwin.2 w=nil h=26 at=TOPLEFT,bagwin,TOPLEFT,12,-34;TOPRIGHT,bagwin,TOPRIGHT,-10,-34 level=3
+look bagwin.2.r4 text=0.60,0.55,0.45,1.00
+look bagwin.3 w=nil h=nil at=TOPLEFT,bagwin.2,BOTTOMLEFT,0,-4;BOTTOMRIGHT,bagwin,BOTTOMRIGHT,-12,12
+look bagwin.4 w=nil h=nil at= level=1
+look bagwin.4.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
+look bagwin.4.r4 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look bagwin.4.r5 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look bagwin.5 w=nil h=nil at=TOPRIGHT,bagwin,TOPRIGHT,-4,-4 level=11
+look bank bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=620 h=520 at=TOPLEFT,UIParent,TOPLEFT,40,-120
+look bank.1 w=nil h=29 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look bank.2 w=nil h=1 at=TOPLEFT,bank,TOPLEFT,60,-26;TOPRIGHT,bank,TOPRIGHT,-10,-26 level=3
+look bank.2.r2 text=0.98,0.78,0.46,1.00
+look bank.2.r3 text=0.60,0.55,0.45,1.00
+look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,-44,-2;TOPRIGHT,bank.2,BOTTOMLEFT,464,-2 level=4
+look bank.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,bank.3,RIGHT,6,0
+look bank.4.1 w=nil h=nil at=
+look bank.5 w=nil h=26 at=TOPLEFT,bank.3,BOTTOMLEFT,-4,-4;TOPRIGHT,bank.2,BOTTOMRIGHT,0,-32
+look bank.5.r1 text=0.56,0.55,0.51,1.00
+look bank.5.r2 text=0.56,0.55,0.51,1.00
+look bank.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=156 h=24 at=LEFT,bank.5,LEFT,54,0
+look bank.5.1.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=32 h=22 at=LEFT,bank.5.1,LEFT,0,0 level=2
+look bank.5.1.1.1 w=nil h=nil at=
+look bank.5.1.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=74 h=22 at=LEFT,bank.5.1,LEFT,32,0 level=4
+look bank.5.1.2.1 w=nil h=nil at=
+look bank.5.1.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=50 h=22 at=LEFT,bank.5.1,LEFT,106,0 level=2
+look bank.5.1.3.1 w=nil h=nil at=
+look bank.5.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=22 at=LEFT,bank.5,LEFT,248,0
+look bank.5.2.1 w=nil h=nil at=
+look bank.5.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=22 at=LEFT,bank.5,LEFT,352,0
+look bank.5.3.1 w=nil h=nil at=
+look bank.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,bank.5,LEFT,486,0
+look bank.5.4.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=45 h=22 at=LEFT,bank.5.4,LEFT,0,0 level=4
+look bank.5.4.1.1 w=nil h=nil at=
+look bank.5.4.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=51 h=22 at=LEFT,bank.5.4,LEFT,45,0 level=2
+look bank.5.4.2.1 w=nil h=nil at=
+look bank.6 bg=1.00,1.00,1.00,0.04 border=1.00,1.00,1.00,0.08 w=nil h=48 at=TOPLEFT,bank.5,BOTTOMLEFT,0,-10;TOPRIGHT,bank.5,BOTTOMRIGHT,0,-10
+look bank.6.r1 text=0.98,0.78,0.46,1.00
+look bank.6.r2 text=0.60,0.55,0.45,1.00
+look bank.6.1 bg=0.00,0.00,0.00,0.35 border=1.00,1.00,1.00,0.00 w=34 h=34 at=LEFT,bank.6,LEFT,168,0
+look bank.6.1.r1 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,2,-2;BOTTOMRIGHT,parent,BOTTOMRIGHT,-2,2 layer=ARTWORK/nil
+look bank.6.1.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.2 bg=0.00,0.00,0.00,0.35 border=1.00,1.00,1.00,0.00 w=34 h=34 at=LEFT,bank.6,LEFT,206,0
+look bank.6.2.r1 alpha=0.50 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,2,-2;BOTTOMRIGHT,parent,BOTTOMRIGHT,-2,2 layer=ARTWORK/nil
+look bank.6.2.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.3 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 w=34 h=34 at=LEFT,bank.6,LEFT,244,0
+look bank.6.3.r2 color=0.62,0.60,0.55,1.00 w=12 h=12 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/nil
+look bank.6.3.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.3.1 w=nil h=nil at=
+look bank.6.4 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,282,0
+look bank.6.4.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.5 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,320,0
+look bank.6.5.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.6 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,358,0
+look bank.6.6.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.7 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,396,0
+look bank.6.7.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.8 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,434,0
+look bank.6.8.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.7 w=nil h=20 at=TOPLEFT,bank.6,BOTTOMLEFT,0,-4;TOPRIGHT,bank.6,BOTTOMRIGHT,0,-4
+look bank.7.r1 color=0.32,0.25,0.12,1.00 w=nil h=nil at=BOTTOMLEFT,parent,BOTTOMLEFT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look bank.7.r2 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,42,0;BOTTOM,bank.7,BOTTOMLEFT,42,0 layer=ARTWORK/nil
+look bank.7.r3 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,168,0;BOTTOM,bank.7,BOTTOMLEFT,168,0 layer=ARTWORK/nil
+look bank.7.r4 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,264,0;BOTTOM,bank.7,BOTTOMLEFT,264,0 layer=ARTWORK/nil
+look bank.7.r5 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,306,0;BOTTOM,bank.7,BOTTOMLEFT,306,0 layer=ARTWORK/nil
+look bank.7.r6 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,378,0;BOTTOM,bank.7,BOTTOMLEFT,378,0 layer=ARTWORK/nil
+look bank.7.r7 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,462,0;BOTTOM,bank.7,BOTTOMLEFT,462,0 layer=ARTWORK/nil
+look bank.7.r8 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,510,0;BOTTOM,bank.7,BOTTOMLEFT,510,0 layer=ARTWORK/nil
+look bank.7.r9 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,540,0;BOTTOM,bank.7,BOTTOMLEFT,540,0 layer=ARTWORK/nil
+look bank.7.r10 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,570,0;BOTTOM,bank.7,BOTTOMLEFT,570,0 layer=ARTWORK/nil
+look bank.7.1 w=78 h=20 at=LEFT,bank.7,LEFT,46,0
+look bank.7.1.r1 text=0.60,0.55,0.45,1.00
+look bank.7.2 w=28 h=20 at=LEFT,bank.7,LEFT,4,0
+look bank.7.2.r1 text=0.60,0.55,0.45,1.00
+look bank.7.3 w=82 h=20 at=LEFT,bank.7,LEFT,172,0
+look bank.7.3.r1 text=0.60,0.55,0.45,1.00
+look bank.7.4 w=28 h=20 at=LEFT,bank.7,LEFT,268,0
+look bank.7.4.r1 text=0.60,0.55,0.45,1.00
+look bank.7.5 w=58 h=20 at=LEFT,bank.7,LEFT,310,0
+look bank.7.5.r1 text=0.60,0.55,0.45,1.00
+look bank.7.6 w=70 h=20 at=LEFT,bank.7,LEFT,382,0
+look bank.7.6.r1 text=0.60,0.55,0.45,1.00
+look bank.7.7 w=34 h=20 at=LEFT,bank.7,LEFT,466,0
+look bank.7.7.r1 text=0.60,0.55,0.45,1.00
+look bank.7.8 w=16 h=20 at=LEFT,bank.7,LEFT,514,0
+look bank.7.8.r1 text=0.60,0.55,0.45,1.00
+look bank.7.8.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,bank.7,LEFT,525,0 layer=OVERLAY/nil
+look bank.7.9 w=16 h=20 at=LEFT,bank.7,LEFT,544,0
+look bank.7.9.r1 text=0.60,0.55,0.45,1.00
+look bank.7.9.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,bank.7,LEFT,555,0 layer=OVERLAY/nil
+look bank.7.10 w=16 h=20 at=LEFT,bank.7,LEFT,574,0
+look bank.7.10.r1 text=0.60,0.55,0.45,1.00
+look bank.7.10.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,bank.7,LEFT,585,0 layer=OVERLAY/nil
+look bank.7.11 w=10 h=20 at=LEFT,bank.7,LEFT,37,0 level=6
+look bank.7.11.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.12 w=10 h=20 at=LEFT,bank.7,LEFT,163,0 level=6
+look bank.7.12.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.13 w=10 h=20 at=LEFT,bank.7,LEFT,259,0 level=6
+look bank.7.13.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.14 w=10 h=20 at=LEFT,bank.7,LEFT,301,0 level=6
+look bank.7.14.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.15 w=10 h=20 at=LEFT,bank.7,LEFT,373,0 level=6
+look bank.7.15.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.16 w=10 h=20 at=LEFT,bank.7,LEFT,457,0 level=6
+look bank.7.16.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.17 w=10 h=20 at=LEFT,bank.7,LEFT,505,0 level=6
+look bank.7.17.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.18 w=10 h=20 at=LEFT,bank.7,LEFT,535,0 level=6
+look bank.7.18.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.19 w=10 h=20 at=LEFT,bank.7,LEFT,565,0 level=6
+look bank.7.19.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.8 w=nil h=30 at=TOPLEFT,bank,BOTTOMLEFT,12,3;TOPRIGHT,bank,BOTTOMRIGHT,-12,3
+look bank.8.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,0,-0
+look bank.8.1.1 w=nil h=nil at=
+look bank.8.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,42,-0
+look bank.8.2.1 w=nil h=nil at=
+look bank.8.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,bank.8,TOPLEFT,84,-0
+look bank.8.3.1 w=nil h=nil at=
+look bank.8.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,bank.8,TOPLEFT,168,-0
+look bank.8.4.1 w=nil h=nil at=
+look bank.8.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=46 h=28 at=TOPLEFT,bank.8,TOPLEFT,252,-0
+look bank.8.5.1 w=nil h=nil at=
+look bank.8.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,300,-0
+look bank.8.6.1 w=nil h=nil at=
+look bank.8.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,bank.8,TOPLEFT,344,-0
+look bank.8.7.1 w=nil h=nil at=
+look bank.9 w=nil h=26 at=BOTTOMLEFT,parent,BOTTOMLEFT,12,12;BOTTOMRIGHT,parent,BOTTOMRIGHT,-12,12
+look bank.9.r2 text=0.84,0.83,0.79,1.00
+look bank.9.r3 text=0.98,0.78,0.46,1.00
+look bank.9.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=76 h=20 at=RIGHT,bank.9,RIGHT,-18,0
+look bank.9.1.1 w=nil h=nil at=
+look bank.10 w=nil h=nil at=TOPLEFT,bank.7,BOTTOMLEFT,0,-2;BOTTOMRIGHT,bank.9,TOPRIGHT,0,6
+look bank.11 w=16 h=16 at=BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4
+look bank.11.r1 w=nil h=nil at= layer=ARTWORK/nil
+look bank.12 w=nil h=nil at= level=1
+look bank.12.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
+look bank.12.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look bank.12.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look bank.12.r5 alpha=0.40 w=nil h=nil at=BOTTOMLEFT,bank.9,TOPLEFT,-6,2 layer=BACKGROUND/3
+look bank.12.r6 alpha=0.40 w=nil h=nil at=BOTTOMRIGHT,bank.9,TOPRIGHT,6,2 layer=BACKGROUND/3
+look bank.12.r8 color=0.04,0.03,0.03,0.55 w=nil h=nil at=TOPLEFT,bank.9,TOPLEFT,-4,1;BOTTOMRIGHT,bank.9,BOTTOMRIGHT,4,-2 layer=BACKGROUND/5
+look bank.12.r9 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPLEFT,frame,TOPLEFT,0,0;TOPRIGHT,frame,TOPRIGHT,0,0 layer=BACKGROUND/6
+look bank.12.r10 color=0.45,0.36,0.22,0.85 w=nil h=nil at=BOTTOMLEFT,frame,BOTTOMLEFT,0,0;BOTTOMRIGHT,frame,BOTTOMRIGHT,0,0 layer=BACKGROUND/6
+look bank.12.r11 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPLEFT,frame,TOPLEFT,0,0;BOTTOMLEFT,frame,BOTTOMLEFT,0,0 layer=BACKGROUND/6
+look bank.12.r12 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPRIGHT,frame,TOPRIGHT,0,0;BOTTOMRIGHT,frame,BOTTOMRIGHT,0,0 layer=BACKGROUND/6
+look bank.13 w=nil h=nil at=TOPRIGHT,bank,TOPRIGHT,-4,-4 level=11
+== toClassic
+look main bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=620 h=560 at=BOTTOMRIGHT,UIParent,BOTTOMRIGHT,-80,140
+look main.1 w=nil h=54 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look main.2 w=nil h=26 at=TOPLEFT,main,TOPLEFT,60,-26;TOPRIGHT,main,TOPRIGHT,-10,-26 level=3
+look main.2.r2 text=0.98,0.78,0.46,1.00
+look main.2.r3 text=0.60,0.55,0.45,1.00
+look main.2.1 w=24 h=24 at=RIGHT,main.12,LEFT,-1,0 level=11
+look main.2.1.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.1.r3 color=0.24,0.16,0.08,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,-2,2;BOTTOMRIGHT,parent,BOTTOMRIGHT,2,-2 layer=BACKGROUND/-1
+look main.2.1.r4 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,0,0;BOTTOMRIGHT,main.2.1,BOTTOM,0,0 layer=BACKGROUND/nil
+look main.2.1.r5 w=nil h=nil at=TOPRIGHT,parent,TOPRIGHT,0,0;BOTTOMLEFT,main.2.1,BOTTOM,0,0 layer=BACKGROUND/nil
+look main.2.2 w=26 h=26 at=RIGHT,Button,LEFT,0,0
+look main.2.2.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.2.r3 w=nil h=nil at= layer=BACKGROUND/nil
+look main.2.3 w=26 h=26 at=RIGHT,main.2.2,LEFT,0,0
+look main.2.3.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.3.r3 w=nil h=nil at= layer=BACKGROUND/nil
+look main.2.4 w=26 h=26 at=RIGHT,main.2.3,LEFT,0,0
+look main.2.4.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.4.r3 w=nil h=nil at= layer=BACKGROUND/nil
+look main.2.5 w=26 h=26 at=RIGHT,main.2.4,LEFT,0,0
+look main.2.5.r1 color=1.00,0.82,0.00,1.00 w=14 h=14 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.2.5.r3 w=nil h=nil at= layer=BACKGROUND/nil
+look main.2.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=170 h=22 at=LEFT,frame,RIGHT,10,0
+look main.2.6.r1 text=1.00,1.00,1.00,1.00
+look main.2.6.r2 w=14 h=14 at=LEFT,parent,LEFT,6,0 layer=ARTWORK/nil
+look main.2.7 w=nil h=nil at= level=3
+look main.3 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-44,-2;TOPRIGHT,main.2,BOTTOMLEFT,464,-2 level=4
+look main.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,main.3,RIGHT,6,0
+look main.4.1 w=nil h=nil at=
+look main.5 w=nil h=26 at=TOPLEFT,main.3,BOTTOMLEFT,-4,-4;TOPRIGHT,main.2,BOTTOMRIGHT,0,-32
+look main.5.r1 text=0.56,0.55,0.51,1.00
+look main.5.r2 text=0.56,0.55,0.51,1.00
+look main.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=156 h=24 at=LEFT,main.5,LEFT,54,0
+look main.5.1.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=32 h=22 at=LEFT,main.5.1,LEFT,0,0 level=2
+look main.5.1.1.1 w=nil h=nil at=
+look main.5.1.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=74 h=22 at=LEFT,main.5.1,LEFT,32,0 level=4
+look main.5.1.2.1 w=nil h=nil at=
+look main.5.1.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=50 h=22 at=LEFT,main.5.1,LEFT,106,0 level=2
+look main.5.1.3.1 w=nil h=nil at=
+look main.5.2 w=24 h=24 at=LEFT,main.5,LEFT,214,0
+look main.5.2.r1 color=0.62,0.60,0.55,1.00 w=16 h=16 at=CENTER,parent,CENTER,0,0 layer=ARTWORK/nil
+look main.5.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=22 at=LEFT,main.5,LEFT,248,0
+look main.5.3.1 w=nil h=nil at=
+look main.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=22 at=LEFT,main.5,LEFT,352,0
+look main.5.4.1 w=nil h=nil at=
+look main.5.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,main.5,LEFT,486,0
+look main.5.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=45 h=22 at=LEFT,main.5.5,LEFT,0,0 level=4
+look main.5.5.1.1 w=nil h=nil at=
+look main.5.5.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=51 h=22 at=LEFT,main.5.5,LEFT,45,0 level=2
+look main.5.5.2.1 w=nil h=nil at=
+look main.6 w=nil h=20 at=TOPLEFT,main.5,BOTTOMLEFT,0,-4;TOPRIGHT,main.5,BOTTOMRIGHT,0,-4
+look main.6.r1 color=0.32,0.25,0.12,1.00 w=nil h=nil at=BOTTOMLEFT,parent,BOTTOMLEFT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look main.6.r2 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,42,0;BOTTOM,main.6,BOTTOMLEFT,42,0 layer=ARTWORK/nil
+look main.6.r3 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,168,0;BOTTOM,main.6,BOTTOMLEFT,168,0 layer=ARTWORK/nil
+look main.6.r4 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,264,0;BOTTOM,main.6,BOTTOMLEFT,264,0 layer=ARTWORK/nil
+look main.6.r5 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,306,0;BOTTOM,main.6,BOTTOMLEFT,306,0 layer=ARTWORK/nil
+look main.6.r6 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,378,0;BOTTOM,main.6,BOTTOMLEFT,378,0 layer=ARTWORK/nil
+look main.6.r7 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,462,0;BOTTOM,main.6,BOTTOMLEFT,462,0 layer=ARTWORK/nil
+look main.6.r8 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,510,0;BOTTOM,main.6,BOTTOMLEFT,510,0 layer=ARTWORK/nil
+look main.6.r9 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,540,0;BOTTOM,main.6,BOTTOMLEFT,540,0 layer=ARTWORK/nil
+look main.6.r10 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,main.6,TOPLEFT,570,0;BOTTOM,main.6,BOTTOMLEFT,570,0 layer=ARTWORK/nil
+look main.6.1 w=78 h=20 at=LEFT,main.6,LEFT,46,0
+look main.6.1.r1 text=0.60,0.55,0.45,1.00
+look main.6.2 w=28 h=20 at=LEFT,main.6,LEFT,4,0
+look main.6.2.r1 text=0.60,0.55,0.45,1.00
+look main.6.3 w=82 h=20 at=LEFT,main.6,LEFT,172,0
+look main.6.3.r1 text=0.60,0.55,0.45,1.00
+look main.6.4 w=28 h=20 at=LEFT,main.6,LEFT,268,0
+look main.6.4.r1 text=0.60,0.55,0.45,1.00
+look main.6.5 w=58 h=20 at=LEFT,main.6,LEFT,310,0
+look main.6.5.r1 text=0.60,0.55,0.45,1.00
+look main.6.6 w=70 h=20 at=LEFT,main.6,LEFT,382,0
+look main.6.6.r1 text=0.60,0.55,0.45,1.00
+look main.6.7 w=34 h=20 at=LEFT,main.6,LEFT,466,0
+look main.6.7.r1 text=0.60,0.55,0.45,1.00
+look main.6.8 w=16 h=20 at=LEFT,main.6,LEFT,514,0
+look main.6.8.r1 text=0.60,0.55,0.45,1.00
+look main.6.8.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,main.6,LEFT,525,0 layer=OVERLAY/nil
+look main.6.9 w=16 h=20 at=LEFT,main.6,LEFT,544,0
+look main.6.9.r1 text=0.60,0.55,0.45,1.00
+look main.6.9.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,main.6,LEFT,555,0 layer=OVERLAY/nil
+look main.6.10 w=16 h=20 at=LEFT,main.6,LEFT,574,0
+look main.6.10.r1 text=0.60,0.55,0.45,1.00
+look main.6.10.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,main.6,LEFT,585,0 layer=OVERLAY/nil
+look main.6.11 w=10 h=20 at=LEFT,main.6,LEFT,37,0 level=6
+look main.6.11.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.12 w=10 h=20 at=LEFT,main.6,LEFT,163,0 level=6
+look main.6.12.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.13 w=10 h=20 at=LEFT,main.6,LEFT,259,0 level=6
+look main.6.13.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.14 w=10 h=20 at=LEFT,main.6,LEFT,301,0 level=6
+look main.6.14.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.15 w=10 h=20 at=LEFT,main.6,LEFT,373,0 level=6
+look main.6.15.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.16 w=10 h=20 at=LEFT,main.6,LEFT,457,0 level=6
+look main.6.16.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.17 w=10 h=20 at=LEFT,main.6,LEFT,505,0 level=6
+look main.6.17.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.18 w=10 h=20 at=LEFT,main.6,LEFT,535,0 level=6
+look main.6.18.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.6.19 w=10 h=20 at=LEFT,main.6,LEFT,565,0 level=6
+look main.6.19.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look main.7 w=nil h=30 at=TOPLEFT,main,BOTTOMLEFT,12,3;TOPRIGHT,main,BOTTOMRIGHT,-12,3
+look main.7.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,0,-0
+look main.7.1.1 w=nil h=nil at=
+look main.7.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,42,-0
+look main.7.2.1 w=nil h=nil at=
+look main.7.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,main.7,TOPLEFT,84,-0
+look main.7.3.1 w=nil h=nil at=
+look main.7.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,main.7,TOPLEFT,168,-0
+look main.7.4.1 w=nil h=nil at=
+look main.7.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=46 h=28 at=TOPLEFT,main.7,TOPLEFT,252,-0
+look main.7.5.1 w=nil h=nil at=
+look main.7.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,300,-0
+look main.7.6.1 w=nil h=nil at=
+look main.7.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,342,-0
+look main.7.7.1 w=nil h=nil at=
+look main.7.8 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,main.7,TOPLEFT,386,-0
+look main.7.8.1 w=nil h=nil at=
+look main.8 w=nil h=26 at=BOTTOMLEFT,parent,BOTTOMLEFT,12,12;BOTTOMRIGHT,parent,BOTTOMRIGHT,-12,12
+look main.8.r2 text=0.84,0.83,0.79,1.00
+look main.8.r3 text=0.98,0.78,0.46,1.00
+look main.8.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=76 h=20 at=RIGHT,main.8,RIGHT,-18,0
+look main.8.1.1 w=nil h=nil at=
+look main.8.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=20 at=RIGHT,main.8.1,LEFT,-6,0
+look main.8.2.1 w=nil h=nil at=
+look main.8.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=62 h=20 at=RIGHT,main.8.2,LEFT,-6,0
+look main.8.3.1 w=nil h=nil at=
+look main.9 w=nil h=nil at=TOPLEFT,main.6,BOTTOMLEFT,0,-2;BOTTOMRIGHT,main.8,TOPRIGHT,0,6
+look main.10 w=16 h=16 at=BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4
+look main.10.r1 w=nil h=nil at= layer=ARTWORK/nil
+look main.11 w=nil h=nil at= level=1
+look main.11.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
+look main.11.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look main.11.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look main.11.r5 alpha=0.40 w=nil h=nil at=BOTTOMLEFT,main.8,TOPLEFT,-6,2 layer=BACKGROUND/3
+look main.11.r6 alpha=0.40 w=nil h=nil at=BOTTOMRIGHT,main.8,TOPRIGHT,6,2 layer=BACKGROUND/3
+look main.11.r8 color=0.04,0.03,0.03,0.55 w=nil h=nil at=TOPLEFT,main.8,TOPLEFT,-4,1;BOTTOMRIGHT,main.8,BOTTOMRIGHT,4,-2 layer=BACKGROUND/5
+look main.11.r9 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPLEFT,frame,TOPLEFT,0,0;TOPRIGHT,frame,TOPRIGHT,0,0 layer=BACKGROUND/6
+look main.11.r10 color=0.45,0.36,0.22,0.85 w=nil h=nil at=BOTTOMLEFT,frame,BOTTOMLEFT,0,0;BOTTOMRIGHT,frame,BOTTOMRIGHT,0,0 layer=BACKGROUND/6
+look main.11.r11 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPLEFT,frame,TOPLEFT,0,0;BOTTOMLEFT,frame,BOTTOMLEFT,0,0 layer=BACKGROUND/6
+look main.11.r12 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPRIGHT,frame,TOPRIGHT,0,0;BOTTOMRIGHT,frame,BOTTOMRIGHT,0,0 layer=BACKGROUND/6
+look main.12 w=nil h=nil at=TOPRIGHT,main,TOPRIGHT,-4,-4 level=11
+look drawer bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=280 h=560 at=TOPRIGHT,BagSmithFrame,TOPLEFT,-4,0
+look drawer.r2 text=0.60,0.55,0.45,1.00
+look drawer.1 w=nil h=nil at=TOPLEFT,drawer,TOPLEFT,12,-50;BOTTOMRIGHT,drawer,BOTTOMRIGHT,-32,78
+look drawer.1.1 w=230 h=100 at=
+look drawer.1.1.1 w=230 h=22 at=TOPLEFT,drawer.1.1,TOPLEFT,0,-0
+look drawer.1.1.1.r1 text=0.98,0.78,0.46,1.00
+look drawer.1.1.1.r2 text=0.60,0.55,0.45,1.00
+look drawer.1.1.1.r3 color=0.32,0.25,0.12,1.00 w=nil h=nil at=BOTTOMLEFT,parent,BOTTOMLEFT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look drawer.1.1.2 w=230 h=22 at=TOPLEFT,drawer.1.1,TOPLEFT,0,-24
+look drawer.1.1.2.r1 text=0.98,0.78,0.46,1.00
+look drawer.1.1.2.r2 text=0.60,0.55,0.45,1.00
+look drawer.1.1.2.r3 color=0.32,0.25,0.12,1.00 w=nil h=nil at=BOTTOMLEFT,parent,BOTTOMLEFT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look drawer.1.1.3 w=230 h=26 at=TOPLEFT,drawer.1.1,TOPLEFT,0,-48
+look drawer.1.1.3.r1 w=16 h=16 at=LEFT,drawer.1.1.3.1,RIGHT,4,0 layer=ARTWORK/nil
+look drawer.1.1.3.r2 text=0.84,0.83,0.79,1.00
+look drawer.1.1.3.r3 text=0.60,0.55,0.45,1.00
+look drawer.1.1.3.r4 text=0.84,0.83,0.79,1.00
+look drawer.1.1.3.1 w=18 h=18 at=LEFT,parent,LEFT,0,0
+look drawer.1.1.3.1.r1 color=0.40,0.40,0.40,1.00 w=nil h=nil at= layer=ARTWORK/nil
+look drawer.1.1.4 w=230 h=26 at=TOPLEFT,drawer.1.1,TOPLEFT,0,-74
+look drawer.1.1.4.r1 w=16 h=16 at=LEFT,drawer.1.1.4.1,RIGHT,4,0 layer=ARTWORK/nil
+look drawer.1.1.4.r2 text=0.84,0.83,0.79,1.00
+look drawer.1.1.4.r3 text=0.60,0.55,0.45,1.00
+look drawer.1.1.4.r4 text=0.84,0.83,0.79,1.00
+look drawer.1.1.4.1 w=18 h=18 at=LEFT,parent,LEFT,0,0
+look drawer.1.1.4.1.r1 color=0.40,0.40,0.40,1.00 w=nil h=nil at= layer=ARTWORK/nil
+look drawer.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=150 h=22 at=BOTTOMLEFT,drawer,BOTTOMLEFT,14,14
+look drawer.2.1 w=nil h=nil at=
+look drawer.3 w=256 h=22 at=BOTTOMLEFT,drawer,BOTTOMLEFT,20,44
+look drawer.4 w=nil h=nil at= level=1
+look drawer.4.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look drawer.4.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look drawer.5 w=nil h=nil at=TOPRIGHT,drawer,TOPRIGHT,-4,-4 level=11
+look settings bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=680 h=560 at=CENTER,UIParent,CENTER,0,40
+look settings.1 w=nil h=46 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look settings.2 w=nil h=28 at=TOPLEFT,settings,TOPLEFT,66,-26;TOPRIGHT,settings,TOPRIGHT,-12,-26 level=3
+look settings.2.r3 text=0.60,0.55,0.45,1.00
+look settings.2.1 w=200 h=20 at=RIGHT,settings.2,RIGHT,-30,0
+look settings.3 w=170 h=nil at=TOPLEFT,settings,TOPLEFT,12,-66;BOTTOMLEFT,settings,BOTTOMLEFT,12,14
+look settings.3.r1 color=0.32,0.25,0.12,1.00 w=nil h=nil at=TOPRIGHT,parent,TOPRIGHT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look settings.3.1 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-0;TOPRIGHT,parent,TOPRIGHT,-10,-0
+look settings.3.1.r1 text=0.60,0.55,0.45,1.00
+look settings.3.2 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-28;TOPRIGHT,parent,TOPRIGHT,-10,-28
+look settings.3.2.r1 text=0.98,0.78,0.46,1.00
+look settings.3.2.r2 color=0.98,0.78,0.46,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,0,-4;BOTTOMLEFT,parent,BOTTOMLEFT,0,4 layer=ARTWORK/nil
+look settings.3.3 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-56;TOPRIGHT,parent,TOPRIGHT,-10,-56
+look settings.3.3.r1 text=0.60,0.55,0.45,1.00
+look settings.3.4 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-84;TOPRIGHT,parent,TOPRIGHT,-10,-84
+look settings.3.4.r1 text=0.60,0.55,0.45,1.00
+look settings.3.5 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-112;TOPRIGHT,parent,TOPRIGHT,-10,-112
+look settings.3.5.r1 text=0.60,0.55,0.45,1.00
+look settings.3.5.r2 color=0.60,0.55,0.45,1.00 w=10 h=10 at=RIGHT,parent,RIGHT,-6,0 layer=ARTWORK/nil
+look settings.3.6 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-140;TOPRIGHT,parent,TOPRIGHT,-10,-140
+look settings.3.6.r1 text=0.60,0.55,0.45,1.00
+look settings.3.6.r2 color=0.60,0.55,0.45,1.00 w=10 h=10 at=RIGHT,parent,RIGHT,-6,0 layer=ARTWORK/nil
+look settings.3.7 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-168;TOPRIGHT,parent,TOPRIGHT,-10,-168
+look settings.3.7.r1 text=0.60,0.55,0.45,1.00
+look settings.3.7.r2 color=0.60,0.55,0.45,1.00 w=10 h=10 at=RIGHT,parent,RIGHT,-6,0 layer=ARTWORK/nil
+look settings.3.8 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-196;TOPRIGHT,parent,TOPRIGHT,-10,-196
+look settings.3.8.r1 text=0.60,0.55,0.45,1.00
+look settings.3.9 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-224;TOPRIGHT,parent,TOPRIGHT,-10,-224
+look settings.3.9.r1 text=0.60,0.55,0.45,1.00
+look settings.3.9.r2 color=0.60,0.55,0.45,1.00 w=10 h=10 at=RIGHT,parent,RIGHT,-6,0 layer=ARTWORK/nil
+look settings.3.10 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-252;TOPRIGHT,parent,TOPRIGHT,-10,-252
+look settings.3.10.r1 text=0.60,0.55,0.45,1.00
+look settings.3.11 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-280;TOPRIGHT,parent,TOPRIGHT,-10,-280
+look settings.3.11.r1 text=0.60,0.55,0.45,1.00
+look settings.3.12 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-308;TOPRIGHT,parent,TOPRIGHT,-10,-308
+look settings.3.12.r1 text=0.60,0.55,0.45,1.00
+look settings.3.13 w=nil h=26 at=TOPLEFT,parent,TOPLEFT,0,-336;TOPRIGHT,parent,TOPRIGHT,-10,-336
+look settings.3.13.r1 text=0.60,0.55,0.45,1.00
+look settings.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=160 h=22 at=BOTTOMLEFT,settings,BOTTOMLEFT,12,14
+look settings.4.1 w=nil h=nil at=
+look settings.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=160 h=22 at=BOTTOMLEFT,settings.4,TOPLEFT,0,6
+look settings.5.1 w=nil h=nil at=
+look settings.6 w=nil h=nil at=TOPLEFT,settings.3,TOPRIGHT,16,0;BOTTOMRIGHT,settings,BOTTOMRIGHT,-34,14
+look settings.7 w=nil h=nil at= level=1
+look settings.7.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
+look settings.7.r4 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look settings.7.r5 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look settings.8 w=nil h=nil at=TOPRIGHT,settings,TOPRIGHT,-4,-4 level=11
+look filter bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=480 h=642 at=TOPLEFT,BagSmithFrameSearch,BOTTOMLEFT,-4,-2
+look filter.r2 text=0.60,0.55,0.45,1.00
+look filter.r3 text=0.98,0.78,0.46,1.00
+look filter.r4 text=0.98,0.78,0.46,1.00
+look filter.1 w=nil h=34 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look filter.2 w=nil h=nil at= level=1
+look filter.2.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look filter.2.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look filter.3 w=nil h=nil at=TOPRIGHT,filter,TOPRIGHT,-4,-4 level=11
+look filter.4 w=nil h=24 at=TOPLEFT,parent,TOPLEFT,18,-38;TOPRIGHT,parent,TOPRIGHT,-14,-38
+look filter.5 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-124
+look filter.6 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,78,-124
+look filter.7 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,154,-124
+look filter.8 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,242,-124
+look filter.9 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,306,-124
+look filter.10 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,370,-124
+look filter.11 w=nil h=372 at=TOPLEFT,filter,TOPLEFT,0,-232;TOPRIGHT,filter,TOPRIGHT,0,-232
+look filter.11.r1 text=0.98,0.78,0.46,1.00
+look filter.11.r2 text=0.98,0.78,0.46,1.00
+look filter.11.1 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-26
+look filter.11.2 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,72,-26
+look filter.11.3 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,130,-26
+look filter.11.4 w=nil h=230 at=TOPLEFT,filter.11,TOPLEFT,0,-134;TOPRIGHT,filter.11,TOPRIGHT,0,-134
+look filter.11.4.r1 text=0.98,0.78,0.46,1.00
+look filter.11.4.r2 text=0.98,0.78,0.46,1.00
+look filter.11.4.r3 text=0.84,0.83,0.79,1.00
+look filter.11.4.r4 text=0.84,0.83,0.79,1.00
+look filter.11.4.r5 text=0.84,0.83,0.79,1.00
+look filter.11.4.r6 text=0.60,0.55,0.45,1.00
+look filter.11.4.r7 color=0.32,0.25,0.12,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,14,-136;TOPRIGHT,parent,TOPRIGHT,-14,-136 layer=ARTWORK/nil
+look filter.11.4.r8 text=0.98,0.78,0.46,1.00
+look filter.11.4.r9 text=0.60,0.55,0.45,1.00
+look filter.11.4.1 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-26
+look filter.11.4.2 w=26 h=22 at=LEFT,frame,RIGHT,10,0
+look filter.11.4.3 w=26 h=22 at=LEFT,frame,RIGHT,10,0
+look filter.11.4.4 w=322 h=24 at=TOPLEFT,parent,TOPLEFT,20,-174
+look filter.11.4.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=116 h=24 at=LEFT,filter.11.4.4,RIGHT,8,0
+look filter.11.4.5.1 w=nil h=nil at=
+look filter.11.5 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-80
+look filter.11.6 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,102,-80
+look filter.11.7 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,220,-80
+look filter.11.8 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-106
+look filter.11.9 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,156,-106
+look filter.12 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=80 h=24 at=BOTTOMLEFT,parent,BOTTOMLEFT,14,14
+look filter.12.1 w=nil h=nil at=
+look filter.13 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=70 h=24 at=BOTTOMRIGHT,parent,BOTTOMRIGHT,-14,14
+look filter.13.1 w=nil h=nil at=
+look filter.14 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-178
+look filter.15 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,78,-178
+look filter.16 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,184,-178
+look filter.17 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,272,-178
+look filter.18 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,378,-178
+look filter.19 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-204
+look filter.20 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,84,-204
+look filter.21 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,160,-204
+look filter.22 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,224,-204
+look filter.23 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,288,-204
+look bagwin bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=298 h=160 at=BOTTOMLEFT,UIParent,BOTTOMLEFT,-518,200
+look bagwin.1 w=nil h=44 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look bagwin.2 w=nil h=26 at=TOPLEFT,bagwin,TOPLEFT,12,-34;TOPRIGHT,bagwin,TOPRIGHT,-10,-34 level=3
+look bagwin.2.r4 text=0.60,0.55,0.45,1.00
+look bagwin.3 w=nil h=nil at=TOPLEFT,bagwin.2,BOTTOMLEFT,0,-4;BOTTOMRIGHT,bagwin,BOTTOMRIGHT,-12,12
+look bagwin.4 w=nil h=nil at= level=1
+look bagwin.4.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
+look bagwin.4.r4 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look bagwin.4.r5 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look bagwin.5 w=nil h=nil at=TOPRIGHT,bagwin,TOPRIGHT,-4,-4 level=11
+look bank bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=620 h=520 at=TOPLEFT,UIParent,TOPLEFT,40,-120
+look bank.1 w=nil h=29 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
+look bank.2 w=nil h=1 at=TOPLEFT,bank,TOPLEFT,60,-26;TOPRIGHT,bank,TOPRIGHT,-10,-26 level=3
+look bank.2.r2 text=0.98,0.78,0.46,1.00
+look bank.2.r3 text=0.60,0.55,0.45,1.00
+look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,-44,-2;TOPRIGHT,bank.2,BOTTOMLEFT,464,-2 level=4
+look bank.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,bank.3,RIGHT,6,0
+look bank.4.1 w=nil h=nil at=
+look bank.5 w=nil h=26 at=TOPLEFT,bank.3,BOTTOMLEFT,-4,-4;TOPRIGHT,bank.2,BOTTOMRIGHT,0,-32
+look bank.5.r1 text=0.56,0.55,0.51,1.00
+look bank.5.r2 text=0.56,0.55,0.51,1.00
+look bank.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=156 h=24 at=LEFT,bank.5,LEFT,54,0
+look bank.5.1.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=32 h=22 at=LEFT,bank.5.1,LEFT,0,0 level=2
+look bank.5.1.1.1 w=nil h=nil at=
+look bank.5.1.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=74 h=22 at=LEFT,bank.5.1,LEFT,32,0 level=4
+look bank.5.1.2.1 w=nil h=nil at=
+look bank.5.1.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=50 h=22 at=LEFT,bank.5.1,LEFT,106,0 level=2
+look bank.5.1.3.1 w=nil h=nil at=
+look bank.5.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=22 at=LEFT,bank.5,LEFT,248,0
+look bank.5.2.1 w=nil h=nil at=
+look bank.5.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=22 at=LEFT,bank.5,LEFT,352,0
+look bank.5.3.1 w=nil h=nil at=
+look bank.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,bank.5,LEFT,486,0
+look bank.5.4.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=45 h=22 at=LEFT,bank.5.4,LEFT,0,0 level=4
+look bank.5.4.1.1 w=nil h=nil at=
+look bank.5.4.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=51 h=22 at=LEFT,bank.5.4,LEFT,45,0 level=2
+look bank.5.4.2.1 w=nil h=nil at=
+look bank.6 bg=1.00,1.00,1.00,0.04 border=1.00,1.00,1.00,0.08 w=nil h=48 at=TOPLEFT,bank.5,BOTTOMLEFT,0,-10;TOPRIGHT,bank.5,BOTTOMRIGHT,0,-10
+look bank.6.r1 text=0.98,0.78,0.46,1.00
+look bank.6.r2 text=0.60,0.55,0.45,1.00
+look bank.6.1 bg=0.00,0.00,0.00,0.35 border=1.00,1.00,1.00,0.00 w=34 h=34 at=LEFT,bank.6,LEFT,168,0
+look bank.6.1.r1 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,2,-2;BOTTOMRIGHT,parent,BOTTOMRIGHT,-2,2 layer=ARTWORK/nil
+look bank.6.1.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.2 bg=0.00,0.00,0.00,0.35 border=1.00,1.00,1.00,0.00 w=34 h=34 at=LEFT,bank.6,LEFT,206,0
+look bank.6.2.r1 alpha=0.50 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,2,-2;BOTTOMRIGHT,parent,BOTTOMRIGHT,-2,2 layer=ARTWORK/nil
+look bank.6.2.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.3 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 w=34 h=34 at=LEFT,bank.6,LEFT,244,0
+look bank.6.3.r2 color=0.62,0.60,0.55,1.00 w=12 h=12 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/nil
+look bank.6.3.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.3.1 w=nil h=nil at=
+look bank.6.4 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,282,0
+look bank.6.4.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.5 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,320,0
+look bank.6.5.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.6 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,358,0
+look bank.6.6.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.7 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,396,0
+look bank.6.7.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.6.8 bg=0.00,0.00,0.00,0.15 border=1.00,1.00,1.00,0.00 alpha=0.40 w=34 h=34 at=LEFT,bank.6,LEFT,434,0
+look bank.6.8.r4 w=58.810810810811 h=58.810810810811 at=CENTER,parent,CENTER,0,0 layer=OVERLAY/-1
+look bank.7 w=nil h=20 at=TOPLEFT,bank.6,BOTTOMLEFT,0,-4;TOPRIGHT,bank.6,BOTTOMRIGHT,0,-4
+look bank.7.r1 color=0.32,0.25,0.12,1.00 w=nil h=nil at=BOTTOMLEFT,parent,BOTTOMLEFT,0,0;BOTTOMRIGHT,parent,BOTTOMRIGHT,0,0 layer=ARTWORK/nil
+look bank.7.r2 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,42,0;BOTTOM,bank.7,BOTTOMLEFT,42,0 layer=ARTWORK/nil
+look bank.7.r3 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,168,0;BOTTOM,bank.7,BOTTOMLEFT,168,0 layer=ARTWORK/nil
+look bank.7.r4 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,264,0;BOTTOM,bank.7,BOTTOMLEFT,264,0 layer=ARTWORK/nil
+look bank.7.r5 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,306,0;BOTTOM,bank.7,BOTTOMLEFT,306,0 layer=ARTWORK/nil
+look bank.7.r6 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,378,0;BOTTOM,bank.7,BOTTOMLEFT,378,0 layer=ARTWORK/nil
+look bank.7.r7 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,462,0;BOTTOM,bank.7,BOTTOMLEFT,462,0 layer=ARTWORK/nil
+look bank.7.r8 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,510,0;BOTTOM,bank.7,BOTTOMLEFT,510,0 layer=ARTWORK/nil
+look bank.7.r9 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,540,0;BOTTOM,bank.7,BOTTOMLEFT,540,0 layer=ARTWORK/nil
+look bank.7.r10 color=1.00,1.00,1.00,0.08 w=nil h=nil at=TOP,bank.7,TOPLEFT,570,0;BOTTOM,bank.7,BOTTOMLEFT,570,0 layer=ARTWORK/nil
+look bank.7.1 w=78 h=20 at=LEFT,bank.7,LEFT,46,0
+look bank.7.1.r1 text=0.60,0.55,0.45,1.00
+look bank.7.2 w=28 h=20 at=LEFT,bank.7,LEFT,4,0
+look bank.7.2.r1 text=0.60,0.55,0.45,1.00
+look bank.7.3 w=82 h=20 at=LEFT,bank.7,LEFT,172,0
+look bank.7.3.r1 text=0.60,0.55,0.45,1.00
+look bank.7.4 w=28 h=20 at=LEFT,bank.7,LEFT,268,0
+look bank.7.4.r1 text=0.60,0.55,0.45,1.00
+look bank.7.5 w=58 h=20 at=LEFT,bank.7,LEFT,310,0
+look bank.7.5.r1 text=0.60,0.55,0.45,1.00
+look bank.7.6 w=70 h=20 at=LEFT,bank.7,LEFT,382,0
+look bank.7.6.r1 text=0.60,0.55,0.45,1.00
+look bank.7.7 w=34 h=20 at=LEFT,bank.7,LEFT,466,0
+look bank.7.7.r1 text=0.60,0.55,0.45,1.00
+look bank.7.8 w=16 h=20 at=LEFT,bank.7,LEFT,514,0
+look bank.7.8.r1 text=0.60,0.55,0.45,1.00
+look bank.7.8.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,bank.7,LEFT,525,0 layer=OVERLAY/nil
+look bank.7.9 w=16 h=20 at=LEFT,bank.7,LEFT,544,0
+look bank.7.9.r1 text=0.60,0.55,0.45,1.00
+look bank.7.9.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,bank.7,LEFT,555,0 layer=OVERLAY/nil
+look bank.7.10 w=16 h=20 at=LEFT,bank.7,LEFT,574,0
+look bank.7.10.r1 text=0.60,0.55,0.45,1.00
+look bank.7.10.r2 color=0.60,0.55,0.45,1.00 w=16 h=16 at=CENTER,bank.7,LEFT,585,0 layer=OVERLAY/nil
+look bank.7.11 w=10 h=20 at=LEFT,bank.7,LEFT,37,0 level=6
+look bank.7.11.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.12 w=10 h=20 at=LEFT,bank.7,LEFT,163,0 level=6
+look bank.7.12.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.13 w=10 h=20 at=LEFT,bank.7,LEFT,259,0 level=6
+look bank.7.13.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.14 w=10 h=20 at=LEFT,bank.7,LEFT,301,0 level=6
+look bank.7.14.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.15 w=10 h=20 at=LEFT,bank.7,LEFT,373,0 level=6
+look bank.7.15.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.16 w=10 h=20 at=LEFT,bank.7,LEFT,457,0 level=6
+look bank.7.16.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.17 w=10 h=20 at=LEFT,bank.7,LEFT,505,0 level=6
+look bank.7.17.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.18 w=10 h=20 at=LEFT,bank.7,LEFT,535,0 level=6
+look bank.7.18.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.7.19 w=10 h=20 at=LEFT,bank.7,LEFT,565,0 level=6
+look bank.7.19.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
+look bank.8 w=nil h=30 at=TOPLEFT,bank,BOTTOMLEFT,12,3;TOPRIGHT,bank,BOTTOMRIGHT,-12,3
+look bank.8.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,0,-0
+look bank.8.1.1 w=nil h=nil at=
+look bank.8.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,42,-0
+look bank.8.2.1 w=nil h=nil at=
+look bank.8.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,bank.8,TOPLEFT,84,-0
+look bank.8.3.1 w=nil h=nil at=
+look bank.8.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,bank.8,TOPLEFT,168,-0
+look bank.8.4.1 w=nil h=nil at=
+look bank.8.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=46 h=28 at=TOPLEFT,bank.8,TOPLEFT,252,-0
+look bank.8.5.1 w=nil h=nil at=
+look bank.8.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,300,-0
+look bank.8.6.1 w=nil h=nil at=
+look bank.8.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,bank.8,TOPLEFT,344,-0
+look bank.8.7.1 w=nil h=nil at=
+look bank.9 w=nil h=26 at=BOTTOMLEFT,parent,BOTTOMLEFT,12,12;BOTTOMRIGHT,parent,BOTTOMRIGHT,-12,12
+look bank.9.r2 text=0.84,0.83,0.79,1.00
+look bank.9.r3 text=0.98,0.78,0.46,1.00
+look bank.9.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=76 h=20 at=RIGHT,bank.9,RIGHT,-18,0
+look bank.9.1.1 w=nil h=nil at=
+look bank.10 w=nil h=nil at=TOPLEFT,bank.7,BOTTOMLEFT,0,-2;BOTTOMRIGHT,bank.9,TOPRIGHT,0,6
+look bank.11 w=16 h=16 at=BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4
+look bank.11.r1 w=nil h=nil at= layer=ARTWORK/nil
+look bank.12 w=nil h=nil at= level=1
+look bank.12.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
+look bank.12.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
+look bank.12.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
+look bank.12.r5 alpha=0.40 w=nil h=nil at=BOTTOMLEFT,bank.9,TOPLEFT,-6,2 layer=BACKGROUND/3
+look bank.12.r6 alpha=0.40 w=nil h=nil at=BOTTOMRIGHT,bank.9,TOPRIGHT,6,2 layer=BACKGROUND/3
+look bank.12.r8 color=0.04,0.03,0.03,0.55 w=nil h=nil at=TOPLEFT,bank.9,TOPLEFT,-4,1;BOTTOMRIGHT,bank.9,BOTTOMRIGHT,4,-2 layer=BACKGROUND/5
+look bank.12.r9 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPLEFT,frame,TOPLEFT,0,0;TOPRIGHT,frame,TOPRIGHT,0,0 layer=BACKGROUND/6
+look bank.12.r10 color=0.45,0.36,0.22,0.85 w=nil h=nil at=BOTTOMLEFT,frame,BOTTOMLEFT,0,0;BOTTOMRIGHT,frame,BOTTOMRIGHT,0,0 layer=BACKGROUND/6
+look bank.12.r11 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPLEFT,frame,TOPLEFT,0,0;BOTTOMLEFT,frame,BOTTOMLEFT,0,0 layer=BACKGROUND/6
+look bank.12.r12 color=0.45,0.36,0.22,0.85 w=nil h=nil at=TOPRIGHT,frame,TOPRIGHT,0,0;BOTTOMRIGHT,frame,BOTTOMRIGHT,0,0 layer=BACKGROUND/6
+look bank.13 w=nil h=nil at=TOPRIGHT,bank,TOPRIGHT,-4,-4 level=11

@@ -1,0 +1,61 @@
+## Interface: 16001
+## Title: BagSmith
+## Notes: Spreadsheet-style bags for WoW Forever.
+## Version: 1.5.0-beta10
+## X-Date: 2026-11-05
+## Author: BagSmith
+## IconTexture: Interface\AddOns\BagSmith\Media\icon.tga
+## Category: Bags & Inventory
+## SavedVariables: BagSmithDB, BagSmithProbeReport
+# BagSmithProbeReport is a legacy variable from the 0.15 development builds, declared through one more
+# release so the Gamepad companion can migrate it; see docs/plugins/Gamepad-migration.md
+## SavedVariablesPerCharacter: BagSmithCharDB
+## OptionalDeps: Pawn
+## AddonCompartmentFunc: BagSmith_OnAddonCompartmentClick
+## X-Game: [Game]
+## X-Family: [Family]
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
+Core\Init.lua
+Core\Settings.lua
+Core\API.lua
+Core\Classify.lua
+Core\Sections.lua
+Core\GearSets.lua
+Core\Scanner.lua
+Core\Currency.lua
+Core\AH.lua
+Core\Skins.lua
+Core\Why.lua
+Core\Junk.lua
+Core\Marks.lua
+Core\Pawn.lua
+Core\Share.lua
+Core\KeyBinds.lua
+Core\MakeRoom.lua
+Core\Prompts.lua
+Core\Disenchant.lua
+Core\Buttons.lua
+Core\Corners.lua
+Frames\View.lua
+Frames\ViewList.lua
+Frames\Scroll.lua
+Frames\Classic.lua
+Frames\Window.lua
+Frames\Drop.lua
+Frames\Popups.lua
+Frames\SectionsUI.lua
+Frames\Drawer.lua
+Frames\SettingsPanel.lua
+Frames\Options.lua
+Frames\Minimap.lua
+Frames\Bank.lua
+Frames\BagBar.lua
+Frames\WhatsNew.lua
+Core\Hooks.lua
+Core\Tutorials.lua
+Core\SwapHint.lua
+Core\Slash.lua

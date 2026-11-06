@@ -1,0 +1,14 @@
+BagSmith
+
+Icon art (Media/icon.tga, minimap.tga, mark.tga): BagSmith, all rights reserved.
+BagSmith Gamepad icon (BagSmith_Gamepad/Media/icon.tga): BagSmith, all rights reserved.
+
+Toolbar icons (Media/ui-bank.tga, ui-cog.tga) are from game-icons.net,
+licensed Creative Commons BY 3.0 (https://creativecommons.org/licenses/by/3.0/):
+"Bank" by Delapouite, "Cog" by Lorc. The remaining interface icons (broom,
+wallet, close, chevrons, sort arrows, plus, minus, pencil, leaf, new-item dot)
+are original to BagSmith.
+
+Techniques for taint-free bag replacement and combat-safe button pooling
+follow the approach used by Bagnon (Jaliborc) and lessons documented by
+AKForeverBags (ajkatz) during the Forever beta.
