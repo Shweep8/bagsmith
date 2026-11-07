@@ -22,21 +22,23 @@
 	local n, M = boot()
 	local money = 23400
 	_G.GetMoney = function() return money end
-	local snap = { ["c:1"] = { id = 1, name = "Honor", icon = 1, count = 77, quality = 1 } }
-	local realSnap = n.Currency.Snapshot
-	n.Currency.Snapshot = function() return snap end
+	-- (1.5.0: the wallet is modelled through the mock game's currency list, as the logout save now takes the wallet
+	-- only from BagSmith's capture of that list)
+	M.currencies = { { name = "Honor", id = 1, quantity = 77, icon = 1, quality = 1 } }
+	n.Currency:Invalidate()
 	n:SaveCache()
 	local key = n:CharKey()
 	check(BagSmithDB.cache[key].gold == 23400 and BagSmithDB.cache[key].currencies["c:1"], "(control) a save during play has the gold and currencies")
-	money, snap = 0, {}   -- the game reports nothing while you log out
+	money = 0; M.currencies = {}   -- the game reports nothing while you log out
 	M.fire("PLAYER_LOGOUT")
 	check(BagSmithDB.cache[key].gold == 23400 and BagSmithDB.cache[key].currencies["c:1"] and BagSmithDB.cache[key].currencies["c:1"].count == 77, "a logout that reports 0 gold and no currencies keeps what play saw")
+	n.loggingOut = nil   -- (a later session in this test)
 	money = 0; M.fire("PLAYER_MONEY"); M.runTimers()   -- you really spent it all, during play
 	M.fire("PLAYER_LOGOUT")
 	check(BagSmithDB.cache[key].gold == 0, "gold really spent down to 0 during play is saved as 0")
+	n.loggingOut = nil
 	money = 99; M.fire("PLAYER_LOGOUT")
 	check(BagSmithDB.cache[key].gold == 99, "a real amount at logout is saved as it is")
-	n.Currency.Snapshot = realSnap
 
 	-- ---- 2. the gear-set shield: about 40% of the icon, inside its quarter, its count a badge on the shield
 	n.Window:Show(); M.runTimers(); M.runTimers()

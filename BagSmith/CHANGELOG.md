@@ -28,24 +28,20 @@ Changed:
   count) are now icon corners too, in the same places as before. In Icons view a corner shows one mark at a time:
   an item that's both a Pawn upgrade and in two or more gear sets shows the arrow (or the shield, if you put it
   first). List rows follow the same corners, so hiding or moving a mark applies there too.
-- The gear-set shield scales with the icon and sits inside it, with its set count as a small badge on the shield,
-  and BagSmith's marks always stay inside their own quarter of the icon.
-- BagSmith's marks (the junk coin, the item level, the Pawn upgrade arrow and the gear-set shield) sit flush in
-  their corners, like the stack count, instead of a little toward the middle.
-- Icon Corners: the note about other addons' marks, with its info icon, sits under the corners and always shows.
+- Marks sit flush in their corners and always stay inside their own quarter of the icon. The gear-set shield
+  scales with the icon, with its set count as a small badge on the shield.
 
 Fixed:
 - Your other characters' gold and currencies, when you view their bags, are right again (the game reports none
-  while you log out, which had been saved as 0). Each character corrects itself the next time you play it.
-  Currencies are captured as they change, so one spent just before you log out is saved right, and tracked items
-  never stand in for the game's currency list.
+  while you log out, which had been saved as 0). Each character corrects itself the next time you play it, and a
+  currency you spend or import just before logging out is saved right.
+- Currencies under a header you've collapsed in the game's currency list no longer disappear from your pinned
+  currencies, or from what your other characters see. Importing your Blizzard backpack currencies shows them at
+  once, and unpinning one keeps it in your list.
 - Item icons in your bags lose a second frame the game had started drawing (a white frame on common items, a
   heavier rarity border), so they match BagSmith's own look.
 - Classic style: no more dark strips hanging below some of the bottom tabs.
-- Currencies under a header you've collapsed in the game's currency list no longer disappear from your pinned
-  currencies, or from what your other characters see.
-- A BagSmith menu opened from Settings now closes when you click elsewhere or press Escape, and the Icon Corners
-  menus end with Cancel.
+- A BagSmith menu opened from Settings now closes when you click elsewhere or press Escape.
 - Settings wording: "Icons view" for the view everywhere, and the Item Icons labels drop the repeated "on Icons"
   (Rarity Borders, Item Level (ilvl), Icon Size (Icons View), Green Dot on New Items, Dim Junk). Split View is now
   "Split View (Icons View)". The Show Empty Slots help names By Section (it still said "grouping by type").

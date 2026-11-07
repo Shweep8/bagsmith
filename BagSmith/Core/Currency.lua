@@ -19,6 +19,9 @@ function Currency:KnownIDs()
 	local cache = _G.BagSmithDB and BagSmithDB.cache
 	local entry = cache and ns.CharKey and cache[ns:CharKey()]
 	for key in pairs((entry and entry.currencies) or {}) do local id = tonumber(tostring(key):match("^c:(%d+)$")); if id then ids[id] = true end end
+	-- (1.5.0, rebuild audit G7) and every currency in the last good capture, so a currency the game isn't answering
+	-- for yet keeps being asked about (a save can't make BagSmith forget it)
+	for key in pairs(ns.liveWallet or {}) do local id = tonumber(tostring(key):match("^c:(%d+)$")); if id then ids[id] = true end end
 	return ids
 end
 local function walletList()
@@ -28,7 +31,8 @@ local function walletList()
 	-- collapsed headers from an addon fires CURRENCY_DISPLAY_UPDATE, which
 	-- would trigger another read: an easy way to spin forever.
 	local n = C_CurrencyInfo.GetCurrencyListSize()
-	local listed, anyCollapsed = {}, false
+	local listed, anyCollapsed, rows = {}, false, 0
+	local unavailable = {}   -- (1.5.0 production, audit G5) known currencies the game gave no answer for this time
 	for idx = 1, n do
 		local info = C_CurrencyInfo.GetCurrencyListInfo(idx)
 		-- (a header that isn't known to be expanded may be hiding currencies)
@@ -43,6 +47,7 @@ local function walletList()
 			if id then
 				out[#out + 1] = { key = "c:" .. id, id = id, name = info.name, icon = info.iconFileID,
 					count = info.quantity or 0, quality = info.quality or 1, source = "Wallet" }
+				rows = rows + 1
 				listed[id] = true
 				Currency.known[id] = true
 				Currency.lastSeen[id] = out[#out]
@@ -64,18 +69,47 @@ local function walletList()
 			if not listed[id] then
 				local info = lookup and lookup(id)
 				if lookup then
-					if info and info.name and info.name ~= "" and info.discovered ~= false then
+					if info and info.discovered == false then
+						-- the game says it isn't discovered: gone (even if it was the last one)
+					elseif info and info.name and info.name ~= "" then
 						out[#out + 1] = { key = "c:" .. id, id = id, name = info.name, icon = info.iconFileID,
-							count = info.quantity or 0, quality = info.quality or 1, source = "Wallet" }
+							count = info.quantity or 0, quality = info.quality or 1, source = "Wallet", byId = true }
 						listed[id] = true
+						-- (1.5.0-beta13, audit G2) remembered for the session like a currency seen in the list, so it
+						-- stays in Wallet when the pin that led to it goes away (unpinning, or another profile)
+						Currency.known[id] = true
+						Currency.lastSeen[id] = out[#out]
+					elseif rows == 0 then
+						unavailable[id] = true   -- no answer and no currency rows: unavailable, not gone
 					end
 				elseif anyCollapsed and Currency.lastSeen[id] then
 					local e = Currency.lastSeen[id]
 					out[#out + 1] = { key = e.key, id = e.id, name = e.name, icon = e.icon, count = e.count, quality = e.quality, source = "Wallet" }
 					listed[id] = true
+				elseif rows == 0 then
+					unavailable[id] = true
 				end
 			end
 		end
+	end
+	-- (1.5.0-beta14, audit G3) A readable wallet (the list has rows), including currencies found by ID, also becomes
+	-- the last good capture the logout save falls back on, so a balance that's only been displayed (an import) isn't
+	-- lost if the list empties before logout. Replaced as a whole, never merged with older captures, so a removed
+	-- currency doesn't come back; an empty list (n == 0) never replaces it; a real 0 stays 0.
+	-- (During logout nothing replaces the capture: the game's data is being torn down.)
+	-- (1.5.0 production, audit G5) The capture is replaced on every readable build, even when it comes out empty, so
+	-- a currency that's really gone stays gone (the last one included). "Gone" means the game said so (not
+	-- discovered), or the list shows currency rows and it isn't among them or found by ID. A known currency the game
+	-- gave no answer for while the list shows no currency rows is unavailable, not gone: its previous captured value
+	-- carries over.
+	-- (1.5.0, release audit G6) Before this session's first capture, the previous value of a currency the game gives
+	-- no answer for comes from this character's last save (only for those currencies: not a merge of saved history,
+	-- and never for one the game reports gone), so an unanswered first read can't erase a saved balance at logout.
+	if n > 0 and not ns.loggingOut then
+		local capture, old = {}, ns.liveWallet or Currency:SavedWallet()
+		for _, e in ipairs(out) do capture[e.key] = e end
+		for id in pairs(unavailable) do local k = "c:" .. id; if old[k] and not capture[k] then capture[k] = old[k] end end
+		ns.liveWallet = capture
 	end
 	return out
 end
@@ -157,11 +191,23 @@ function Currency:List(owner)
 	return out
 end
 
+-- This character's wallet currencies as last saved (keys "c:<id>"), for G6's carry-over.
+function Currency:SavedWallet()
+	local cache = _G.BagSmithDB and BagSmithDB.cache
+	local entry = cache and ns.CharKey and cache[ns:CharKey()]
+	local out = {}
+	for k, e in pairs((entry and entry.currencies) or {}) do
+		if type(k) == "string" and k:match("^c:%d+$") and type(e) == "table" then out[k] = e end
+	end
+	return out
+end
+-- The saved shape of an entry (no working marks such as byId).
+function Currency:SavedEntry(e)
+	return { id = e.id, name = e.name, icon = e.icon, count = e.count, quality = e.quality, source = e.source }
+end
 function Currency:Snapshot()
 	local snap = {}
-	for _, e in ipairs(self:List()) do
-		snap[e.key] = { id = e.id, name = e.name, icon = e.icon, count = e.count, quality = e.quality, source = e.source }
-	end
+	for _, e in ipairs(self:List()) do snap[e.key] = self:SavedEntry(e) end
 	return snap
 end
 
@@ -179,6 +225,9 @@ function Currency:IsFavorite(key) return ns.IndexOf(ns.db.fav, key) ~= nil end
 function Currency:ToggleFavorite(key)
 	local i = ns.IndexOf(ns.db.fav, key)
 	if i then table.remove(ns.db.fav, i) else table.insert(ns.db.fav, key) end
+	-- (1.5.0-beta12, audit G1) favorites tell the list which hidden currencies to look up by ID, so the cached list
+	-- is cleared before anyone is told (a listener that redraws first must not read the old list)
+	self:Invalidate()
 	ns:Fire("SETTINGS_CHANGED", "fav")
 end
 function Currency:MoveFavorite(key, delta)
@@ -197,7 +246,10 @@ function Currency:ImportBlizzard()
 			if not self:IsFavorite(key) then table.insert(ns.db.fav, key); added = added + 1 end
 		end
 	end
-	if added > 0 then ns:Fire("SETTINGS_CHANGED", "fav") end
+	if added > 0 then
+		self:Invalidate()   -- (1.5.0-beta12, audit G1) before the notice, so the drawer's redraw shows the imports
+		ns:Fire("SETTINGS_CHANGED", "fav")
+	end
 	return added
 end
 
@@ -210,7 +262,7 @@ ns:OnSignal("ADDON_READY", function()
 	ns:OnSignal("ITEMS_CHANGED", function() Currency:Invalidate() end)
 	-- A profile change (or its tracked items changing): the list is rebuilt from that profile.
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
-		if key == nil or key == "customCurrencies" or key == "marks" then Currency:Invalidate() end
+		if key == nil or key == "customCurrencies" or key == "marks" or key == "fav" then Currency:Invalidate() end
 	end)
 	-- A tracked item's name arriving from the game (it may never have been in your bags).
 	ns:On("GET_ITEM_INFO_RECEIVED", function()

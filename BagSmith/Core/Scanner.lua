@@ -574,8 +574,7 @@ end
 function ns:NoteLiveWallet()
 	if not ns.Currency then return end
 	ns.Currency:Invalidate()
-	local w = ns:WalletPart(ns.Currency:Snapshot())
-	if next(w) then ns.liveWallet = w end
+	ns.Currency:List()   -- (the rebuild replaces the capture when the list is readable; see walletList)
 end
 function ns:SaveCache(atLogout)
 	if not BagSmithDB or not BagSmithDB.cache then return end
@@ -614,19 +613,26 @@ function ns:SaveCache(atLogout)
 		entry.bank = serialize(ns.bankItems)
 	end
 	if ns.Currency then
-		local snap = ns.Currency:Snapshot()
-		local wallet = ns:WalletPart(snap)
-		if atLogout then
-			-- the wallet unavailable at logout: keep its last good capture, alongside today's item-based entries
-			if not next(wallet) then
-				local keep = ns.liveWallet or ns:WalletPart(entry.currencies)
-				for k, e in pairs(keep or {}) do if snap[k] == nil then snap[k] = e end end
-			end
-			if not next(snap) then snap = ns.liveCurrencies or entry.currencies or snap end
-		else
-			if next(wallet) then ns.liveWallet = wallet end
-			ns.liveCurrencies = snap
+		-- (1.5.0 production, audit G4/G5/P3; rebuild audit G7) Every save, during play and at logout, takes the wallet
+		-- from the last good capture (when there is one) rather than from the displayed list: the capture carries over
+		-- a currency the game isn't answering for yet, which the list leaves out, so a routine save can't forget it;
+		-- at logout it also means teardown zeros can't be saved and a currency that's really gone doesn't come back.
+		-- Item-based entries (tokens, tracked items) come from BagSmith's own scan. With no capture this session, the
+		-- current wallet is used, or the last save's when the current one is empty (unavailable). Every entry is put
+		-- in its saved shape after all of that.
+		local snap = ns.Currency:Snapshot()   -- (this may also refresh the capture, so it comes first)
+		local out = {}
+		for k, e in pairs(snap) do if e.source ~= "Wallet" then out[k] = e end end
+		local wallet = ns.liveWallet
+		if wallet == nil then
+			wallet = ns:WalletPart(snap)
+			if not next(wallet) then wallet = ns:WalletPart(entry.currencies) end
 		end
+		for k, e in pairs(wallet) do out[k] = e end
+		if atLogout and not next(out) and ns.liveWallet == nil then out = ns.liveCurrencies or entry.currencies or out end
+		snap = {}
+		for k, e in pairs(out) do snap[k] = ns.Currency:SavedEntry(e) end
+		if not atLogout then ns.liveCurrencies = snap end
 		entry.currencies = snap
 	end
 	BagSmithDB.cache[key] = entry
@@ -796,7 +802,11 @@ ns:OnSignal("ADDON_READY", function()
 	ns:On("ITEM_LOCK_CHANGED", function(bag, slot) ns:UpdateLock(bag, slot) end)
 	ns:On("BAG_NEW_ITEMS_UPDATED", rescan)
 	ns:On("PLAYER_ENTERING_WORLD", rescan)
-	ns:On("PLAYER_LOGOUT", function() if ns.cacheTimer then ns.cacheTimer:Cancel(); ns.cacheTimer = nil end ns:SaveCache(true) end)
+	ns:On("PLAYER_LOGOUT", function()
+		if ns.cacheTimer then ns.cacheTimer:Cancel(); ns.cacheTimer = nil end
+		ns.loggingOut = true   -- (1.5.0-beta14) the wallet's last good capture isn't replaced from here on
+		ns:SaveCache(true)
+	end)
 	ns:On("PLAYER_MONEY", function() ns:NoteLiveMoney(); ns:ScheduleCacheSave(); ns:Fire("MONEY_CHANGED") end)
 	ns:On("GET_ITEM_INFO_RECEIVED", function() if ns.pendingInfo then rescan() end end)
 	ns:On("BANKFRAME_OPENED", function() ns.atBank = true; ns:Scan(); ns:Fire("BANK_OPENED") end)
