@@ -107,10 +107,13 @@ function View:RefreshCanvas(why)
 				n(sf:GetWidth()), n(sf:GetHeight()), rect(sf), n(child:GetWidth()), n(child:GetHeight()), rect(child),
 				n(sf:GetVerticalScroll()), n(self:ScrollRange()), scale)
 		end) end
+		local keep = sf.GetVerticalScroll and sf:GetVerticalScroll() or 0   -- (1.5.1-beta2) the list stays where it was
 		sf:SetScrollChild(child)
 		local w, h = child:GetWidth() or 1, child:GetHeight() or 1
 		child:SetSize(w, h + 1); child:SetSize(w, h)
 		if sf.UpdateScrollChildRect then sf:UpdateScrollChildRect() end
+		local want = math.min(keep, self:ScrollRange())
+		if sf.GetVerticalScroll and math.abs((sf:GetVerticalScroll() or 0) - want) > 0.5 then self:SetScrollTagged(want, "canvas") end
 		self:ClampScroll(why)
 	end)
 end

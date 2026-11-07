@@ -776,6 +776,10 @@ function View:Build()
 		-- The main window brings its companions (bag windows)
 		-- back with it; the others just refresh themselves.
 		if self.kind == "main" then ns:RefreshViews(true) else self:Refresh(true) end
+		-- (1.5.1-beta2) and its list canvas laid out again once the client has drawn a frame: after a reload the window
+		-- is built while closed, and the client could keep a stale picture of the canvas and draw nothing (Shweep: a
+		-- blank window, in both styles, until List and Icons were swapped). See View:RefreshCanvas.
+		ns:NextFrame("canvas:show:" .. self.name, function() self:RefreshCanvas("show") end)
 	end)
 	f:SetScript("OnHide", function()
 		if ns.ready then PlaySound(SOUNDKIT.IG_BACKPACK_CLOSE) end

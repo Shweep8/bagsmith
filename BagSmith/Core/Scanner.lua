@@ -134,7 +134,7 @@ local function readSlot(bag, slot, now, bagIndex, firstStamp)
 	local link = info.hyperlink
 	local rec = {
 		bag = bag, slot = slot, bagIndex = bagIndex, itemID = info.itemID, link = link,
-		icon = info.iconFileID, quality = info.quality or 1, count = info.stackCount or 1,
+		icon = info.iconFileID, quality = info.quality, count = info.stackCount or 1,   -- (1.5.1-beta3) a missing quality stays unknown for now
 		isLocked = info.isLocked or false, isBound = info.isBound or false, hasNoValue = info.hasNoValue or false,
 		isReadable = info.isReadable or false,
 		name = link and link:match("%[(.-)%]") or ("Item " .. info.itemID),
@@ -164,6 +164,10 @@ local function readSlot(bag, slot, now, bagIndex, firstStamp)
 		ns.pendingInfo = true
 		if C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(info.itemID) end
 	end
+	-- (1.5.1-beta3, the beta2 audit's L4) The bag's own quality first, then the item's cached quality; only then
+	-- common, marked as unknown so nothing destructive treats it as known to be common. (Before, a quality the bag
+	-- didn't report became common at once and the cached quality could never replace it.)
+	if rec.quality == nil then rec.quality, rec.qualityUnknown = 1, true end
 	-- Quest items and quest starters, whatever their class.
 	if C_Container.GetContainerItemQuestInfo then
 		local ok, q = pcall(C_Container.GetContainerItemQuestInfo, bag, slot)

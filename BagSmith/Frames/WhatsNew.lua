@@ -24,6 +24,11 @@ ns.WhatsNew = WN
 -- Newest first. Only notable releases get an entry; keep a handful of short
 -- bullets that say what it is and where to turn it on.
 WN.ENTRIES = {
+	{ v = "1.5.1", heading = "BagSmith 1.5.1", items = {
+		"|cfffac775Faster Destroying:|r when the Loot Helper helps you make room, choosing an item and pressing Destroy now removes it right away. Blue and epic items, and anything whose quality the game hasn't shown yet, still ask first, just like the game does. Junk is still one click.",
+		"|cfffac775Your Choice:|r prefer to be asked every time? Turn on Ask Before Destroying in Settings > Automations & Actions > Loot Helper. Want blue and epic items gone at once too? Untick Always Ask for Rare or Better.",
+		"|cfffac775Smoother Looting:|r after you make room, the Loot Helper takes one item at a time and waits for each to land in your bags, so it no longer runs into \"your bags are full\". Loot with no price gets suggestions too.",
+	} },
 	{ v = "1.5.0", heading = "BagSmith 1.5", items = {
 		"|cfffac775Icon Corners:|r you choose what shows in each corner of your item icons. Pick a mark for each corner, and add a backup for items the first one doesn't apply to, so marks never pile on top of each other. It's all in Settings > Item Icons, a new page with everything about item icons.",
 		"|cfffac775Marks from Other Addons:|r addons can now add their own marks to BagSmith's icons, the same way many already do for other bag addons. When one does, its mark shows up in a corner on its own, and you can move it like the rest.",

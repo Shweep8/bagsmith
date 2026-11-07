@@ -59,7 +59,8 @@ local function walletList()
 	-- list doesn't show is asked for by its ID, which doesn't depend on headers (and fires no events). Only while the
 	-- list is readable: an empty list (the logout teardown) stays "unavailable", so the logout rule keeps the last
 	-- good capture instead of zeros.
-	-- A currency the game no longer has (the lookup by ID finds nothing, or says it isn't discovered) is dropped.
+	-- A currency the game no longer has is dropped: the lookup says it isn't discovered, or every header is open and
+	-- the lookup finds nothing (1.5.1-beta1, G8: under a collapsed header no answer only means unavailable).
 	-- Where a client can't look a currency up by its ID, a missing currency keeps the balance last seen this session
 	-- only while some header is collapsed (or doesn't say), since that's what can hide it; with every header open, a
 	-- missing currency really is gone. (Its balance may be out of date until its header is opened again.)
@@ -79,8 +80,12 @@ local function walletList()
 						-- stays in Wallet when the pin that led to it goes away (unpinning, or another profile)
 						Currency.known[id] = true
 						Currency.lastSeen[id] = out[#out]
-					elseif rows == 0 then
-						unavailable[id] = true   -- no answer and no currency rows: unavailable, not gone
+					elseif rows == 0 or anyCollapsed then
+						-- (1.5.1-beta1, third-build audit G8) no answer (nil, or a blank name) is unavailable, not gone,
+						-- when the list shows no currency rows or some header is collapsed (or doesn't say): another
+						-- visible row doesn't prove this one is gone, since a collapsed header may be hiding it. Its
+						-- last value carries over and it keeps being asked about. With every header open, it's gone.
+						unavailable[id] = true
 					end
 				elseif anyCollapsed and Currency.lastSeen[id] then
 					local e = Currency.lastSeen[id]
@@ -99,9 +104,9 @@ local function walletList()
 	-- (During logout nothing replaces the capture: the game's data is being torn down.)
 	-- (1.5.0 production, audit G5) The capture is replaced on every readable build, even when it comes out empty, so
 	-- a currency that's really gone stays gone (the last one included). "Gone" means the game said so (not
-	-- discovered), or the list shows currency rows and it isn't among them or found by ID. A known currency the game
-	-- gave no answer for while the list shows no currency rows is unavailable, not gone: its previous captured value
-	-- carries over.
+	-- discovered), or the list shows currency rows under headers that are all open and it isn't among them or found
+	-- by ID. A known currency the game gave no answer for while the list shows no currency rows, or while some
+	-- header is collapsed (1.5.1-beta1, G8), is unavailable, not gone: its previous captured value carries over.
 	-- (1.5.0, release audit G6) Before this session's first capture, the previous value of a currency the game gives
 	-- no answer for comes from this character's last save (only for those currencies: not a merge of saved history,
 	-- and never for one the game reports gone), so an unanswered first read can't erase a saved balance at logout.

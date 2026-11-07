@@ -19,7 +19,7 @@
 		for b = 1, 5 do M.sizes[b] = 0 end
 		stock(M)
 		_G.BagSmithCharDB = { version = 1, firstSeen = {} }
-		_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = skin or "modern", makeRoom = true, makeRoomValue = "vendor" } } }
+		_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = skin or "modern", makeRoom = true, makeRoomValue = "vendor", makeRoomAsk = true } } }   -- (1.5.1-beta2) makeRoomAsk: these test the asking path
 		local n = M.loadAddon("BagSmith")
 		M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 		local realInfo = C_Item.GetItemInfo

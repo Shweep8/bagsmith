@@ -1,0 +1,3 @@
+# Python's cache from running the tests (tools/run_tests.py)
+__pycache__/
+*.pyc

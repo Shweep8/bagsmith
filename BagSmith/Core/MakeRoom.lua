@@ -25,7 +25,8 @@ ns.MakeRoom = MR
 local SHARD = 6265
 local MAX_SUGGEST = 6   -- destroy suggestions shown at once (the list refills as items go)
 local MAX_COMBINE = 3   -- combine suggestions shown at once
-local SETTLE = 0.6      -- s to wait after a loot slot clears if the bags don't update first
+local SETTLE = 0.6      -- s to wait after a loot slot clears if the bags don't update first (an item BagSmith can't name)
+local ARRIVE = 3.0      -- (1.5.1) s to wait for a looted item to reach the bags before judging again anyway
 local QUEST_GRACE = 5   -- s after a quest window closes that "Inventory is full" still counts as the quest's
 local W = 360
 
@@ -42,6 +43,12 @@ local function itemFamily(id) return (C_Item and C_Item.GetItemFamily and C_Item
 local function maxStack(id) local stack = select(8, itemInfo(id)); return stack or 1 end
 local function sellPrice(id) return select(11, itemInfo(id)) or 0 end
 local function money(v) return (GetCoinTextureString and GetCoinTextureString(v)) or ns.Money(v) end
+-- (1.5.1) how many of an item your bags hold, by BagSmith's scan
+local function bagCount(id)
+	local c = 0
+	for _, r in ipairs(ns.items or {}) do if r.itemID == id then c = c + (r.count or 1) end end
+	return c
+end
 function MR:IsWarlock() local _, c = UnitClass("player"); return c == "WARLOCK" end
 
 ------------------------------------------------------------------------
@@ -201,12 +208,27 @@ local function lootEntries(self)
 	local out = {}
 	local n = GetNumLootItems and GetNumLootItems() or 0
 	local never = self:Never()
+	-- (1.5.1) Items on their way to the bags come first: the room they'll take still looks free, so it's reserved
+	-- for them (they never show as waiting). (1.5.1-beta2) Per item: what has left the loot window and not arrived.
+	for id in pairs(self.ledger or {}) do
+		local owed = self:Owed(id)
+		if owed > 0 then out[#out + 1] = { reserved = true, id = id, qty = owed, name = "" } end
+	end
+	local covered = self:Covered()
 	for slot = 1, n do
 		if GetLootSlotType and GetLootSlotType(slot) == (LOOT_SLOT_ITEM or 1) then
 			local link = GetLootSlotLink(slot)
 			local icon, name, qty, _, quality = GetLootSlotInfo(slot)
 			local id = link and tonumber(link:match("item:(%d+)"))
-			if id and not self.skipped[slot .. ":" .. id] and not never[id] then
+			-- (1.5.1) what each slot holds, so an item looted by hand is accounted for when its slot clears; and
+			-- (1.5.1-beta2) the item's arrivals are counted from when the loot window first showed it
+			if id then
+				self.slotItem = self.slotItem or {}
+				self.slotItem[slot] = { id = id, qty = qty or 1 }
+				self:Ledger(id)
+			end
+			-- (a slot whose items already reached the bags before it cleared isn't counted again)
+			if id and not covered[slot] and not self.skipped[slot .. ":" .. id] and not never[id] then
 				out[#out + 1] = { slot = slot, id = id, name = name or "?", qty = qty or 1, quality = quality, icon = icon, link = link }
 			end
 		end
@@ -275,8 +297,10 @@ local function fitting(self, entries)
 		end
 		if need > 0 then
 			for _, b in ipairs(taken) do b.free = b.free + 1 end   -- it won't fit: give the slots back
-			e.values = id and self:Values(id, qty, e.link) or { vendor = 0 }
-			out[#out + 1] = e
+			if not e.reserved then
+				e.values = id and self:Values(id, qty, e.link) or { vendor = 0 }
+				out[#out + 1] = e
+			end
 		elseif id then
 			-- It fits; the new stacks' spare room is there for the next entry.
 			room[id] = (room[id] or 0) - fromRoom + (#taken * max - rest)
@@ -332,9 +356,13 @@ end
 -- when it's junk (and its slot helps), or when it's cheaper than the most valuable waiting loot that could use
 -- its slot.
 function MR:WorthLettingGo(bag, rank, junk, waiting)
-	if junk then return self:SlotHelps(bag, waiting) end
+	if not self:SlotHelps(bag, waiting) then return false end
+	if junk then return true end
 	local best = self:BestFor(bag, waiting)
-	return best > 0 and (rank or 0) < best
+	-- (1.5.1) Loot with no price (no vendor price and no AH price yet) has nothing to compare with. Rather than offer
+	-- nothing, the cheapest items are offered, cheapest first, each still asking before it's destroyed.
+	if best <= 0 then return true, true end
+	return (rank or 0) < best
 end
 
 function MR:Suggestions(waiting)
@@ -380,7 +408,7 @@ function MR:Suggestions(waiting)
 			local v = self:Values(r.itemID, r.count or 1, r.link)
 			local rank = self:Rank(v)
 			local junk = ns.Junk and ns.Junk:IsJunk(r)
-			local worth = self:WorthLettingGo(r.bag, rank, junk, waiting)
+			local worth, noPrice = self:WorthLettingGo(r.bag, rank, junk, waiting)
 			local why
 			if r.isQuest then why = "quest"
 			elseif r.hasNoValue or (r.sellPrice or 0) <= 0 then why = "novalue"
@@ -393,7 +421,7 @@ function MR:Suggestions(waiting)
 			if why then
 				if worth then ns.Why:Add(held, why, r.name) end
 			elseif worth then
-				destroy[#destroy + 1] = { rec = r, values = v, rank = rank, junk = junk }
+				destroy[#destroy + 1] = { rec = r, values = v, rank = rank, junk = junk, noPrice = noPrice and not junk }
 			end
 		end
 	end
@@ -403,7 +431,24 @@ function MR:Suggestions(waiting)
 		return (a.rec.name or "") < (b.rec.name or "")
 	end)
 	for i = #destroy, MAX_SUGGEST + 1, -1 do destroy[i] = nil end
-	return combine, destroy, held
+	local noPrice = false
+	for _, d in ipairs(destroy) do if d.noPrice then noPrice = true end end
+	return combine, destroy, held, noPrice
+end
+
+-- (1.5.1) The bags this loot can't go in (a quiver, a reagent bag for loot that isn't a reagent), by name, for
+-- the card: their free slots and their items can't make room for it.
+function MR:BagsLootCantUse(waiting)
+	local names = {}
+	for _, bag in ipairs(ns.BAGS) do
+		if bag ~= ns.KEYRING and (C_Container.GetContainerNumSlots(bag) or 0) > 0 and not self:SlotHelps(bag, waiting) then
+			names[#names + 1] = ns:BagName(bag)
+		end
+	end
+	if #names == 0 then return nil end
+	if #names > 3 then return ("%s, %s, %s and %d more"):format(names[1], names[2], names[3], #names - 3) end
+	if #names == 1 then return names[1] end
+	return table.concat(names, ", ", 1, #names - 1) .. " or " .. names[#names]
 end
 
 -- How many slots Blizzard's Clean Up Bags would free: stacks merging into
@@ -465,9 +510,38 @@ local function guidAt(bag, slot)
 	return ok and guid or nil
 end
 -- What a destroy offer was about: this exact item, this many.
-function MR:Offer(rec, junk)
+-- (1.5.1-beta2) basis: why it's offered ("junk", "priced": worth less than the loot, or "noprice": the loot has no
+-- price to compare with). An offer is only good while that reason still holds.
+function MR:Offer(rec, junk, basis)
 	return { bag = rec.bag, slot = rec.slot, itemID = rec.itemID, count = rec.count or 1, link = rec.link,
-		guid = rec.guid or guidAt(rec.bag, rec.slot), name = rec.name, junk = junk and true or false, session = MR.offerToken }
+		guid = rec.guid or guidAt(rec.bag, rec.slot), name = rec.name, junk = junk and true or false, session = MR.offerToken,
+		basis = junk and "junk" or basis or "priced" }   -- (no reason given: only the strict rule, worth less than the loot)
+end
+-- (1.5.1-beta2) Does destroying this ask first? Junk never does; with Ask Before Destroying on, everything else does;
+-- otherwise rare quality or better does while Always Ask for Rare or Better is on, as the game asks for those.
+function MR:AsksFirst(rec, junk)
+	if junk then return false end
+	local db = ns.db or {}
+	if db.makeRoomAsk then return true end
+	-- (1.5.1-beta3, L4) a quality that isn't known counts as possibly rare
+	return db.makeRoomAskRare ~= false and (rec.qualityUnknown or (rec.quality or 1) >= 3)
+end
+-- (1.5.1-beta3, the beta2 audit's L3 and L4) The same decision at the moment of the click, from the current settings and
+-- the item's current quality (the bag's, else the cached one; unknown counts as possibly rare), whatever the row
+-- remembered when it was drawn.
+function MR:LiveQuality(o)
+	local info = C_Container.GetContainerItemInfo(o.bag, o.slot)
+	local q = info and info.quality
+	if q == nil then q = select(3, itemInfo(o.link or o.itemID)) end
+	return q
+end
+function MR:AsksFirstLive(o)
+	if o.junk then return false end
+	local db = ns.db or {}
+	if db.makeRoomAsk then return true end
+	if db.makeRoomAskRare == false then return false end
+	local q = self:LiveQuality(o)
+	return q == nil or q >= 3
 end
 -- At the moment of destroying: is it still exactly what was offered, and
 -- still allowed? Anything changed means nothing is destroyed.
@@ -500,6 +574,8 @@ function MR:StillOk(o)
 		local ok, q = pcall(C_Container.GetContainerItemQuestInfo, o.bag, o.slot)
 		if ok and type(q) == "table" and (q.isQuestItem or q.questID) then return false, "quest" end
 	end
+	-- (1.5.1-beta2) an item with no vendor price is kept: protected when suggestions are made, and checked again here
+	if info.hasNoValue or (select(11, itemInfo(o.itemID)) or 0) <= 0 then return false, "novalue" end
 	if o.junk then
 		-- Offered as junk (one click): it must still be junk.
 		local rec = { itemID = o.itemID, quality = info.quality, sellPrice = select(11, itemInfo(o.itemID)) }
@@ -517,7 +593,11 @@ function MR:StillOk(o)
 	-- protected item says why it's protected.
 	if not o.junk then
 		local v = self:Values(o.itemID, o.count or 1, o.link)
-		if not self:WorthLettingGo(o.bag, self:Rank(v), false, waitingNow) then return false, "worth" end
+		local worth, noPrice = self:WorthLettingGo(o.bag, self:Rank(v), false, waitingNow)
+		if not worth then return false, "worth" end
+		-- (1.5.1-beta2, the beta1 audit) and for the same reason it was offered: an offer made because valuable loot was
+		-- waiting isn't carried out on the no-price fallback (or the other way round) without being offered again
+		if o.basis and o.basis ~= "junk" and o.basis ~= (noPrice and "noprice" or "priced") then return false, "basis" end
 	end
 	return true
 end
@@ -533,10 +613,26 @@ local REFUSED = {
 	nohelp = "Destroying that wouldn't make room for what's waiting now, so nothing was destroyed.",
 	unknown = "BagSmith couldn't check your gear sets just now, so nothing was destroyed. Try again in a moment.",
 	worth = "That item is now worth more than what's waiting for its slot, so nothing was destroyed. The Loot Helper has updated.",
+	basis = "What's waiting changed since that was offered, so nothing was destroyed. The Loot Helper has updated.",
+	novalue = "That item has no vendor price, so it's kept. Nothing was destroyed.",
+	ask = "Your settings say to ask before destroying that, so nothing was destroyed. Click it again to be asked.",
 }
-function MR:Destroy(o)
+-- The row's click: asks first if the current settings and quality call for it, or if the button said it would ask
+-- (a button drawn before a setting changed is only ever more careful, never less); otherwise destroys at once.
+function MR:TryDestroy(o, btn, what, value, key, shownAsk)
+	if shownAsk or self:AsksFirstLive(o) then
+		ns.Confirm(btn, ("Destroy %s (%s)?"):format(what, money(value or 0)), function() MR:Destroy(o, true) end)
+		if ns.Popups.confirm then ns.Popups.confirm.lootHelper = true; ns.Popups.confirm.lootHelperKey = key end
+		return false
+	end
+	return self:Destroy(o, false)
+end
+-- confirmed: the player said Yes to a question about this offer. (1.5.1-beta3) Without that, nothing is destroyed
+-- that the current settings say should ask first, whatever path called this.
+function MR:Destroy(o, confirmed)
 	local ok, why = self:StillOk(o)
 	if not ok then ns:Print(REFUSED[why] or REFUSED.changed); self:Refresh(); return false end
+	if not confirmed and self:AsksFirstLive(o) then ns:Print(REFUSED.ask); self:Refresh(); return false end
 	if pickUp(o.bag, o.slot, o.itemID, o.link) then DeleteCursorItem(); return true end
 	ns:Print(REFUSED.changed); self:Refresh()
 	return false
@@ -572,15 +668,21 @@ end
 -- Soul Shards: choose how many, confirm once, then one click per shard.
 function MR:DestroyNextShard(btn)
 	local list, can = self:Shards()
+	-- (1.5.1-beta3, L3) a batch started without a question isn't carried on once Ask Before Destroying is on: this
+	-- click asks for the shards left. A batch you said Yes to carries on.
+	if self.shardBatch and not self.shardConfirmed and ns.db and ns.db.makeRoomAsk then self.shardBatch = nil end
 	if not self.shardBatch then
 		local qty = math.max(1, math.min(self.shardQty or 1, can))
 		if can < 1 then return end
-		ns.Confirm(btn, ("Destroy %d Soul %s? You'll click once for each."):format(qty, qty == 1 and "Shard" or "Shards"), function()
-			self.shardBatch = qty
-			self:DestroyNextShard(btn)   -- the Yes click destroys the first
-		end)
-		if ns.Popups.confirm then ns.Popups.confirm.lootHelper = true end
-		return
+		if ns.db and ns.db.makeRoomAsk then
+			ns.Confirm(btn, ("Destroy %d Soul %s? You'll click once for each."):format(qty, qty == 1 and "Shard" or "Shards"), function()
+				self.shardBatch, self.shardConfirmed = qty, true
+				self:DestroyNextShard(btn)   -- the Yes click destroys the first
+			end)
+			if ns.Popups.confirm then ns.Popups.confirm.lootHelper = true end
+			return
+		end
+		self.shardBatch, self.shardConfirmed = qty, false   -- (1.5.1-beta2) Ask Before Destroying off: this click destroys the first
 	end
 	local r = list[1]
 	if r and can > 0 then
@@ -600,7 +702,140 @@ end
 -- its loot slot clears (looted by us or by hand), it's skipped, or the loot
 -- window closes, so items that start to fit are still taken.
 local RETRY_LOOT = 1.0   -- s before asking the game for the same slot again
-local IN_FLIGHT = 1.0    -- s a loot request counts as in flight if the bags don't update first
+-- (1.5.1) One item at a time, and the next only once the last has landed. The server can clear a loot slot (and
+-- even print "You receive loot") well before the item reaches the bags, and until it does, the slot it will take
+-- still looks free: asking for the next item then gets "your bags are full".
+-- (1.5.1-beta2, the beta1 audit's L1 and L2) Arrivals are accounted per item, not per loot slot. For each item
+-- BagSmith counts what has left the loot window (a slot that cleared, looted by BagSmith or by hand) and credits
+-- each increase in your bags once, oldest first. Whatever has left and not arrived is owed: it's reserved in the
+-- fit check and holds the next request. So one stack's arrival can't also count for another stack of the same item,
+-- 20 of 40 isn't the whole stack, and an item that arrives before its slot clears counts when the slot clears.
+-- BagSmith's own request is tracked on its own, whatever is known about the item, until its slot clears, its items
+-- arrive first, the game refuses it, or nothing happens for ARRIVE seconds; a refused or unanswered request isn't
+-- made again until the bags or the loot window change. An item it can't identify is never requested. A slot that
+-- cleared but whose items never arrive (someone else took them) is written off after ARRIVE seconds.
+function MR:Ledger(id)
+	self.ledger = self.ledger or {}
+	local l = self.ledger[id]
+	if not l then l = { last = bagCount(id), entries = {}, surplus = 0, surplusToken = 0 }; self.ledger[id] = l end
+	return l
+end
+function MR:Owed(id)
+	local l = self.ledger and self.ledger[id]
+	if not l then return 0 end
+	local owed = 0
+	for _, e in ipairs(l.entries) do owed = owed + e.rem end
+	return owed
+end
+-- Credit new arrivals of one item to what left the loot window, oldest first; the rest waits as surplus (an item
+-- that arrived before its slot cleared).
+local function credit(l, amount)
+	while amount > 0 and l.entries[1] do
+		local e = l.entries[1]
+		local take = math.min(e.rem, amount)
+		e.rem, amount = e.rem - take, amount - take
+		if e.rem <= 0 then table.remove(l.entries, 1) end
+	end
+	if amount > 0 then
+		-- (1.5.1-beta3, L5) held unassigned until a slot of this item clears and claims it; unclaimed after ARRIVE
+		-- seconds, it stops counting
+		l.surplus = l.surplus + amount
+		l.surplusToken = l.surplusToken + 1
+		local tok = l.surplusToken
+		C_Timer.After(ARRIVE, function()
+			if l.surplusToken == tok and l.surplus > 0 then
+				l.surplus = 0
+				ns:Debug("Loot Helper: arrivals no loot slot claimed stop counting; judging again")
+				MR:AfterBags()
+			end
+		end)
+	end
+end
+-- (1.5.1-beta3, L5) The loot slots that unclaimed arrivals could belong to, in slot order: such a slot isn't asked
+-- for again and isn't counted in the fit check (its items may already be in the bags), until a slot's clear claims
+-- the arrivals or they stop counting. Bag counts can't say which of two slots of the same item arrived, so no slot
+-- is ever marked done on that basis.
+function MR:Covered()
+	local out, left = {}, {}
+	for id, l in pairs(self.ledger or {}) do if l.surplus > 0 then left[id] = l.surplus end end
+	if not next(left) then return out end
+	for slot = 1, (GetNumLootItems and GetNumLootItems() or 0) do
+		local link = GetLootSlotType and GetLootSlotType(slot) ~= 0 and GetLootSlotLink and GetLootSlotLink(slot)
+		local id = link and tonumber(link:match("item:(%d+)"))
+		local si = self.slotItem and self.slotItem[slot]
+		local qty = (si and si.id == id and si.qty) or 1
+		if id and left[id] and left[id] >= qty then out[slot] = true; left[id] = left[id] - qty end
+	end
+	return out
+end
+local function lootPresent()
+	local c = 0
+	for slot = 1, (GetNumLootItems and GetNumLootItems() or 0) do if GetLootSlotType and GetLootSlotType(slot) ~= 0 then c = c + 1 end end
+	return c
+end
+local function bagSig(id)
+	local t = {}
+	for _, bag in ipairs(ns.BAGS) do
+		if bag ~= ns.KEYRING then t[#t + 1] = tostring((C_Container.GetContainerNumFreeSlots(bag))) end
+	end
+	return table.concat(t, ",") .. ":" .. bagCount(id) .. ":" .. lootPresent()
+end
+-- A loot slot left the window: its quantity is owed (after any surplus that already arrived) until it arrives, or
+-- written off after ARRIVE seconds.
+function MR:LeftWindow(slot, id, qty)
+	local l = self:Ledger(id)
+	local e = { rem = qty or 1, slot = slot }
+	local early = math.min(e.rem, l.surplus)
+	e.rem, l.surplus = e.rem - early, l.surplus - early
+	if e.rem <= 0 then return end
+	l.entries[#l.entries + 1] = e
+	C_Timer.After(ARRIVE, function()
+		for i, x in ipairs(l.entries) do
+			if x == e then
+				table.remove(l.entries, i)
+				ns:Debug("Loot Helper: %d from slot %d never reached the bags; judging again", e.rem, slot)
+				MR:AfterBags()
+				return
+			end
+		end
+	end)
+end
+-- BagSmith's own request, made just before LootSlot (so it holds even for events the call fires at once).
+function MR:Request(slot, id, qty)
+	self.reqToken = (self.reqToken or 0) + 1
+	local r = { slot = slot, id = id, qty = qty or 1, token = self.reqToken }
+	self.request = r
+	C_Timer.After(ARRIVE, function()
+		if MR.request == r then
+			MR.request = nil
+			MR.refused = MR.refused or {}
+			MR.refused[slot] = bagSig(id)
+			ns:Debug("Loot Helper: no answer for slot %d; not asked again until your bags or the loot window change", slot)
+			MR:AfterBags()
+		end
+	end)
+end
+function MR:Arriving()
+	if self.request then return true end
+	for id in pairs(self.ledger or {}) do if self:Owed(id) > 0 then return true end end
+	return false
+end
+-- After a bag scan: new arrivals are credited (to slots that cleared, oldest first, the rest held unassigned).
+function MR:CheckArrivals()
+	for id, l in pairs(self.ledger or {}) do
+		local now = bagCount(id)
+		local d = now - l.last
+		l.last = now
+		if d > 0 then credit(l, d) end   -- (a decrease is items leaving the bags, nothing owed)
+	end
+	-- BagSmith's request may have arrived before its slot cleared: the request stops holding the next one, but the
+	-- slot isn't marked done (another slot of the same item may be what arrived); its own clear will settle it.
+	local r = self.request
+	if r and self:Covered()[r.slot] then
+		self.request = nil
+		ns:Debug("Loot Helper: slot %d may have landed; waiting for a loot slot to clear", r.slot)
+	end
+end
 function MR:QueueHas()
 	for slot in pairs(self.pending) do
 		if GetLootSlotType and GetLootSlotType(slot) ~= 0 then return true end
@@ -615,18 +850,27 @@ function MR:TryLoot()
 	for slot in pairs(self.pending) do slots[#slots + 1] = slot end
 	table.sort(slots)
 	self.lootTried = self.lootTried or {}
+	self.refused = self.refused or {}
 	local now = GetTime()
-	if self.inFlight and now - self.inFlight < IN_FLIGHT then return end   -- one request at a time
+	if self:Arriving() then return end   -- one at a time: the last request or arrival isn't settled yet
 	local never = self:Never()
+	local covered = self:Covered()
 	for _, slot in ipairs(slots) do
 		local present = GetLootSlotType and GetLootSlotType(slot) ~= 0
 		local link = present and GetLootSlotLink and GetLootSlotLink(slot)
 		local id = link and tonumber(link:match("item:(%d+)"))
 		if not present or (id and (never[id] or self.skipped[slot .. ":" .. id])) then
 			self.pending[slot] = nil   -- gone, skipped or never-asked: not ours to take
-		elseif not still[slot] and LootSlot and now - (self.lootTried[slot] or -10) >= RETRY_LOOT then
-			self.inFlight = now
+		elseif covered[slot] then
+			-- (1.5.1-beta3) its items may already be in the bags: not asked for until a clear settles it
+		elseif not id then
+			-- (1.5.1-beta2, L2) an item BagSmith can't identify right now isn't requested: it stays queued
+		elseif not still[slot] and LootSlot and now - (self.lootTried[slot] or -10) >= RETRY_LOOT
+			and self.refused[slot] ~= bagSig(id) then
 			self.lootTried[slot] = now
+			self.refused[slot] = nil
+			local _, _, qty = GetLootSlotInfo(slot)
+			self:Request(slot, id, qty)
 			ns:Debug("Loot Helper: looting slot %d", slot)
 			pcall(LootSlot, slot)
 			return
@@ -862,12 +1106,21 @@ end
 function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 	local s = ns.Skins:Current()
 	local quest = self.mode == "quest"
-	local combine, destroy, held = {}, {}, nil
-	if not shardsOnly and #waiting > 0 then combine, destroy, held = self:Suggestions(waiting) end
+	local combine, destroy, held, noPrice = {}, {}, nil, false
+	if not shardsOnly and #waiting > 0 then combine, destroy, held, noPrice = self:Suggestions(waiting) end
 	local cleanUp = not shardsOnly and #waiting > 0 and self:CleanUpHelps(#combine)
 	self.offeredCleanUp = cleanUp
-	-- Under the waiting rows: an incoming item worth less than anything offered, and loot the Exclusion List leaves behind.
-	if #waiting > 0 and #destroy > 0 and not quest then
+	-- Under the waiting rows: loot with no price (1.5.1), an incoming item worth less than anything offered, and loot
+	-- the Exclusion List leaves behind.
+	if noPrice then
+		local unpriced
+		for _, w in ipairs(waiting) do if self:Rank(w.values or { vendor = 0 }) <= 0 then unpriced = unpriced or w end end
+		f.note:ClearAllPoints(); f.note:SetPoint("TOPLEFT", 12, -(y + 2))
+		f.note:SetText(unpriced and unpriced.id and ("%s has no price yet, so these are simply your cheapest items."):format(unpriced.name)
+			or "There's no price to compare with, so these are simply your cheapest items.")
+		f.note:Show()
+		y = y + (f.note:GetStringHeight() or 12) + 4
+	elseif #waiting > 0 and #destroy > 0 and not quest then
 		local low = math.huge
 		for _, d in ipairs(destroy) do low = math.min(low, d.rank or math.huge) end
 		for _, w in ipairs(waiting) do
@@ -948,26 +1201,30 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 			r.tipFn = function(tip) tip:SetBagItem(rec.bag, rec.slot) end
 			if ns.Pawn then ns.Pawn:DecorateIcon(r, r.icon, ns.Pawn:IsUpgrade(rec)) end
 			-- The offer is this exact item and count; it's checked again at the moment of destroying.
-			local offer = MR:Offer(rec, d.junk)
+			-- (1.5.1-beta2) the offer and its row's key carry why it's offered, so a change of reason closes an open question
+			local basis = d.junk and "junk" or (d.noPrice and "noprice" or "priced")
+			local offer = MR:Offer(rec, d.junk, basis)
+			local key = ("d:%d:%d:%d:%s"):format(rec.bag, rec.slot, rec.itemID, basis)
+			local ask = MR:AsksFirst(rec, d.junk)   -- for the button's words; the click decides afresh (1.5.1-beta3)
 			local what = (rec.name or "this item") .. ((rec.count or 1) > 1 and (" x" .. rec.count) or "")
-			options[#options + 1] = { key = ("d:%d:%d:%d"):format(rec.bag, rec.slot, rec.itemID), row = r, accent = false, label = "Destroy " .. what,
-				tip = d.junk and "Junk: destroyed in one click" or "Asks before destroying",
-				run = function(btn)
-					if d.junk then MR:Destroy(offer)
-					else
-						ns.Confirm(btn, ("Destroy %s (%s)?"):format(what, money(d.values.vendor)), function() MR:Destroy(offer) end)
-						if ns.Popups.confirm then ns.Popups.confirm.lootHelper = true; ns.Popups.confirm.lootHelperKey = ("d:%d:%d:%d"):format(rec.bag, rec.slot, rec.itemID) end
-					end
-				end }
+			options[#options + 1] = { key = key, row = r, accent = false, label = "Destroy " .. what,
+				tip = d.junk and "Junk: destroyed in one click" or (ask and "Asks before destroying" or "Destroyed at once"),
+				run = function(btn) MR:TryDestroy(offer, btn, what, d.values.vendor, key, ask) end }
 			y = y + ROW_H
 		end
 	end
 	-- Nothing can free a slot: say why, plainly.
 	if self.mode == "loot" and #waiting > 0 and #options == 0 and not f.shard:IsShown() then
 		f.card:ClearAllPoints(); f.card:SetPoint("TOPLEFT", 12, -(y + 4))
-		f.card.text:SetText((heldN > 0 and ("Everything left is protected: %s. "):format(ns.Why:Phrase(held)) or "") .. "Take what fits from the loot window, or make room by hand.")
+		-- (1.5.1) and the bags this loot can't go in, whose free slots and items can't make room for it
+		local cant = self:BagsLootCantUse(waiting)
+		f.card.text:SetText((heldN > 0 and ("Everything left is protected: %s. "):format(ns.Why:Phrase(held)) or "")
+			.. (cant and ("This loot can't go in your %s. "):format(cant) or "")
+			.. "Take what fits from the loot window, or make room by hand.")
+		local ch = math.max(150, 8 + 48 + 8 + (f.card.head:GetStringHeight() or 18) + 6 + (f.card.text:GetStringHeight() or 36) + 12)
+		f.card:SetHeight(ch)
 		f.card:Show()
-		y = y + 4 + 150
+		y = y + 4 + ch
 	end
 	-- An open destroy confirmation whose item is no longer offered (the loot that justified it is gone) closes.
 	do
@@ -1034,7 +1291,7 @@ function MR:Refresh()
 	if not (f and f:IsShown()) then return end
 	-- Loot: close once everything fits, but never between a loot slot
 	-- clearing and the bags updating (the slot it will take still looks free).
-	if self.mode == "loot" and not self.settling and #self:Waiting() == 0 then
+	if self.mode == "loot" and not self.settling and not self:Arriving() and #self:Waiting() == 0 then
 		if self:QueueHas() then self:TryLoot()   -- it all fits now: take what's queued
 		else f:Hide(); return end
 	end
@@ -1047,7 +1304,7 @@ function MR:AfterBags()
 	if self.mode == "quest" then if f and f:IsShown() then self:Refresh() end return end
 	if not (GetNumLootItems and GetNumLootItems() > 0) then
 		-- Everything's been taken: close.
-		if f and f:IsShown() and self.mode == "loot" and not self.settling then self:Refresh() end
+		if f and f:IsShown() and self.mode == "loot" and not self.settling and not self:Arriving() then self:Refresh() end
 		return
 	end
 	if f and f:IsShown() and self.mode == "loot" then
@@ -1081,6 +1338,7 @@ function MR:Install()
 		newOffers()
 		MR.session = (MR.session or 0) + 1
 		MR.skipped, MR.pending, MR.lootTried, MR.lootActive = {}, {}, {}, false
+		MR.ledger, MR.request, MR.refused, MR.slotItem = {}, nil, {}, {}
 		local token = MR.session
 		C_Timer.After(0.1, function() if MR.session == token then MR:Check() end end)
 	end)
@@ -1089,6 +1347,22 @@ function MR:Install()
 	ns:On("LOOT_SLOT_CLEARED", function(slot)
 		if slot then MR.pending[slot] = nil end
 		if MR.mode ~= "loot" then return end
+		-- (1.5.1, beta2 accounting) its items have left the loot window: owed until they arrive (an item BagSmith
+		-- asked for, or one looted by hand that the loot window showed)
+		local r = MR.request
+		local known = slot and MR.slotItem and MR.slotItem[slot]
+		if r and r.slot == slot then
+			MR.request = nil
+			MR:LeftWindow(slot, r.id, r.qty)
+			if MR.slotItem then MR.slotItem[slot] = nil end
+			MR:AfterBags()
+			return
+		elseif known then
+			MR:LeftWindow(slot, known.id, known.qty)
+			MR.slotItem[slot] = nil
+			MR:AfterBags()
+			return
+		end
 		MR.settling = true
 		MR.settleToken = (MR.settleToken or 0) + 1
 		local token = MR.settleToken
@@ -1096,7 +1370,8 @@ function MR:Install()
 	end)
 	ns:On("LOOT_CLOSED", function()
 		newOffers()
-		MR.lootActive, MR.settling, MR.inFlight = false, false, nil
+		MR.lootActive, MR.settling = false, false
+		MR.ledger, MR.request, MR.refused = {}, nil, {}
 		local f = MR.frame
 		if f and f:IsShown() and MR.mode == "loot" then
 			if next(MR.pending) then f.status:SetText("The loot window closed. Loot again to pick up the rest.") end
@@ -1137,6 +1412,15 @@ function MR:Install()
 	ns:On("UI_ERROR_MESSAGE", function(id, msg)
 		local full = (ERR_INV_FULL and msg == ERR_INV_FULL) or (LE_GAME_ERR_INV_FULL and id == LE_GAME_ERR_INV_FULL)
 		if not full or not (ns.db and ns.db.makeRoom) then return end
+		-- (1.5.1) the game refused an item BagSmith just asked for: not asked for again until the bags or the loot
+		-- window change
+		local r = MR.request
+		if r then
+			MR.request = nil
+			MR.refused = MR.refused or {}
+			MR.refused[r.slot] = bagSig(r.id)
+			ns:Debug("Loot Helper: the game refused slot %d (bags full); waiting for the bags to change", r.slot)
+		end
 		if GetNumLootItems and GetNumLootItems() > 0 then MR:Check() else questFull(nil) end
 	end)
 	-- The game's own line, "Report to Goldshire failed: Inventory is full."
@@ -1157,8 +1441,22 @@ function MR:Install()
 		if t and not (MR.frame and MR.frame:IsShown() and MR.mode == "quest") then questFull(t) end
 	end)
 	-- Item names arriving from the game: the Loot Exclusion List window shows them.
-	ns:On("GET_ITEM_INFO_RECEIVED", function() if MR.neverFrame and MR.neverFrame:IsShown() then MR:RefreshNeverWindow() end end)
+	ns:On("GET_ITEM_INFO_RECEIVED", function()
+		if MR.neverFrame and MR.neverFrame:IsShown() then MR:RefreshNeverWindow() end
+		-- (1.5.1) the panel too: a price or a bag rule may only now be known (once per moment, however many arrive)
+		if MR.frame and MR.frame:IsShown() and not MR.infoQueued then
+			MR.infoQueued = true
+			C_Timer.After(0.1, function() MR.infoQueued = nil; if MR.frame:IsShown() then MR:Refresh() end end)
+		end
+	end)
 	-- Bags changed (a combine, a clean up, a destroy, an item landing).
-	ns:OnSignal("ITEMS_CHANGED", function() MR.settling, MR.inFlight = false, nil; MR:AfterBags() end)
+	ns:OnSignal("ITEMS_CHANGED", function() MR.settling = false; MR:CheckArrivals(); MR:AfterBags() end)
+	-- (1.5.1-beta3, L3) a change to either destroy setting, or another profile, shows at once in the open panel; a shard
+	-- batch started without a question ends when asking turns on (the next click asks)
+	ns:OnSignal("SETTINGS_CHANGED", function(key)
+		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" then return end
+		if MR.shardBatch and not MR.shardConfirmed and ns.db and ns.db.makeRoomAsk then MR.shardBatch = nil end
+		if MR.frame and MR.frame:IsShown() then MR:Refresh() end
+	end)
 end
 ns:OnSignal("ADDON_READY", function() MR:Install() end)

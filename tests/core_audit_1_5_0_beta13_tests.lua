@@ -18,7 +18,9 @@
 			return { name = "Existing balance", currencyID = 1999, quantity = 7 }
 		end
 		_G.C_CurrencyInfo.GetCurrencyInfo = function(id)
-			if id == 1901 and not st.removed then return { name = "Honor", quantity = 150, discovered = true } end
+			-- (1.5.1-beta1, G8) a removed currency is one the game reports as not discovered: no answer under a
+			-- collapsed header (the old way this set modeled removal) now means unavailable, not gone
+			if id == 1901 then return st.removed and { name = "Honor", quantity = 0, discovered = false } or { name = "Honor", quantity = 150, discovered = true } end
 			if id == 1999 then return { name = "Existing balance", quantity = 7, discovered = true } end
 		end
 		_G.C_CurrencyInfo.GetBackpackCurrencyInfo = function(i) if i == 1 then return { currencyTypesID = 1901 } end end

@@ -67,6 +67,8 @@ local DEFAULTS = {
 	autoSellJunk = false,      -- sell grey and junk-marked items on opening a vendor
 	makeRoomValue = "ah",      -- rank Make Room's suggestions by "ah" (AH price when known, else vendor) or "vendor"
 	shardKeep = 0,             -- Clear Soul Shards never offers your last N shards
+	makeRoomAsk = false,       -- (1.5.1-beta2) the Loot Helper asks before destroying anything but junk (off: at once)
+	makeRoomAskRare = true,    -- (1.5.1-beta2) ...and while that's off, still asks for rare quality or better, as the game does
 	-- 1.2.0: auto-confirming the game's yes/no boxes (Core/Prompts.lua)
 	autoConfirm = false,       -- off: nothing is ever clicked for you
 	autoConfirmEverywhere = false, -- the boxes BagSmith confirms, wherever they come from (not only after a BagSmith action)

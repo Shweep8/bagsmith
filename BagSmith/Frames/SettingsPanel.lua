@@ -408,7 +408,9 @@ local function layoutRow(w, label, help, controlW, controlH)
 	return controlY, fits
 end
 
-function Panel:Check(key, label, help)
+-- opts (1.5.1-beta2, optional): { disabled = true, checked = bool } shows the box greyed out and fixed, for a setting
+-- that its parent overrides.
+function Panel:Check(key, label, help, opts)
 	local c = acquire(self, "check", function(p)
 		local w = CreateFrame("Frame", nil, p); w:SetSize(ROW_W, LINE)
 		w.text = fs(w); w.help = fs(w)
@@ -421,6 +423,11 @@ function Panel:Check(key, label, help)
 	local cy = layoutRow(c, label, help, 24, 24)
 	c.box:ClearAllPoints(); c.box:SetPoint("TOPRIGHT", 0, cy)
 	c.box:SetChecked(ns.db[key] and true or false)
+	c.box:SetAlpha(1)
+	if opts and opts.disabled then
+		c.box:SetChecked(opts.checked and true or false); c.box:Disable(); c.box:SetAlpha(0.5)
+		c.text:SetTextColor(Skins:Color("muted"))
+	end
 	self.y = self.y + c:GetHeight()
 end
 
@@ -1291,6 +1298,12 @@ pages.loothelper = function(self, db)
 	self:Check("makeRoom", "Show Loot Helper When Loot Won't Fit")
 	self:Seg("makeRoomValue", "Rank Suggestions By", { { "ah", "AH Price" }, { "vendor", "Vendor Price" } },
 		"AH Price uses Auctionator's prices when it has them, and the vendor price otherwise. Both are shown either way.")
+	-- (1.5.1-beta2) whether destroying asks first
+	self:Check("makeRoomAsk", "Ask Before Destroying", "When off, Destroy removes the chosen item at once, with no confirmation. Junk always goes in one click.")
+	self:Indented(function()
+		self:Check("makeRoomAskRare", "Always Ask for Rare or Better", "Like the game, blue and epic items still ask for confirmation before they're destroyed.",
+			db.makeRoomAsk and { disabled = true, checked = true } or nil)
+	end)
 	-- The Loot Exclusion List: one line here, the list in its own window.
 	self:Text("Favorites, gear-set items, quest items and Pawn upgrades are never suggested for destroying.")
 	self:Head("Loot Exclusion List")

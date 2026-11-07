@@ -1,3 +1,28 @@
+## 1.5.1
+
+Changed:
+- Loot Helper: destroying an item happens at once, with no question, except blue and epic items (and anything whose
+  quality the game hasn't reported), which still ask first, as the game does. Two new settings under Automations &
+  Actions > Loot Helper: Ask Before Destroying (off) brings the question back for everything but junk, and Always Ask
+  for Rare or Better (on) can be unticked so blue and epic items go at once too. Either setting applies at once, even
+  to the Loot Helper already open. Junk always goes in one click. Clear Soul Shards follows Ask Before Destroying.
+
+Fixed:
+- Loot Helper: after you make room, it loots one item at a time and waits for each to reach your bags before taking
+  the next. It no longer asks for an item that won't fit yet, which the game answered with "your bags are full". Two
+  stacks of the same item are each waited for, and a stack only counts once all of it has arrived. If the game turns
+  an item down, or doesn't answer, it isn't asked for again until your bags or the loot window change.
+- Loot Helper: loot with no price (no vendor price, and no AH price yet) now gets suggestions too: your cheapest
+  items, junk first, with a line saying why. Before, it offered nothing.
+- Loot Helper: when nothing frees a slot, it names the bags the loot can't go in, such as a quiver, or a reagent bag
+  for loot that isn't a crafting reagent.
+- Loot Helper: it updates as soon as the game finishes loading an item's details, such as its price.
+- Loot Helper: a question to destroy something closes if the reason it was offered changes while it's open, and
+  nothing is destroyed for a reason that no longer holds. An item with no vendor price is never destroyed.
+- The bags window no longer opens empty after a reload until you switch between List and Icons.
+- Currencies under a header you've collapsed in the game's currency list stay in what your other characters see,
+  even while the game doesn't report them, and update once it does.
+
 ## 1.5.0
 
 New:
