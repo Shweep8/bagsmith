@@ -577,8 +577,9 @@ function MR:StillOk(o)
 	-- (1.5.1-beta2) an item with no vendor price is kept: protected when suggestions are made, and checked again here
 	if info.hasNoValue or (select(11, itemInfo(o.itemID)) or 0) <= 0 then return false, "novalue" end
 	if o.junk then
-		-- Offered as junk (one click): it must still be junk.
-		local rec = { itemID = o.itemID, quality = info.quality, sellPrice = select(11, itemInfo(o.itemID)) }
+		-- Offered as junk (one click): it must still be junk. (1.5.2, L7) Its quality from the bag, else the cache, as
+		-- the offer read it; a quality no source reports isn't taken as junk.
+		local rec = { itemID = o.itemID, quality = self:LiveQuality(o), sellPrice = select(11, itemInfo(o.itemID)) }
 		if ns.Junk and not ns.Junk:IsJunk(rec) then return false, "changed" end
 	end
 	-- Never destroy something Pawn calls an upgrade, or hasn't decided on yet,
@@ -855,6 +856,7 @@ function MR:TryLoot()
 	if self:Arriving() then return end   -- one at a time: the last request or arrival isn't settled yet
 	local never = self:Never()
 	local covered = self:Covered()
+	local soonest
 	for _, slot in ipairs(slots) do
 		local present = GetLootSlotType and GetLootSlotType(slot) ~= 0
 		local link = present and GetLootSlotLink and GetLootSlotLink(slot)
@@ -865,16 +867,27 @@ function MR:TryLoot()
 			-- (1.5.1-beta3) its items may already be in the bags: not asked for until a clear settles it
 		elseif not id then
 			-- (1.5.1-beta2, L2) an item BagSmith can't identify right now isn't requested: it stays queued
-		elseif not still[slot] and LootSlot and now - (self.lootTried[slot] or -10) >= RETRY_LOOT
-			and self.refused[slot] ~= bagSig(id) then
-			self.lootTried[slot] = now
-			self.refused[slot] = nil
-			local _, _, qty = GetLootSlotInfo(slot)
-			self:Request(slot, id, qty)
-			ns:Debug("Loot Helper: looting slot %d", slot)
-			pcall(LootSlot, slot)
-			return
+		elseif not still[slot] and LootSlot and self.refused[slot] ~= bagSig(id) then
+			local wait = RETRY_LOOT - (now - (self.lootTried[slot] or -10))
+			if wait > 0 then
+				-- (1.5.2, the 1.5.1-beta3 audit's L6) eligible and fitting, held back only by the retry cooldown: look again
+				-- once it ends (one recheck, not a stream: a newer one replaces it)
+				soonest = math.min(soonest or wait, wait)
+			else
+				self.lootTried[slot] = now
+				self.refused[slot] = nil
+				local _, _, qty = GetLootSlotInfo(slot)
+				self:Request(slot, id, qty)
+				ns:Debug("Loot Helper: looting slot %d", slot)
+				pcall(LootSlot, slot)
+				return
+			end
 		end
+	end
+	if soonest then
+		self.recheckToken = (self.recheckToken or 0) + 1
+		local tok = self.recheckToken
+		C_Timer.After(soonest + 0.05, function() if MR.recheckToken == tok then MR:AfterBags() end end)
 	end
 end
 

@@ -1,3 +1,4 @@
+# 1.5.2: the bank's search box starts clear of the portrait (bank.3 x 4, was -44); the toolbars (main.5, bank.5) hang from the title at the inner margin (were the search box's BOTTOMLEFT -4,-4), the same place on screen
 # Classic baseline, recorded from beta7 and re-recorded for beta8 (positions,
 # sizes, layers and colors of every visible piece, per scenario).
 # beta7, reviewed against the same snapshot of beta6: the only differences
@@ -91,7 +92,7 @@ look main.2.7 w=nil h=nil at= level=3
 look main.3 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-44,-2;TOPRIGHT,main.2,BOTTOMLEFT,464,-2 level=4
 look main.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,main.3,RIGHT,6,0
 look main.4.1 w=nil h=nil at=
-look main.5 w=nil h=26 at=TOPLEFT,main.3,BOTTOMLEFT,-4,-4;TOPRIGHT,main.2,BOTTOMRIGHT,0,-32
+look main.5 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-48,-32;TOPRIGHT,main.2,BOTTOMRIGHT,0,-32
 look main.5.r1 text=0.56,0.55,0.51,1.00
 look main.5.r2 text=0.56,0.55,0.51,1.00
 look main.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=156 h=24 at=LEFT,main.5,LEFT,54,0
@@ -358,10 +359,10 @@ look bank.1 w=nil h=29 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,
 look bank.2 w=nil h=1 at=TOPLEFT,bank,TOPLEFT,60,-26;TOPRIGHT,bank,TOPRIGHT,-10,-26 level=3
 look bank.2.r2 text=0.98,0.78,0.46,1.00
 look bank.2.r3 text=0.60,0.55,0.45,1.00
-look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,-44,-2;TOPRIGHT,bank.2,BOTTOMLEFT,464,-2 level=4
+look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,4,-2;TOPRIGHT,bank.2,BOTTOMLEFT,464,-2 level=4
 look bank.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,bank.3,RIGHT,6,0
 look bank.4.1 w=nil h=nil at=
-look bank.5 w=nil h=26 at=TOPLEFT,bank.3,BOTTOMLEFT,-4,-4;TOPRIGHT,bank.2,BOTTOMRIGHT,0,-32
+look bank.5 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,-48,-32;TOPRIGHT,bank.2,BOTTOMRIGHT,0,-32
 look bank.5.r1 text=0.56,0.55,0.51,1.00
 look bank.5.r2 text=0.56,0.55,0.51,1.00
 look bank.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=156 h=24 at=LEFT,bank.5,LEFT,54,0
@@ -520,7 +521,7 @@ look main.2.7 w=nil h=nil at= level=3
 look main.3 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-44,-2;TOPRIGHT,main.2,BOTTOMLEFT,464,-2 level=4
 look main.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,main.3,RIGHT,6,0
 look main.4.1 w=nil h=nil at=
-look main.5 w=nil h=26 at=TOPLEFT,main.3,BOTTOMLEFT,-4,-4;TOPRIGHT,main.2,BOTTOMRIGHT,0,-32
+look main.5 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-48,-32;TOPRIGHT,main.2,BOTTOMRIGHT,0,-32
 look main.5.r1 text=0.56,0.55,0.51,1.00
 look main.5.r2 text=0.56,0.55,0.51,1.00
 look main.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=156 h=24 at=LEFT,main.5,LEFT,54,0
@@ -787,10 +788,10 @@ look bank.1 w=nil h=29 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,
 look bank.2 w=nil h=1 at=TOPLEFT,bank,TOPLEFT,60,-26;TOPRIGHT,bank,TOPRIGHT,-10,-26 level=3
 look bank.2.r2 text=0.98,0.78,0.46,1.00
 look bank.2.r3 text=0.60,0.55,0.45,1.00
-look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,-44,-2;TOPRIGHT,bank.2,BOTTOMLEFT,464,-2 level=4
+look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,4,-2;TOPRIGHT,bank.2,BOTTOMLEFT,464,-2 level=4
 look bank.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,bank.3,RIGHT,6,0
 look bank.4.1 w=nil h=nil at=
-look bank.5 w=nil h=26 at=TOPLEFT,bank.3,BOTTOMLEFT,-4,-4;TOPRIGHT,bank.2,BOTTOMRIGHT,0,-32
+look bank.5 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,-48,-32;TOPRIGHT,bank.2,BOTTOMRIGHT,0,-32
 look bank.5.r1 text=0.56,0.55,0.51,1.00
 look bank.5.r2 text=0.56,0.55,0.51,1.00
 look bank.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=156 h=24 at=LEFT,bank.5,LEFT,54,0

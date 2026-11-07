@@ -1,3 +1,12 @@
+## 1.5.2
+
+Fixed:
+- Classic style: the bank window's search box no longer starts under the portrait.
+- Loot Helper: after you loot one stack by hand while it's fetching another stack of the same item, it carries on by
+  itself instead of waiting for your bags to change.
+- Loot Helper: a grey item the game reports as grey only from its saved item details can be destroyed in one click
+  again, instead of being offered and then refused.
+
 ## 1.5.1
 
 Changed:

@@ -457,8 +457,11 @@ function View:Build()
 		-- Tools row. Spans the window (not the search row): the search row
 		-- follows the toolbar's end (see LayoutTools), so the toolbar must not
 		-- take its width from the search row, or the two would chase each other.
+		-- (1.5.2) Its left edge hangs from the title too, at the rows' inner margin (PlaceSearch re-places it with the
+		-- Classic shift), not from the search box: in the Classic bank the search box alone moves clear of the portrait,
+		-- and the toolbar and everything below it must stay put.
 		local tools = CreateFrame("Frame", nil, f)
-		tools:SetPoint("TOPLEFT", search, "BOTTOMLEFT", -4, -4)
+		tools:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -(2 + TOOL_H + 4))
 		tools:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -(2 + TOOL_H + 4))
 		tools:SetHeight(TOOL_H)
 		self.tools = tools
@@ -866,9 +869,19 @@ function View:PlaceSearch()
 		self.search:SetHeight(22)
 	else
 		local shift = self.belowShift or 0
-		self.search:SetPoint("TOPLEFT", self.title, "BOTTOMLEFT", 4 + shift, -2)
+		-- (1.5.2) The bank's title row is empty in Classic and collapsed, so its search row sits level with the portrait:
+		-- there it starts at the title's left edge, clear of the portrait. Its right end stays with the Filter button.
+		local left = (self.isBank and shift ~= 0) and 0 or shift
+		self.search:SetPoint("TOPLEFT", self.title, "BOTTOMLEFT", 4 + left, -2)
 		self.search:SetPoint("TOPRIGHT", self.title, "BOTTOMLEFT", (self.toolsEnd or 400) - self.btnFilter:GetWidth() - 6 + shift, -2)
 		self.search:SetHeight(TOOL_H)
+	end
+	-- (1.5.2) The toolbar row starts at the inner margin whatever the search box does (it used to hang from the search
+	-- box's left edge, so moving the bank's search box moved every row below it).
+	if self.tools then
+		self.tools:ClearAllPoints()
+		self.tools:SetPoint("TOPLEFT", self.title, "BOTTOMLEFT", self.belowShift or 0, -(2 + TOOL_H + 4))
+		self.tools:SetPoint("TOPRIGHT", self.title, "BOTTOMRIGHT", 0, -(2 + TOOL_H + 4))
 	end
 end
 

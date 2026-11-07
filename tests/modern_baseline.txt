@@ -40,6 +40,7 @@
 # Re-record from the current build only when a Modern change is intended, after
 # diffing old against new, and list it here.
 # 0.16 development: the Settings sidebar gained a Plugins page (settings.3.12); the only change from the 0.15.0 snapshot.
+#   1.5.2   tools, bank.tools: anchored to the title at the inner margin (was the search box's BOTTOMLEFT -4,-4); same place on screen
 title | w=nil h=26 shown=true | TOPLEFT,window,TOPLEFT,12,-12 ; TOPRIGHT,window,TOPRIGHT,-12,-12
 scroll | w=nil h=nil shown=true | TOPLEFT,header,BOTTOMLEFT,0,-2 ; BOTTOMRIGHT,tabs,TOPRIGHT,0,4
 tabs | w=nil h=22 shown=true | BOTTOMLEFT,window,BOTTOMLEFT,12,40 ; BOTTOMRIGHT,window,BOTTOMRIGHT,-12,40
@@ -52,7 +53,7 @@ btnMerge | w=92 h=20 shown=true | LEFT,tools,LEFT,354,0
 btnFilter | w=64 h=22 shown=true | LEFT,BagSmithFrameSearch,RIGHT,6,0
 scrollbar | w=nil h=nil shown=true | TOPLEFT,scroll,TOPRIGHT,6,-2 ; BOTTOMLEFT,scroll,BOTTOMRIGHT,6,2
 search | w=nil h=26 shown=true | TOPLEFT,title,BOTTOMLEFT,4,-2 ; TOPRIGHT,title,BOTTOMLEFT,516,-2
-tools | w=nil h=26 shown=true | TOPLEFT,BagSmithFrameSearch,BOTTOMLEFT,-4,-4 ; TOPRIGHT,title,BOTTOMRIGHT,0,-32
+tools | w=nil h=26 shown=true | TOPLEFT,title,BOTTOMLEFT,0,-32 ; TOPRIGHT,title,BOTTOMRIGHT,0,-32
 tab1 | w=40 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,0,-0
 tab2 | w=40 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,42,-0
 tab3 | w=82 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,84,-0
@@ -73,7 +74,7 @@ filter.search | w=nil h=24 shown=true | TOPLEFT,Frame,TOPLEFT,18,-38 ; TOPRIGHT,
 bagwin.title | w=nil h=26 shown=true | TOPLEFT,BagSmithBag1,TOPLEFT,12,-12 ; TOPRIGHT,BagSmithBag1,TOPRIGHT,-12,-12
 bagwin.scroll | w=nil h=nil shown=true | TOPLEFT,Frame,BOTTOMLEFT,0,-12 ; BOTTOMRIGHT,BagSmithBag1,BOTTOMRIGHT,-12,12
 bagwin.titleText | w=nil h=nil shown=true | LEFT,frame,RIGHT,6,0 ; RIGHT,frame,LEFT,-10,0
-bank.tools | h=26 | TOPLEFT,BagSmithBankFrameSearch,BOTTOMLEFT,-4,-4 ; TOPRIGHT,Frame,BOTTOMRIGHT,0,-32
+bank.tools | h=26 | TOPLEFT,Frame,BOTTOMLEFT,0,-32 ; TOPRIGHT,Frame,BOTTOMRIGHT,0,-32
 bank.bankBar | h=48 | TOPLEFT,banktools,BOTTOMLEFT,0,-10 ; TOPRIGHT,banktools,BOTTOMRIGHT,0,-10
 bank.header | h=20 | TOPLEFT,bankBar,BOTTOMLEFT,0,-4 ; TOPRIGHT,bankBar,BOTTOMRIGHT,0,-4
 bank.scroll | h=nil | TOPLEFT,bankheader,BOTTOMLEFT,0,-2 ; BOTTOMRIGHT,Frame,TOPRIGHT,0,4
