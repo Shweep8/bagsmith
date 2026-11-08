@@ -1,3 +1,11 @@
+## 1.5.3
+
+Fixed:
+- Disenchant Helper: the Disenchant button works in every game language. On a game that wasn't in English, it did
+  nothing when clicked.
+- Disenchant Helper: on a game that isn't in English, it reads your Enchanting skill again, so items above your skill
+  are held back as they should be.
+
 ## 1.5.2
 
 Fixed:

@@ -113,7 +113,8 @@
 	_G.Auctionator = savedA; DE:Refresh()
 	-- the secure button: armed for the current item, type spell, blanked in combat by the state driver, re-armed after
 	local b = DE:Button()
-	check(b:GetAttribute("type") == "spell" and b:GetAttribute("spell") == "Disenchant" and b:GetAttribute("target-bag") == 0 and b:GetAttribute("target-slot") == 2 and #drivers == 1 and drivers[1][3] == "[combat] lock; open", "the secure button is armed for the dagger with a combat state driver")
+	-- (1.5.3, by design) the spell is given by its ID, which works in every language (it was the English name)
+	check(b:GetAttribute("type") == "spell" and b:GetAttribute("spell") == DEID and b:GetAttribute("target-bag") == 0 and b:GetAttribute("target-slot") == 2 and #drivers == 1 and drivers[1][3] == "[combat] lock; open", "the secure button is armed for the dagger with a combat state driver")
 	combat = true
 	DE:Select(DE.entries[2])
 	check(DE.armPending == DE.entries[2] and b:GetAttribute("target-slot") == 2, "in combat the arming waits (no attribute changes)")

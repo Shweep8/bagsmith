@@ -390,14 +390,30 @@ function DE:Known()
 	if type(IsPlayerSpell) == "function" then local ok, v = pcall(IsPlayerSpell, self.SPELL_ID); if ok then return v == true end end
 	return false
 end
+-- (1.5.3) The skill line's name as the game spells it in the player's language: the Enchanting profession spell's
+-- name (Apprentice, Journeyman, Expert, Artisan), from C_Spell or GetSpellInfo; English as the last resort. It was
+-- only the English name, so on a game in another language the skill was never found.
+DE.PROFESSION_SPELL_IDS = { 7411, 7412, 7413, 13920 }
+local function professionNames()
+	local names = {}
+	for _, id in ipairs(DE.PROFESSION_SPELL_IDS) do
+		local n
+		if C_Spell and type(C_Spell.GetSpellName) == "function" then local ok, v = pcall(C_Spell.GetSpellName, id); if ok then n = v end end
+		if not n and type(GetSpellInfo) == "function" then local ok, v = pcall(GetSpellInfo, id); if ok then n = v end end
+		if type(n) == "string" and n ~= "" then names[n] = true end
+	end
+	names["Enchanting"] = true
+	return names
+end
 -- The character's Enchanting skill, or nil when the client cannot say (then no item is held back for skill).
 function DE:Skill()
 	if type(GetNumSkillLines) ~= "function" or type(GetSkillLineInfo) ~= "function" then return nil end
 	local ok, n = pcall(GetNumSkillLines)
 	if not ok then return nil end
+	local names = professionNames()
 	for i = 1, (n or 0) do
 		local ok2, name, header, _, rank = pcall(GetSkillLineInfo, i)
-		if ok2 and not header and name == "Enchanting" then return tonumber(rank) end
+		if ok2 and not header and name and names[name] then return tonumber(rank) end
 	end
 	return nil
 end
@@ -533,7 +549,10 @@ function DE:Button(parent)
 	b:SetHeight(24)
 	b.tip = "Disenchant this item"
 	if b.RegisterForClicks then b:RegisterForClicks("AnyUp", "AnyDown") end
-	b:SetAttribute("spell", (GetSpellInfo and GetSpellInfo(self.SPELL_ID)) or "Disenchant")
+	-- (1.5.3) By the spell's ID, which the game understands in every language. It was the name, from GetSpellInfo
+	-- or else the English "Disenchant"; this client has no GetSpellInfo, so a game in any other language was asked
+	-- for a spell it doesn't know by that name, and the button silently did nothing (a player's report).
+	b:SetAttribute("spell", self.SPELL_ID)
 	-- In combat the button does nothing, by the game's own state driver. (1.4.0-beta6, the beta5 audit's P1: the
 	-- states were "1" and "0", which the game's driver hands over as numbers, so the old check for the text "1" never
 	-- matched and combat armed the button.) The states are words now, and the snippet only ever disarms: anything but
