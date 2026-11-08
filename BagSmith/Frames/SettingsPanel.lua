@@ -37,6 +37,10 @@ local PAGES = {
 local PARENT, HAS_SUBS = {}, {}
 for _, p in ipairs(PAGES) do if p[3] then PARENT[p[1]] = p[3]; HAS_SUBS[p[3]] = true end end
 local NAV_STEP = 28
+-- (1.5.4) The side menu's room runs from its top to just above About & Support (those two buttons, their margins and a
+-- gap). If its entries ever don't fit there (pages added later), the spacing tightens, down to NAV_MIN_STEP, and past
+-- that the list scrolls with the mouse wheel, small arrows showing there's more. Today everything fits at full spacing.
+local NAV_BTN_H, NAV_MIN_STEP, NAV_RESERVE = 26, 22, 70
 
 function Panel:Create()
 	if self.frame then return end
@@ -90,6 +94,17 @@ function Panel:Create()
 	nav:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 12, 14)
 	nav:SetWidth(NAV_W)
 	nav.line = nav:CreateTexture(nil, "ARTWORK"); nav.line:SetPoint("TOPRIGHT", 0, 0); nav.line:SetPoint("BOTTOMRIGHT", 0, 0); nav.line:SetWidth(1)
+	-- (1.5.4) scrolling, for when the entries don't fit (see NAV_RESERVE); the arrows show only then
+	nav:EnableMouseWheel(true)
+	nav:SetScript("OnMouseWheel", function(_, delta)
+		Panel.navOffset = (Panel.navOffset or 0) - delta
+		Panel.navFollowPage = Panel.page   -- the reader is scrolling: don't snap back to the open page
+		Panel:SyncNav()
+	end)
+	nav.moreUp = nav:CreateTexture(nil, "OVERLAY"); nav.moreUp:SetSize(10, 10)
+	nav.moreUp:SetTexture("Interface\\AddOns\\BagSmith\\Media\\ui-chev-down.tga"); nav.moreUp:SetTexCoord(0, 1, 1, 0); nav.moreUp:Hide()
+	nav.moreDown = nav:CreateTexture(nil, "OVERLAY"); nav.moreDown:SetSize(10, 10)
+	nav.moreDown:SetTexture("Interface\\AddOns\\BagSmith\\Media\\ui-chev-down.tga"); nav.moreDown:Hide()
 	self.nav, self.navButtons = nav, {}
 	for i, page in ipairs(PAGES) do
 		local b = CreateFrame("Button", nil, nav)
@@ -190,17 +205,25 @@ function Panel:ApplySkin()
 	self:SyncNav()
 end
 
+-- (1.5.4) The height the side menu's entries can use: from its top down to just above About & Support.
+function Panel:NavRoom()
+	local f, nav = self.frame, self.nav
+	local _, rel, _, _, y = nav:GetPoint(1)
+	local top = (rel == f) and -(y or 0) or (10 + 28 - (y or 0))   -- Classic anchors it to the window, Modern under the title
+	return (f:GetHeight() or WIN_H) - top - NAV_RESERVE
+end
+
 function Panel:SyncNav()
 	local s = Skins:Current()
 	-- Sub-pages show under their page while it or one of them is open (not while searching).
 	local open = not self.query and (PARENT[self.page] or (HAS_SUBS[self.page] and self.page)) or nil
-	local i = 0
+	local list, cur = {}, nil
 	for _, b in ipairs(self.navButtons) do
-		local visible = not b.parent or b.parent == open
-		b:SetShown(visible)
-		if visible then
-			b:ClearAllPoints(); b:SetPoint("TOPLEFT", 0, -i * NAV_STEP); b:SetPoint("TOPRIGHT", -10, -i * NAV_STEP)
-			i = i + 1
+		if not b.parent or b.parent == open then
+			list[#list + 1] = b
+			if b.page == self.page then cur = #list end
+		else
+			b:Hide()
 		end
 		if b.arrow then
 			b.arrow:SetTexture("Interface\\AddOns\\BagSmith\\Media\\" .. (b.page == open and "ui-chev-down.tga" or "ui-chev-right.tga"))
@@ -209,6 +232,37 @@ function Panel:SyncNav()
 		local on = b.page == self.page and not self.query   -- (no page is current while searching)
 		b.text:SetTextColor(unpack(on and s.heading or s.muted))
 		if on then b.bar:SetVertexColor(Skins:Accent()); b.bar:Show() else b.bar:Hide() end
+	end
+	-- (1.5.4) Place them: full spacing when they fit above About & Support, tighter when not, and when even the tight
+	-- spacing can't fit them all, a window of them that scrolls, keeping the open page in view when the page changes.
+	local count, room = #list, self:NavRoom()
+	local step, h, fit = NAV_STEP, NAV_BTN_H, count
+	if count > 1 and (count - 1) * step + h > room then
+		step = math.max(NAV_MIN_STEP, math.floor((room - h) / (count - 1)))
+		h = math.min(NAV_BTN_H, step)
+		fit = math.max(1, math.min(count, math.floor((room - h) / step) + 1))
+	end
+	local maxOff = count - fit
+	local off = math.min(math.max(self.navOffset or 0, 0), maxOff)
+	if cur and (self.navFollowPage ~= self.page or self.navLastFit ~= fit) then
+		if cur - 1 < off then off = cur - 1 elseif cur > off + fit then off = cur - fit end
+	end
+	self.navOffset, self.navFollowPage, self.navLastFit = off, self.page, fit
+	for idx, b in ipairs(list) do
+		local k = idx - 1 - off
+		if k >= 0 and k < fit then
+			b:ClearAllPoints(); b:SetPoint("TOPLEFT", 0, -k * step); b:SetPoint("TOPRIGHT", -10, -k * step)
+			b:SetHeight(h); b:Show()
+		else
+			b:Hide()
+		end
+	end
+	local nav = self.nav
+	if nav and nav.moreUp then
+		nav.moreUp:ClearAllPoints(); nav.moreUp:SetPoint("TOPRIGHT", nav, "TOPRIGHT", -14, 8)
+		nav.moreDown:ClearAllPoints(); nav.moreDown:SetPoint("TOPRIGHT", nav, "TOPRIGHT", -14, -(fit * step) + 2)
+		nav.moreUp:SetVertexColor(unpack(s.muted)); nav.moreDown:SetVertexColor(unpack(s.muted))
+		nav.moreUp:SetShown(off > 0); nav.moreDown:SetShown(off < maxOff)
 	end
 	if self.frame and self.frame.about then self.frame.about:SetActive(self.page == "about" and not self.query) end
 end

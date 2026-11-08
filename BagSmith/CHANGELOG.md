@@ -1,3 +1,12 @@
+## 1.5.4
+
+Fixed:
+- Escape now closes the Loot Helper, the Disenchant Helper, the Disenchant offer (as Ask Later), both Exclusion List
+  windows, the moved-items list and What's New, each just as its close button would. The Disenchant Helper waits
+  until combat ends.
+- Settings: the list of pages on the left can't run into About & Support any more. If it ever has more pages than fit,
+  it tightens up, then scrolls with the mouse wheel.
+
 ## 1.5.3
 
 Fixed:

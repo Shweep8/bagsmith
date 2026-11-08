@@ -108,6 +108,7 @@ function MR:NeverWindow()
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
 	end)
 	f:Hide()
+	ns:CloseOnEscape(f, function() f:Hide() end)   -- (1.5.4) Escape closes it like its Close button
 	self.neverFrame = f
 	return f
 end
@@ -1031,6 +1032,7 @@ function MR:Frame()
 		if c and c:IsShown() and c.lootHelper then c:Hide() end
 	end)
 	f:Hide()
+	ns:CloseOnEscape(f, function() f:Hide() end)   -- (1.5.4) Escape closes it like its close button
 	self.frame = f
 	return f
 end

@@ -218,6 +218,29 @@ end
 -- Combat-safe queue and next-frame coalescing
 ------------------------------------------------------------------------
 local queue, order = {}, {}
+-- (1.5.4) Escape closes a BagSmith window by running that window's own close action, what its close button does. A
+-- small invisible stand-in goes on the game's Escape list (UISpecialFrames): it's shown while the window is, and when
+-- Escape hides it, the close action runs. The game never hides the window itself, so a window holding a secure button
+-- can wait out combat (its close action uses ns:Safely), and a window whose close does more than hide (What's New marks
+-- itself seen; the Disenchant offer answers Ask Later) does that too. Hiding the whole interface (Alt+Z) isn't Escape.
+function ns:CloseOnEscape(frame, close)
+	if not (frame and UISpecialFrames and close) or frame.bsEscape then return end
+	local name = (frame:GetName() or "BagSmithWindow") .. "Escape"
+	local proxy = CreateFrame("Frame", name, UIParent)
+	proxy:Hide()
+	proxy:SetScript("OnHide", function(p)
+		if p.syncing or p:IsShown() then return end   -- following the window, or hidden with the whole interface
+		if frame:IsShown() then close() end
+	end)
+	frame:HookScript("OnShow", function() proxy.syncing = true; proxy:Show(); proxy.syncing = nil end)
+	frame:HookScript("OnHide", function()
+		if frame:IsShown() then return end              -- hidden with the whole interface, not closed
+		proxy.syncing = true; proxy:Hide(); proxy.syncing = nil
+	end)
+	if frame:IsShown() then proxy.syncing = true; proxy:Show(); proxy.syncing = nil end
+	table.insert(UISpecialFrames, name)
+	frame.bsEscape = proxy
+end
 function ns:Safely(key, fn)
 	if InCombatLockdown() then
 		if not queue[key] then order[#order + 1] = key end

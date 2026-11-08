@@ -338,6 +338,7 @@ function DE:NeverWindow()
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
 	end)
 	f:Hide()
+	ns:CloseOnEscape(f, function() f:Hide() end)   -- (1.5.4) Escape closes it like its Close button
 	self.neverFrame = f
 	return f
 end
@@ -803,6 +804,9 @@ function DE:Frame()
 		if ns.Window and ns.Window.main and ns.Window.main.RefreshToolbar then ns.Window.main:RefreshToolbar() end
 	end)
 	f:Hide()
+	-- (1.5.4) Escape closes it like its Close button; in combat that waits until combat ends (the window holds the
+	-- secure Disenchant button)
+	ns:CloseOnEscape(f, function() ns:Safely("de:escape", function() if f:IsShown() then f:Hide() end end) end)
 	self.frame = f
 	self:Layout()
 	return f
@@ -1214,6 +1218,7 @@ function DE:OfferFrame()
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
 	end)
 	f:Hide()
+	ns:CloseOnEscape(f, function() DE:OfferAnswer("later") end)   -- (1.5.4) Escape is Ask Later, as its close is
 	self.offer = f
 	return f
 end

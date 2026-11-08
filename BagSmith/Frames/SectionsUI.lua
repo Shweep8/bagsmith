@@ -589,6 +589,7 @@ function S:MovedWindow()
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
 	end)
 	f:Hide()
+	ns:CloseOnEscape(f, function() f:Hide() end)   -- (1.5.4) Escape closes it like its Close button
 	self.movedFrame = f
 	return f
 end
