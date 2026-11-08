@@ -3949,7 +3949,11 @@ end)()
 	local function rel(f, i) local p = f.points[i or 1]; return p and p[2] end
 	local function travelState()
 		return not main.tools:IsShown() and not main.btnFilter:IsShown() and not main.charBtn:IsShown() and not main.charReset:IsShown()
-			and rel(main.search, 1) == main.subText and rel(main.search, 2) == main.btnClean
+			and rel(main.search, 1) == main.subText
+			-- (1.5.5, by design) it ends at Travel Mode's Collapse All Sections when that shows (with sections), which sits
+			-- just before the broom; otherwise at the broom, as before
+			and ((main.btnLanesTravel and main.btnLanesTravel:IsShown()) and (rel(main.search, 2) == main.btnLanesTravel and rel(main.btnLanesTravel) == main.btnClean)
+				or (not (main.btnLanesTravel and main.btnLanesTravel:IsShown()) and rel(main.search, 2) == main.btnClean))
 			and rel(main.header, 1) == main.title and ((main.classicApplied and main.classicTitle.text) or main.titleText.text) == "Your Bags (Travel Mode)" and main.btnTravel.active
 	end
 	local function normalState()
@@ -6367,7 +6371,7 @@ end)()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	local WN = n.WhatsNew
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
-	check(toc:find("## Version: 1%.5%.4\n") and toc:find("## X%-Date: 2026%-11%-07"), "the TOC version is 1.5.4, dated 7 November 2026")
+	check(toc:find("## Version: 1%.5%.5\n") and toc:find("## X%-Date: 2026%-11%-07"), "the TOC version is 1.5.5, dated 7 November 2026")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -10777,7 +10781,7 @@ end)()
 ;(function()
 	-- 0.15.0 (prod): one clean 0.15.0 changelog section; the sword-and-shield replaces the helmet everywhere.
 	local log = io.open("BagSmith/CHANGELOG.md"):read("*a")
-	check(log:find("^## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.5.4 (the release in progress), then 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
+	check(log:find("^## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.5.5 (the release in progress), then 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
 	local section = log:match("(## 0%.15%.0\n.-)\n## ") or ""
 	local bad = false
 	for _, w in ipairs({ "colour", "favourite", "behaviour", "cancelled", "helmet", "\226\128\148" }) do if section:find(w) then bad = true end end

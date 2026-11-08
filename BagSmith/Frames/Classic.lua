@@ -748,6 +748,7 @@ function Classic:Apply(view, on)
 
 	-- Broom: BagSmith's own icon in the same square button as the others.
 	squareButton(view.btnClean, on)
+	if view.btnLanesTravel then squareButton(view.btnLanesTravel, on) end   -- (1.5.5) Travel Mode's Collapse All Sections
 	if view.btnDisenchant then squareButton(view.btnDisenchant, on) end
 
 	-- Travel Mode: beside Blizzard's red close button in the title strip (the

@@ -1,3 +1,14 @@
+## 1.5.5
+
+Changed:
+- Travel Mode: Collapse All Sections now sits at the right end of the search box, so you can fold and unfold every
+  section without leaving Travel Mode.
+- Icons view no longer leaves empty room at the top for List view's column headers, so your items start higher.
+
+Fixed:
+- The search box and the buttons under the title fill the window from the first open of a session. Before, they could
+  start out squeezed until you resized the window.
+
 ## 1.5.4
 
 Fixed:

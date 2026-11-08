@@ -330,7 +330,11 @@ function View:LayoutHeader(plan)
 	for j = si + 1, #self.headerSeps do self.headerSeps[j]:Hide() end
 	self:LayoutColumnGrips(plan, narrowHeader)
 	for key, b in pairs(self.headerLabels) do if not visible[key] then b:Hide() end end
-	self.header:SetShown(self:Pref("view") == "list" and self.kind ~= "bag")
+	local head = self:Pref("view") == "list" and self.kind ~= "bag"
+	if self.header:IsShown() ~= head then
+		self.header:SetShown(head)
+		if self.PlaceScroll then self:PlaceScroll() end   -- (1.5.5) Icons view reclaims the headers' room; List view gives it back
+	end
 end
 
 -- Column width grips: one on every line between two columns (none at the

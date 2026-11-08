@@ -408,6 +408,11 @@ function View:Build()
 		self.btnDisenchant:Hide()
 		self.btnClean = iconButton(title, MEDIA .. "ui-broom.tga", "Clean Up Bags", function() self:CleanUp() end)
 		self.btnClean:SetPoint("RIGHT", self.btnBank, "LEFT", 0, 0)
+		-- (1.5.5) Travel Mode hides the toolbar and its Collapse All Sections button: a twin sits at the right end of
+		-- Travel Mode's search box, just before the broom (Shweep's choice), showing only there and only with sections.
+		self.btnLanesTravel = iconButton(title, MEDIA .. "ui-collapse.tga", "Collapse or Expand All Sections", function() self:ToggleAllLanes() end)
+		self.btnLanesTravel:SetPoint("RIGHT", self.btnClean, "LEFT", -2, 0)
+		self.btnLanesTravel:Hide()
 
 		-- Character picker
 		self.charBtn = textButton(title, "", 170, function() ns.Popups:ToggleCharacters(self) end)
@@ -783,6 +788,10 @@ function View:Build()
 		-- is built while closed, and the client could keep a stale picture of the canvas and draw nothing (Shweep: a
 		-- blank window, in both styles, until List and Icons were swapped). See View:RefreshCanvas.
 		ns:NextFrame("canvas:show:" .. self.name, function() self:RefreshCanvas("show") end)
+		-- (1.5.5) and its header laid out again for its real width: in a fresh session the window is built closed, and on
+		-- this client its size event may not fire when it opens, so the header kept a width it read as 0 (Shweep: it
+		-- didn't fill the window until resized)
+		if self.LayoutTools then ns:NextFrame("tools:show:" .. self.name, function() self:LayoutTools() end) end
 	end)
 	f:SetScript("OnHide", function()
 		if ns.ready then PlaySound(SOUNDKIT.IG_BACKPACK_CLOSE) end
@@ -813,7 +822,9 @@ function View:LayoutTools()
 	if not self.toolItems then return end
 	local avail = self.tools:GetWidth()
 	local level = 0
-	if self:ToolsTotal(0) > avail then level = (self:ToolsTotal(1) > avail) and 2 or 1 end
+	-- (1.5.5) A width that reads 0 (or nearly) isn't known yet (a window built while closed): it isn't "too narrow",
+	-- so the full header is laid out, and the window's next open lays it out again for its real width.
+	if avail and avail > 50 and self:ToolsTotal(0) > avail then level = (self:ToolsTotal(1) > avail) and 2 or 1 end
 	self.toolsLevel = level
 	self.toolsCompact = level >= 1
 	local compact = level >= 1
@@ -823,7 +834,9 @@ function View:LayoutTools()
 		if compact and it.isLabel then
 			f:Hide()
 		else
-			f:Show()
+			-- (1.5.5) Collapse All Sections shows only when there are sections (as SyncTools decides): laying the toolbar
+			-- out again on every open mustn't bring it back with nothing to collapse
+			if f == self.btnLanes and #(self.laneIds or {}) == 0 then f:Hide() else f:Show() end
 			local short = level >= 2 and it.compactWidth ~= nil
 			local w = short and it.compactWidth or it.width
 			if it.compactText then
@@ -863,9 +876,12 @@ function View:PlaceSearch()
 	if not (self.search and self.btnFilter and self.title) then return end
 	self.search:ClearAllPoints()
 	if self:TravelOn() then
-		-- The character picker is hidden in Travel Mode: search starts after the title.
+		-- The character picker is hidden in Travel Mode: search starts after the title. (1.5.5) It ends at Travel Mode's
+		-- Collapse All Sections button when that shows, else at the broom.
+		local T = self.btnLanesTravel
 		self.search:SetPoint("LEFT", self.subText, "RIGHT", 12, 0)
-		self.search:SetPoint("RIGHT", self.btnClean, "LEFT", -8, 0)
+		if T and T:IsShown() then self.search:SetPoint("RIGHT", T, "LEFT", -6, 0)
+		else self.search:SetPoint("RIGHT", self.btnClean, "LEFT", -8, 0) end
 		self.search:SetHeight(22)
 	else
 		local shift = self.belowShift or 0
@@ -911,6 +927,7 @@ function View:ApplyTravel()
 		if self.charReset then self.charReset:SetShown(not on and ns.ui.owner ~= nil) end
 		if ns.Classic and ns.Classic.SyncDropdown then ns.Classic.SyncDropdown(self) end
 		if self.btnBagBar then self.btnBagBar:SetShown(self.st.sheet ~= "Bank" and not ns.ui.owner) end   -- stays in Travel Mode
+		if self.btnLanesTravel then self.btnLanesTravel:SetShown(on and #(self.laneIds or {}) > 0) end   -- (1.5.5)
 		self:PlaceSearch()
 		local above = on and self.title or self.tools
 		self:PlaceHeader(on)
@@ -1125,6 +1142,13 @@ function View:SyncTools()
 	self.btnLanes.tex:SetTexture("Interface\\AddOns\\BagSmith\\Media\\" .. (all and "ui-expand.tga" or "ui-collapse.tga"))
 	self.btnLanes.tip = all and "Expand All Sections" or "Collapse All Sections"
 	self.btnLanes:SetShown(#ids > 0)
+	local T = self.btnLanesTravel
+	if T then
+		T.tex:SetTexture("Interface\\AddOns\\BagSmith\\Media\\" .. (all and "ui-expand.tga" or "ui-collapse.tga"))
+		T.tip = self.btnLanes.tip
+		local show = self:TravelOn() and #ids > 0
+		if T:IsShown() ~= show then T:SetShown(show); self:PlaceSearch() end
+	end
 end
 
 function View:UpdateTabs()
@@ -1455,7 +1479,9 @@ function View:PlaceScroll(classic)
 	local room = self.barHidden and 0 or -BAR_ROOM   -- the right inset
 	sc:ClearAllPoints()
 	if self.big then
-		sc:SetPoint("TOPLEFT", self.header, "BOTTOMLEFT", 0, -2)
+		-- (1.5.5) Icons view has no column headers: the list starts where they would, not below their hidden row
+		if self:Pref("view") == "list" and self.kind ~= "bag" then sc:SetPoint("TOPLEFT", self.header, "BOTTOMLEFT", 0, -2)
+		else sc:SetPoint("TOPLEFT", self.header, "TOPLEFT", 0, 0) end
 		if classic and self.tabs then sc:SetPoint("BOTTOMRIGHT", self.footer, "TOPRIGHT", room, 6)
 		else sc:SetPoint("BOTTOMRIGHT", self.tabs or self.footer, "TOPRIGHT", room, 4) end
 	else
