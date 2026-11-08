@@ -411,6 +411,7 @@ local function combatFrames()
 		if ns.Popups.filter then out[#out + 1] = ns.Popups.filter end
 		if ns.Popups.chars then out[#out + 1] = ns.Popups.chars end
 	end
+	for _, f in ipairs(ns.combatWindows or {}) do out[#out + 1] = f end   -- (1.5.6) every other BagSmith window
 	return out
 end
 -- An invisible shield over each window swallows clicks, drags and wheel
@@ -435,10 +436,23 @@ function ns:ApplyCombatFade(inCombat)
 	local alpha = fade and ns.db.combatAlpha or 1
 	local lock = fade and ns.db.combatLock
 	for _, f in ipairs(combatFrames()) do
-		f:SetAlpha(alpha)
-		shieldFor(f):SetShown(lock and true or false)
+		if not f.bsSoftClosed then   -- (1.5.6) a window closed as far as the player can tell stays that way
+			f:SetAlpha(alpha)
+			shieldFor(f):SetShown(lock and true or false)
+		end
 	end
 	ns.combatFaded = fade or false
+end
+-- (1.5.6) Every BagSmith window fades in combat like the bags window (Shweep). Windows outside the bag windows register
+-- here when they're built: their click shield is made then (before any combat: a protected window's parts are best made
+-- outside it), and a window opened during combat fades at once.
+ns.combatWindows = ns.combatWindows or {}
+function ns:CombatWindow(f)
+	if not f or f.bsCombatWindow then return end
+	f.bsCombatWindow = true
+	ns.combatWindows[#ns.combatWindows + 1] = f
+	shieldFor(f)
+	f:HookScript("OnShow", function() if InCombatLockdown() and not f.bsSoftClosed then ns:ApplyCombatFade(true) end end)
 end
 ns:OnSignal("COMBAT_STARTED", function()
 	ns:ApplyCombatFade(true)

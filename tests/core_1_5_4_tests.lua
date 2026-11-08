@@ -56,9 +56,12 @@
 	escape()
 	check(not df:IsShown(), "Disenchant Helper: Escape closes it")
 	DE:Show(); M.runTimers()
+	-- (1.5.6, by design) the game counts the helper as protected (it holds the secure Disenchant button) and won't let it be
+	-- hidden in combat: Escape closes it as far as the player can tell, at once, and it really closes when combat ends
+	df.protected = true; df.IsProtected = function(self) return self.protected end
 	setCombat(true)
 	escape()
-	check(df:IsShown(), "Disenchant Helper in combat: Escape doesn't hide it in combat")
+	check(df:IsShown() and df:GetAlpha() == 0 and df.bsSoftClosed, "Disenchant Helper in combat: Escape makes it vanish at once (fully see-through; the game won't let it hide yet)")
 	setCombat(false); M.fire("PLAYER_REGEN_ENABLED"); M.runTimers()
 	check(not df:IsShown(), "Disenchant Helper: it closes once combat ends")
 	-- the Disenchant offer: Escape means Ask Later, never "don't offer again"

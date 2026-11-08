@@ -590,6 +590,7 @@ function S:MovedWindow()
 	end)
 	f:Hide()
 	ns:CloseOnEscape(f, function() f:Hide() end)   -- (1.5.4) Escape closes it like its Close button
+	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
 	self.movedFrame = f
 	return f
 end

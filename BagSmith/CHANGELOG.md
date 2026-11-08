@@ -1,3 +1,16 @@
+## 1.5.6
+
+Changed:
+- Settings search shows the best matches first: a setting named after what you typed comes before one that only
+  mentions it. Searching "Recent" now starts with Recent Items.
+
+Fixed:
+- Every BagSmith window now fades during combat, as the bags window does: the Disenchant Helper, the Loot Helper, both
+  Exclusion List windows, the moved-items list, the Disenchant offer, What's New and Settings (Fade Windows During
+  Combat).
+- The Disenchant Helper can be closed during combat, with Escape or its close button. It disappears at once and
+  finishes closing when combat ends. The game doesn't let it open during combat, and it now says so.
+
 ## 1.5.5
 
 Changed:

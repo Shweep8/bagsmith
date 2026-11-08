@@ -339,6 +339,7 @@ function DE:NeverWindow()
 	end)
 	f:Hide()
 	ns:CloseOnEscape(f, function() f:Hide() end)   -- (1.5.4) Escape closes it like its Close button
+	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
 	self.neverFrame = f
 	return f
 end
@@ -561,7 +562,9 @@ function DE:Button(parent)
 	-- so no stale target comes back. If the driver can't be registered, the button never arms (DE:Arm checks).
 	DE.combatGuard = false
 	if b.SetAttribute and RegisterStateDriver then
-		b:SetAttribute("_onstate-bscombat", [[ if newstate ~= "open" then self:SetAttribute("type", nil); self:SetAttribute("target-bag", nil); self:SetAttribute("target-slot", nil); self:SetAttribute("target-item", nil) end ]])
+		-- (1.5.6) and it hides the button in combat (a secure snippet may; addon code may not), so a helper closed in combat
+		-- as far as the player can tell leaves nothing clickable behind; after combat it shows again if it was shown
+		b:SetAttribute("_onstate-bscombat", [[ if newstate ~= "open" then self:SetAttribute("type", nil); self:SetAttribute("target-bag", nil); self:SetAttribute("target-slot", nil); self:SetAttribute("target-item", nil); if not self:GetAttribute("bs-locked") then self:SetAttribute("bs-locked", true); self:SetAttribute("bs-wasShown", self:IsShown() and true or false) end; self:Hide() elseif self:GetAttribute("bs-locked") then self:SetAttribute("bs-locked", nil); if self:GetAttribute("bs-wasShown") then self:Show() end end ]])
 		DE.combatGuard = pcall(RegisterStateDriver, b, "bscombat", "[combat] lock; open") and true or false
 	end
 	-- Before the click commits: the slot must still hold the armed item, and it must still be eligible by what the
@@ -695,10 +698,20 @@ function DE:Frame()
 	local f = self.frame
 	if f then return f end
 	f = CreateFrame("Frame", "BagSmithDisenchant", UIParent, "BackdropTemplate")
-	f:SetSize(W, 440); f:SetFrameStrata("DIALOG"); f:SetClampedToScreen(true); f:EnableMouse(true)
+	f:SetSize(W, 440); f:SetFrameStrata("DIALOG"); f:SetClampedToScreen(true)
+	-- (1.5.6) The secure Disenchant button inside makes this window protected (Shweep, in game: IsProtected), and in combat
+	-- the game won't let an addon hide a protected window or change its mouse. So the window takes no clicks itself: its
+	-- catcher, BagSmith's own frame under every button, takes its empty space and dragging, and can be switched off in
+	-- combat when the window is closed as far as the player can tell (DE:Close).
+	f:EnableMouse(false)
+	f.bsCatcher = CreateFrame("Frame", nil, f)
+	f.bsCatcher:SetAllPoints(f); f.bsCatcher:SetFrameLevel(f:GetFrameLevel()); f.bsCatcher:EnableMouse(true)
+	f.bsCatcher:RegisterForDrag("LeftButton")
+	f.bsCatcher:SetScript("OnDragStart", function() local own = f:GetScript("OnDragStart"); if own then own(f) end end)
+	f.bsCatcher:SetScript("OnDragStop", function() local own = f:GetScript("OnDragStop"); if own then own(f) end end)
 	if f.SetToplevel then f:SetToplevel(true) end   -- above the bags window, and forward when clicked, like Settings
 	-- the corner X (Modern; the Classic chrome brings its own)
-	f.closeX = ns.IconButton(f, "Interface\\AddOns\\BagSmith\\Media\\ui-close.tga", "Close", function() f:Hide() end)
+	f.closeX = ns.IconButton(f, "Interface\\AddOns\\BagSmith\\Media\\ui-close.tga", "Close", function() DE:Close() end)
 	f.closeX:SetSize(18, 18); f.closeX:SetPoint("TOPRIGHT", -10, -10)
 	f:SetMovable(true); f:RegisterForDrag("LeftButton")
 	-- a frame anchored to another frame leaps when moved or sized: it is put on the screen first, at its own spot
@@ -754,7 +767,7 @@ function DE:Frame()
 	f.scroll = CreateFrame("ScrollFrame", "BagSmithDisenchantScroll", f, "UIPanelScrollFrameTemplate")
 	f.child = CreateFrame("Frame", nil, f.scroll); f.child:SetSize(W - 44, 10); f.scroll:SetScrollChild(f.child)
 	f.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.status:SetPoint("BOTTOMLEFT", 12, 36); f.status:SetWidth(W - 24); f.status:SetJustifyH("LEFT"); f.status:SetWordWrap(true)
-	f.close = ns.TextButton(f, "Close", 70, function() f:Hide() end); f.close:SetHeight(22); f.close:SetPoint("BOTTOMRIGHT", -12, 10)
+	f.close = ns.TextButton(f, "Close", 70, function() DE:Close() end); f.close:SetHeight(22); f.close:SetPoint("BOTTOMRIGHT", -12, 10)
 	-- consider skipped items again: a small undo arrow at the top right, only while something is skipped
 	f.refresh = ns.IconButton(f, "Interface\\AddOns\\BagSmith\\Media\\ui-undo.tga", "Consider skipped items again", function() DE:ClearSkipped() end)
 	f.refresh:SetSize(18, 18); f.refresh:SetPoint("RIGHT", f.closeX, "LEFT", -6, 0); f.refresh:Hide()
@@ -775,7 +788,7 @@ function DE:Frame()
 	-- centered on the window itself, like the title and the card (the line is short enough to clear Close)
 	f.footer = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.footer:SetPoint("BOTTOMLEFT", 12, 13); f.footer:SetPoint("BOTTOMRIGHT", -12, 13); f.footer:SetJustifyH("CENTER")
 	f.footer:SetText("Mats are DE estimates that improve as you disenchant."); f.footer:SetWordWrap(false)
-	f.classicSpec = ns.Classic.DialogSpec(f, { hide = { f.closeX }, restore = function() ns.Skins:ApplyBackdrop(f); local s = ns.Skins:Current(); f:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1) end })
+	f.classicSpec = ns.Classic.DialogSpec(f, { hide = { f.closeX }, close = function() DE:Close() end, restore = function() ns.Skins:ApplyBackdrop(f); local s = ns.Skins:Current(); f:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1) end })
 	ns.Skins:Register(f, function(fr)
 		ns.Skins:ApplyBackdrop(fr); local s = ns.Skins:Current(); fr:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1)
 		fr.title:SetTextColor(unpack(s.heading)); fr.sub:SetTextColor(unpack(s.muted)); fr.status:SetTextColor(unpack(s.muted)); fr.footer:SetTextColor(unpack(s.muted))
@@ -804,9 +817,11 @@ function DE:Frame()
 		if ns.Window and ns.Window.main and ns.Window.main.RefreshToolbar then ns.Window.main:RefreshToolbar() end
 	end)
 	f:Hide()
-	-- (1.5.4) Escape closes it like its Close button; in combat that waits until combat ends (the window holds the
-	-- secure Disenchant button)
-	ns:CloseOnEscape(f, function() ns:Safely("de:escape", function() if f:IsShown() then f:Hide() end end) end)
+	-- (1.5.4) Escape closes it like its Close button. (1.5.6) In combat too, as far as the player can tell (DE:Close), and
+	-- it fades in combat like the bags window.
+	ns:CloseOnEscape(f, function() DE:Close() end)
+	ns:CombatWindow(f)
+	f:HookScript("OnHide", function() DE:AfterClose() end)
 	self.frame = f
 	self:Layout()
 	return f
@@ -1097,6 +1112,13 @@ end
 
 function DE:Show()
 	if not (ns.db and ns.db.deEnabled) then ns:Print("Turn on the Disenchant Helper in Settings > Automations & Actions first."); return end
+	-- (1.5.6) closed in combat as far as the player can tell, and wanted again: it comes back as it was
+	if self.frame and self.frame.bsSoftClosed then self:Restore(); return end
+	-- in combat the game won't let a protected window be shown or moved: it doesn't open (or move) until combat ends
+	if InCombatLockdown() then
+		if not (self.frame and self.frame:IsShown()) then ns:Print("The Disenchant Helper can't open during combat.") end
+		return
+	end
 	local f = self:Frame()
 	f:ClearAllPoints()
 	local size = ns.db.deSize
@@ -1125,7 +1147,65 @@ function DE:Show()
 	f:Show()
 	self:Refresh()
 end
-function DE:Toggle() if self.frame and self.frame:IsShown() then self.frame:Hide() else self:Show() end end
+function DE:Toggle() if self.frame and self.frame:IsShown() and not self.frame.bsSoftClosed then self:Close() else self:Show() end end
+
+-- (1.5.6) Closing the helper. Its secure Disenchant button makes the window protected, and in combat the game won't let an
+-- addon hide it (Shweep: it couldn't be closed in combat). So in combat it closes as far as the player can tell: fully
+-- see-through, its click shield off, everything clickable that BagSmith owns switched off (the window takes no clicks
+-- itself, see DE:Frame), the Disenchant button already hidden by its combat guard; it finishes closing when combat ends.
+-- A helper the game doesn't count as protected just closes.
+local function eachChild(f, fn) for _, c in ipairs({ f:GetChildren() }) do fn(c); eachChild(c, fn) end end
+local function setMouse(f, on)
+	eachChild(f, function(c)
+		if c.IsProtected and c:IsProtected() then return end   -- (the secure button: its guard hides it in combat)
+		if not on then
+			if not c.bsMouseOff and c.EnableMouse then
+				c.bsMouseWas = not c.IsMouseEnabled or c:IsMouseEnabled()
+				c.bsMouseOff = true; c:EnableMouse(false)
+			end
+		elseif c.bsMouseOff then
+			c.bsMouseOff = nil; c:EnableMouse(c.bsMouseWas ~= false)
+		end
+	end)
+end
+local function syncEscape(f, shown)
+	local p = f.bsEscape
+	if p then p.syncing = true; p:SetShown(shown); p.syncing = nil end
+end
+function DE:Close()
+	local f = self.frame
+	if not (f and f:IsShown()) or f.bsSoftClosed then return end
+	if InCombatLockdown() and f.IsProtected and f:IsProtected() then
+		f.bsSoftClosed = true
+		f:SetAlpha(0)
+		if f.bsShield then f.bsShield:Hide() end
+		setMouse(f, false)
+		syncEscape(f, false)
+		ns:Safely("de:close", function() DE:FinishClose() end)
+		return
+	end
+	f:Hide()
+end
+-- after combat: really hide it (then AfterClose makes it whole again for next time)
+function DE:FinishClose() local f = self.frame; if f and f.bsSoftClosed and f:IsShown() then f:Hide() end end
+function DE:AfterClose()
+	local f = self.frame
+	if f and f.bsSoftClosed and not f:IsShown() then
+		f.bsSoftClosed = nil
+		f:SetAlpha(1)
+		setMouse(f, true)
+	end
+end
+-- wanted again before combat ended: as it was, faded like the other windows, Escape working again
+function DE:Restore()
+	local f = self.frame
+	if not (f and f.bsSoftClosed) then return end
+	f.bsSoftClosed = nil
+	ns:Safely("de:close", function() end)   -- the close waiting for combat's end is called off
+	setMouse(f, true)
+	ns:ApplyCombatFade(InCombatLockdown())
+	syncEscape(f, true)
+end
 
 ------------------------------------------------------------------------
 -- Events
@@ -1219,6 +1299,7 @@ function DE:OfferFrame()
 	end)
 	f:Hide()
 	ns:CloseOnEscape(f, function() DE:OfferAnswer("later") end)   -- (1.5.4) Escape is Ask Later, as its close is
+	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
 	self.offer = f
 	return f
 end

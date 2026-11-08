@@ -162,6 +162,7 @@ function Panel:Create()
 	self.pools = { cornerCards = {}, head = {}, check = {}, seg = {}, step = {}, list = {}, text = {}, edit = {}, btn = {}, color = {}, profiles = {}, cmd = {}, bind = {}, about = {}, csec = {}, csechead = {}, moved = {}, gset = {}, ptitle = {}, vis = {}, vishead = {}, pin = {}, card = {}, sep = {}, plug = {}, pnotice = {}, feat = {} }
 	self.page = self.page or "general"
 	table.insert(UISpecialFrames, "BagSmithSettings")
+	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
 	-- The Settings icon follows the window itself, however it opens or closes
 	-- (Esc closes it directly, without going through Panel:Hide).
 	local function syncIcon() local m = ns.Window.main; if m and m.btnSettings then m.btnSettings:SetActive(f:IsVisible() and true or false) end end
@@ -2112,6 +2113,21 @@ local SEARCHED = {
 	PluginNotice = function() return "plugins reload required pending change" end,
 	FeaturedCard = function(info) return (info.title or "") .. " " .. (info.text or ""), "plugin plugins featured official controller gamepad curseforge discord" end,
 }
+-- (1.5.6) Ranking (Shweep: searching "Recent" put its own setting near the bottom). A measuring pass grades each page by
+-- its best match, without drawing: 1, a setting's or card's own name starts with what was typed; 2, a name contains it
+-- further in, a row only names it (section lists, visibility, pins, custom sections, gear sets, plugins), or the page's
+-- name matches; 3, only a help line, an option or a keyword mentions it. Pages are then drawn best tier first, in menu
+-- order within a tier, each with its rows in their usual order.
+local NAMED = { Check = true, Seg = true, Step = true, Color = true, Binding = true, Button = true, Command = true, Edit = true }
+local NAMES = { List = true, VisibilityRow = true, PinRow = true, CustomSectionRow = true, GearSetRow = true, PluginRow = true, FeaturedCard = true }
+local function searchTier(kind, f, ...)
+	if not matches(f.words, ...) then return nil end
+	local name = (...)
+	name = name ~= nil and plain(name) or ""
+	if NAMED[kind] and name:sub(1, #f.phrase) == f.phrase then return 1 end
+	if (NAMED[kind] or NAMES[kind]) and matches(f.words, name) then return 2 end
+	return 3
+end
 -- The page name, then the card's heading (and a pending sub-heading), are
 -- drawn just before the first row that passes.
 function Panel:EmitPending()
@@ -2142,6 +2158,11 @@ for name, textOf in pairs(SEARCHED) do
 	Panel[name] = function(self, ...)
 		local f = self.filter
 		if f then
+			if f.measure then   -- (1.5.6) grading only: nothing is drawn
+				local tier = searchTier(name, f, textOf(...))
+				if tier and tier < f.best then f.best = tier end
+				return
+			end
 			if not (f.cardAll or matches(f.words, textOf(...))) then
 				-- Remembered, in case a setting indented under it matches.
 				f.lastSkipped = { orig = orig, args = { ... }, n = select("#", ...) }
@@ -2158,6 +2179,15 @@ local origHead = Panel.Head
 Panel.Head = function(self, text, info)
 	local f = self.filter
 	if not f then return origHead(self, text, info) end
+	if f.measure then   -- (1.5.6) grading only
+		local plainText = plain(text)
+		local tier
+		if plainText:sub(1, #f.phrase) == f.phrase then tier = 1
+		elseif matches(f.words, text) then tier = 2
+		elseif info and matches(f.words, table.concat(info.lines or {}, " "), info.keywords) then tier = 3 end
+		if tier and tier < f.best then f.best = tier end
+		return
+	end
 	self:CloseCard()
 	f.pendingHead, f.pendingSub, f.lastSkipped = text, nil, nil
 	f.pendingHeadInfo = info
@@ -2180,9 +2210,26 @@ local origText = Panel.Text
 function Panel:RefreshSearch(db)
 	local words = {}
 	for w in self.query:lower():gmatch("%S+") do words[#words + 1] = w end
+	local phrase = table.concat(words, " ")
+	-- (1.5.6) The measuring pass: each page's best tier, nothing drawn. Anything a page draws outside the searched rows
+	-- is wiped by the same reset Refresh does, before the results are drawn.
+	local y0 = self.y
+	local graded = {}
+	for i, p in ipairs(PAGES) do   -- (About & Support has its own button: never searched)
+		self.filter = { words = words, phrase = phrase, measure = true, best = math.huge }
+		local ok = pcall(pages[p[1]], self, db)
+		local best = self.filter.best
+		self.filter = nil
+		if matches(words, p[2]) and best > 2 then best = 2 end   -- the page's own name
+		if ok and best < math.huge then graded[#graded + 1] = { page = p, best = best, order = i } end
+	end
+	self.card, rowX, rowW = nil, 0, ROW_W
+	self.counts, self.y = {}, y0
+	for _, pool in pairs(self.pools) do for _, w in ipairs(pool) do w:Hide() end end
+	table.sort(graded, function(a, b) if a.best ~= b.best then return a.best < b.best end return a.order < b.order end)
 	self:PageTitle("Results:")
 	local list = {}
-	for _, p in ipairs(PAGES) do list[#list + 1] = p end   -- (About & Support has its own button: never searched)
+	for _, g in ipairs(graded) do list[#list + 1] = g.page end
 	local any = false
 	for _, p in ipairs(list) do
 		self.filter = { words = words, pageLabel = p[2], origHead = origHead, pageAll = matches(words, p[2]) }

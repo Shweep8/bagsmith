@@ -109,6 +109,7 @@ function MR:NeverWindow()
 	end)
 	f:Hide()
 	ns:CloseOnEscape(f, function() f:Hide() end)   -- (1.5.4) Escape closes it like its Close button
+	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
 	self.neverFrame = f
 	return f
 end
@@ -1033,6 +1034,7 @@ function MR:Frame()
 	end)
 	f:Hide()
 	ns:CloseOnEscape(f, function() f:Hide() end)   -- (1.5.4) Escape closes it like its close button
+	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
 	self.frame = f
 	return f
 end

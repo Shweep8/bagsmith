@@ -245,6 +245,7 @@ local function create()
 	card = f
 	f:Hide()
 	ns:CloseOnEscape(f, function() WN:Close() end)   -- (1.5.4) Escape closes it and marks it seen, as its close does
+	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
 	ns.Skins:Register(f, function(fr)
 		ns.Skins:ApplyBackdrop(fr)
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
