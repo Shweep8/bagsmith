@@ -454,6 +454,7 @@ DE.Refundable, DE.Tradeable = refundable, tradeable
 -- or false and why. Anything the client cannot answer is a no.
 function DE:LiveCheck(entry)
 	if not entry then return false, "nothing is armed" end
+	if not (ns.db and ns.db.deEnabled) then return false, "the Disenchant Helper is off" end   -- (1.5.7, C1)
 	local C = C_Container
 	if not (C and type(C.GetContainerItemInfo) == "function") then return false, "the bag could not be read" end
 	local ok, info = pcall(C.GetContainerItemInfo, entry.bag, entry.slot)
@@ -595,6 +596,7 @@ end
 -- Arm the button for an entry (out of combat only); nil disarms it.
 function DE:Arm(entry)
 	local b = self:Button()
+	if not (ns.db and ns.db.deEnabled) then entry = nil end   -- (1.5.7, C1) never armed while the helper is off
 	if InCombatLockdown and InCombatLockdown() then self.armPending = entry; return false end
 	self.armPending = nil
 	-- no combat guard, no arming: without it a click in combat would skip the checks (fail closed, 1.4.0-beta6)
@@ -715,8 +717,12 @@ function DE:Frame()
 	f.closeX:SetSize(18, 18); f.closeX:SetPoint("TOPRIGHT", -10, -10)
 	f:SetMovable(true); f:RegisterForDrag("LeftButton")
 	-- a frame anchored to another frame leaps when moved or sized: it is put on the screen first, at its own spot
-	f:SetScript("OnDragStart", function(self) DE.ToScreen(self); self:StartMoving() end)
+	-- (1.5.7, C3) moving or sizing a protected window is blocked in combat, whatever the combat lock: both do nothing then
+	-- (this script also serves the catcher and Classic's title band)
+	f:SetScript("OnDragStart", function(self) if InCombatLockdown() then return end; self.bsMoving = true; DE.ToScreen(self); self:StartMoving() end)
 	f:SetScript("OnDragStop", function(self)
+		if not self.bsMoving then return end
+		self.bsMoving = nil
 		self:StopMovingOrSizing()
 		local point, _, rel, x, yy = self:GetPoint(1)
 		if point then ns.db.dePos = { point, "UIParent", rel or point, math.floor(x + 0.5), math.floor(yy + 0.5) } end
@@ -726,8 +732,8 @@ function DE:Frame()
 	if f.SetResizeBounds then f:SetResizeBounds(self.MIN_W, self.MIN_H) elseif f.SetMinResize then f:SetMinResize(self.MIN_W, self.MIN_H) end
 	f.grip = CreateFrame("Button", nil, f); f.grip:SetSize(16, 16); f.grip:SetPoint("BOTTOMRIGHT", -4, 4)
 	f.grip.tex = f.grip:CreateTexture(nil, "OVERLAY"); f.grip.tex:SetAllPoints(); f.grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-	f.grip:SetScript("OnMouseDown", function() DE.ToScreen(f); if f.StartSizing then f:StartSizing("BOTTOMRIGHT") end end)
-	f.grip:SetScript("OnMouseUp", function() f:StopMovingOrSizing(); ns.db.deSize = { math.floor(f:GetWidth() + 0.5), math.floor(f:GetHeight() + 0.5) }; DE:Layout(); DE:Paint() end)
+	f.grip:SetScript("OnMouseDown", function() if InCombatLockdown() then return end; f.bsSizing = true; DE.ToScreen(f); if f.StartSizing then f:StartSizing("BOTTOMRIGHT") end end)
+	f.grip:SetScript("OnMouseUp", function() if not f.bsSizing then return end; f.bsSizing = nil; f:StopMovingOrSizing(); ns.db.deSize = { math.floor(f:GetWidth() + 0.5), math.floor(f:GetHeight() + 0.5) }; DE:Layout(); DE:Paint() end)
 	f:SetScript("OnSizeChanged", function() if f:IsShown() then DE:Layout() end end)
 	f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); f.title:SetPoint("TOPLEFT", 12, -12); f.title:SetText("Disenchant Helper")
 	f.sub = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.sub:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -3)
@@ -1099,6 +1105,11 @@ function DE:Paint()
 end
 
 function DE:Refresh()
+	-- (1.5.7, C2) In combat the helper doesn't repaint, open or closed as far as the player can tell: its item panel is the
+	-- secure button's parent, protected too, and showing or hiding it is blocked then. It repaints from a fresh look when
+	-- combat ends (PLAYER_REGEN_ENABLED).
+	if InCombatLockdown() then self.refreshPending = true; return end
+	self.refreshPending = nil
 	local f = self:Frame()
 	self.entries = self:Entries()
 	-- the current item: keep it if it is still there, else the first
@@ -1106,7 +1117,8 @@ function DE:Refresh()
 	if self.current then
 		for _, e in ipairs(self.entries) do if e.bag == self.current.bag and e.slot == self.current.slot and e.itemID == self.current.itemID then keep = e end end
 	end
-	self:Arm(keep or self.entries[1])
+	-- (1.5.7, D1) nothing armed when Disenchant isn't known (the profession was dropped)
+	if self:Known() then self:Arm(keep or self.entries[1]) else self:Arm(nil) end
 	self:Paint()
 end
 
@@ -1163,8 +1175,14 @@ local function setMouse(f, on)
 				c.bsMouseWas = not c.IsMouseEnabled or c:IsMouseEnabled()
 				c.bsMouseOff = true; c:EnableMouse(false)
 			end
-		elseif c.bsMouseOff then
-			c.bsMouseOff = nil; c:EnableMouse(c.bsMouseWas ~= false)
+			-- (1.5.7) and the wheel, so an invisible list can't take wheel input (the audit's advisory)
+			if not c.bsWheelOff and c.EnableMouseWheel then
+				c.bsWheelWas = not c.IsMouseWheelEnabled or c:IsMouseWheelEnabled()
+				c.bsWheelOff = true; c:EnableMouseWheel(false)
+			end
+		else
+			if c.bsMouseOff then c.bsMouseOff = nil; c:EnableMouse(c.bsMouseWas ~= false) end
+			if c.bsWheelOff then c.bsWheelOff = nil; c:EnableMouseWheel(c.bsWheelWas ~= false) end
 		end
 	end)
 end
@@ -1236,11 +1254,21 @@ ns:OnSignal("ADDON_READY", function()
 		if DE.frame and DE.frame:IsShown() then DE:Refresh() end
 	end)
 	-- combat over: re-arm from a fresh look (the state driver only disarms) (1.4.0-beta6: also when something was armed)
-	ns:On("PLAYER_REGEN_ENABLED", function() if DE.armPending ~= nil or DE.current ~= nil or (DE.frame and DE.frame:IsShown()) then DE:Refresh() end end)
+	ns:On("PLAYER_REGEN_ENABLED", function() if DE.refreshPending or DE.armPending ~= nil or DE.current ~= nil or (DE.frame and DE.frame:IsShown()) then DE:Refresh() end end)
 end)
+-- (1.5.7, C1) Turned off, by its setting or by switching to a profile where it's off (that signal has no key): the
+-- helper closes through the combat-safe close and is disarmed (now, or when combat ends; Arm refuses while off).
+function DE:Reconcile()
+	if ns.db and ns.db.deEnabled then return end
+	if self.frame and self.frame:IsShown() and not self.frame.bsSoftClosed then self:Close() end
+	self.current = nil
+	-- only a button that exists can be armed: building it here, before its window, would build the window around a
+	-- second one
+	if self.button then self:Arm(nil) end
+end
 ns:OnSignal("SETTINGS_CHANGED", function(key)
-	if (key == nil or key == "deMargin" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks") and DE.frame and DE.frame:IsShown() then DE:Refresh() end
-	if key == "deEnabled" and ns.db and not ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE.frame:Hide() end
+	if key == nil or key == "deEnabled" then DE:Reconcile() end
+	if (key == nil or key == "deMargin" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
 	if (key == nil or key == "deEnabled") and ns.Window and ns.Window.main and ns.Window.main.RefreshToolbar then ns.Window.main:RefreshToolbar() end
 end)
 

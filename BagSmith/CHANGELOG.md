@@ -1,3 +1,13 @@
+## 1.5.7
+
+Fixed:
+- Disenchant Helper: turning it off, or switching to a profile where it's off, now closes it right away (during combat
+  too) instead of leaving it open and usable.
+- Disenchant Helper: it no longer causes "action blocked" errors when your bags change during combat, or when you try to
+  move or resize it during combat (it waits until combat ends).
+- Disenchant Helper: if you drop Enchanting while it's open, its button stops offering a disenchant.
+- About & Support shows the right release date again (1.5.6 said November 7; it came out on the 8th).
+
 ## 1.5.6
 
 Changed:

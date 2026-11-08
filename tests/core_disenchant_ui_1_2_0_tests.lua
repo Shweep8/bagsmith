@@ -108,7 +108,9 @@
 	f.rows[2]:GetScript("OnClick")(f.rows[2])
 	check(f.rows[2].dotFill:IsShown() and not f.rows[1].dotFill:IsShown() and DE.current == f.rows[2].entry and b:GetAttribute("target-slot") == f.rows[2].entry.slot, "clicking a row selects it and arms it")
 	-- resizing re-lays the columns and remembers the size
-	f.w = 720; f.h = 500; f.grip:GetScript("OnMouseUp")(f.grip)
+	-- (1.5.7, by design) a resize starts with a press on the grip: a release alone (say, after a press in combat, which is
+	-- ignored) doesn't count as one
+	f.grip:GetScript("OnMouseDown")(f.grip); f.w = 720; f.h = 500; f.grip:GetScript("OnMouseUp")(f.grip)
 	check(n.db.deSize[1] == 720 and f.cols[2][3] > cols[2][3] and f.cols[6][2] + f.cols[6][3] <= 720 - 44, "a wider window gives the item column the extra room and the size is remembered")
 	f:Hide(); DE:Show()
 	check(f:GetWidth() == 720, "the remembered size is used next time")
