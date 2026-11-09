@@ -994,7 +994,7 @@ function MR:Frame()
 	-- Clean Up Bags is a way to free a slot like the others: a row you can choose.
 	f.cleanup = makeItemRow(f, { choosable = true }); f.cleanup:Hide()
 	f.cleanup.icon:SetTexture(MEDIA .. "ui-broom.tga"); f.cleanup.name:SetText("Clean Up Bags")
-	f.cleanup.tipFn = function(tip) tip:SetText("Clean Up Bags", 1, 1, 1); tip:AddLine("Blizzard's Clean Up Bags merges partial stacks, which can free a slot or two.", 0.9, 0.9, 0.9, true) end
+	f.cleanup.tipFn = function(tip) ns.TipText(tip, "Clean Up Bags", 1, 1, 1); ns.TipLine(tip, "Blizzard's Clean Up Bags merges partial stacks, which can free a slot or two.", 0.9, 0.9, 0.9, true) end
 	-- The one action, for the row you've chosen.
 	f.act = ns.TextButton(f, "", W - 24, function(btn) if MR.actRun then MR.actRun(btn) end end); f.act:SetHeight(24); f.act:Hide()
 	f.foot = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.foot:SetJustifyH("CENTER"); f.foot:SetWordWrap(false); f.foot:Hide()
@@ -1105,7 +1105,7 @@ function MR:Paint()
 			r.name:SetText(w.name); r.name:SetTextColor(qualityColor(w.quality))
 			r.value:SetText(w.id and self:ValueText(w.values) or ""); r.value:SetTextColor(unpack(s.muted))
 			r.tipFn = function(tip)
-				if w.slot and tip.SetLootItem then tip:SetLootItem(w.slot) elseif w.link then tip:SetHyperlink(w.link) else tip:SetText(w.name) end
+				if w.slot and tip.SetLootItem then tip:SetLootItem(w.slot) elseif w.link then tip:SetHyperlink(w.link) else ns.TipText(tip, w.name) end
 			end
 			-- Skip and Exclude are about leaving loot behind: not for quests.
 			r.btns[1]:SetShown(not quest); r.btns[2]:SetShown(not quest)

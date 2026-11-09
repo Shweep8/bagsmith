@@ -1,3 +1,12 @@
+## 1.5.8
+
+Changed:
+- Tooltips wrap their longer lines, so they no longer stretch across the screen.
+- Disenchant Helper: Mark as Junk is now a small button showing the pouch icon from List view, so it no longer covers
+  the line beside it in narrower windows.
+- Disenchant Helper: the results count now reads "in this range", with an info icon explaining that items of the same
+  quality and level range share it.
+
 ## 1.5.7
 
 Fixed:

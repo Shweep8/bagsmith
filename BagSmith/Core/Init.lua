@@ -218,6 +218,34 @@ end
 -- Combat-safe queue and next-frame coalescing
 ------------------------------------------------------------------------
 local queue, order = {}, {}
+-- (1.5.8) Longer tooltip lines wrap (Shweep: they took up too much of the screen). The game does the wrapping, since only
+-- it knows the tooltip's font and size (beta1 broke lines by counting characters, and lines the game also wrapped came
+-- out ragged): a line longer than TIP_SHORT visible characters is added with wrapping on, and the tooltip gets a minimum
+-- width of TIP_WIDTH so wrapped lines sit at a natural width instead of squeezing to a short title. The width is reset
+-- when the tooltip hides, so the game's own tooltips and other addons' are untouched. Short lines pass through as given.
+-- Every BagSmith tooltip line goes through TipLine or TipText.
+ns.TIP_SHORT, ns.TIP_WIDTH = 40, 280
+local function visibleLen(s)
+	return #(s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", "WW"):gsub("|A.-|a", "WW"):gsub("|H.-|h", ""):gsub("|h", ""))
+end
+function ns.TipIsLong(text) return type(text) == "string" and visibleLen(text) > ns.TIP_SHORT end
+function ns.TipWidth(tt)
+	if not (tt and tt.SetMinimumWidth) or tt.bsMinWidth then return end
+	tt:SetMinimumWidth(ns.TIP_WIDTH); tt.bsMinWidth = true
+	if not tt.bsWidthHook and tt.HookScript then
+		tt.bsWidthHook = true
+		tt:HookScript("OnHide", function(self) if self.bsMinWidth then self.bsMinWidth = nil; self:SetMinimumWidth(0) end end)
+	end
+end
+function ns.TipLine(tt, text, r, g, b, wrap, ...)
+	if ns.TipIsLong(text) then ns.TipWidth(tt); return tt:AddLine(text, r, g, b, true, ...) end
+	return tt:AddLine(text, r, g, b, wrap, ...)
+end
+function ns.TipText(tt, text, r, g, b, a, wrap, ...)
+	if ns.TipIsLong(text) then ns.TipWidth(tt); return tt:SetText(text, r or 1, g or 1, b or 1, a or 1, true, ...) end
+	return tt:SetText(text, r, g, b, a, wrap, ...)
+end
+
 -- (1.5.4) Escape closes a BagSmith window by running that window's own close action, what its close button does. A
 -- small invisible stand-in goes on the game's Escape list (UISpecialFrames): it's shown while the window is, and when
 -- Escape hides it, the close action runs. The game never hides the window itself, so a window holding a secure button

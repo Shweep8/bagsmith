@@ -168,7 +168,8 @@
 	local lines, head = DE:LikelyLines(recOf(7001))
 	check(head == "from 20 of your results" and lines[1] == "Strange Dust: 2.0 per cast, in 20 of 20", "the likely lines say how often each material showed up")
 	local el, eh = DE:LikelyLines(recOf(7003))
-	check(eh == "DE estimate, 0 of 20 of your disenchants" and el[1]:find("about 100%%", 1) and el[1]:find("^Small Radiant Shard: 1,"), "a bracket without your results shows the range and rough odds as a DE estimate with the progress toward your own results")
+	check(eh == "DE estimate, 0 of 20 in this range" and   -- (1.5.8, by design) the count reads "in this range"
+		 el[1]:find("about 100%%", 1) and el[1]:find("^Small Radiant Shard: 1,"), "a bracket without your results shows the range and rough odds as a DE estimate with the progress toward your own results")
 	local _, bh = DE:LikelyLines(recOf(7001))
 	check(bh == "from 20 of your results", "and a graduated bracket says so")
 	-- skip and never

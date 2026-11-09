@@ -197,7 +197,7 @@ local function create()
 	f.fieldText:SetJustifyH("LEFT"); f.fieldText:SetWordWrap(false)
 	f.field:SetScript("OnClick", function() WN:StartCopy() end)
 	f.field:SetScript("OnEnter", function(b)
-		if ns.TooltipsOK() then GameTooltip:SetOwner(b, "ANCHOR_TOP"); GameTooltip:SetText(WN.URL, 1, 1, 1); GameTooltip:AddLine("Click to copy", 0.6, 0.6, 0.6); GameTooltip:Show() end
+		if ns.TooltipsOK() then GameTooltip:SetOwner(b, "ANCHOR_TOP"); ns.TipText(GameTooltip, WN.URL, 1, 1, 1); ns.TipLine(GameTooltip, "Click to copy", 0.6, 0.6, 0.6); GameTooltip:Show() end
 	end)
 	f.field:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	f.copy = ns.IconButton(f, "Interface\\AddOns\\BagSmith\\Media\\ui-copy.tga", "Copy the address", function() WN:StartCopy() end)

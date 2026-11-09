@@ -190,16 +190,16 @@ function J:CellEnter(jc)
 	GameTooltip:SetOwner(jc, "ANCHOR_TOP")
 	local key = J:Key()
 	if jc.state == "blocked" then
-		GameTooltip:SetText("Can't Be Marked as Junk"); GameTooltip:AddLine(jc.reason or "", 0.6, 0.6, 0.6, true)
+		ns.TipText(GameTooltip, "Can't Be Marked as Junk"); ns.TipLine(GameTooltip, jc.reason or "", 0.6, 0.6, 0.6, true)
 	elseif jc.state == "grey" then
-		GameTooltip:SetText("Junk"); GameTooltip:AddLine("Grey items are always sold with Sell All Junk.", 0.6, 0.6, 0.6, true)
+		ns.TipText(GameTooltip, "Junk"); ns.TipLine(GameTooltip, "Grey items are always sold with Sell All Junk.", 0.6, 0.6, 0.6, true)
 	elseif jc.state == "marked" then
-		GameTooltip:SetText("Marked as Junk"); GameTooltip:AddLine("Sold with Sell All Junk. Click to unmark.", 0.6, 0.6, 0.6, true)
-		if key then GameTooltip:AddLine(("Or press %s with the pointer on the item."):format(key), 0.6, 0.6, 0.6, true) end
+		ns.TipText(GameTooltip, "Marked as Junk"); ns.TipLine(GameTooltip, "Sold with Sell All Junk. Click to unmark.", 0.6, 0.6, 0.6, true)
+		if key then ns.TipLine(GameTooltip, ("Or press %s with the pointer on the item."):format(key), 0.6, 0.6, 0.6, true) end
 	else
-		GameTooltip:SetText("Mark as Junk"); GameTooltip:AddLine("Click to sell it with Sell All Junk.", 0.6, 0.6, 0.6, true)
-		if key then GameTooltip:AddLine(("Or press %s with the pointer on the item."):format(key), 0.6, 0.6, 0.6, true)
-		else GameTooltip:AddLine("Tip: set a key for this in Settings > Keybindings.", 0.6, 0.6, 0.6, true) end
+		ns.TipText(GameTooltip, "Mark as Junk"); ns.TipLine(GameTooltip, "Click to sell it with Sell All Junk.", 0.6, 0.6, 0.6, true)
+		if key then ns.TipLine(GameTooltip, ("Or press %s with the pointer on the item."):format(key), 0.6, 0.6, 0.6, true)
+		else ns.TipLine(GameTooltip, "Tip: set a key for this in Settings > Keybindings.", 0.6, 0.6, 0.6, true) end
 	end
 	GameTooltip:Show()
 end
@@ -215,11 +215,11 @@ function J:Key() return ns.KeyBinds and ns.KeyBinds:Key("BAGSMITH_MARKJUNK") end
 function J:AddTooltipLines(tip, rec)
 	if not (tip and rec and not rec.empty and not rec.cached and not J:IsGrey(rec)) then return end
 	local marked = J:Marked(rec.itemID)
-	if marked then tip:AddLine("Marked as junk: sold with Sell All Junk.", 0.98, 0.78, 0.46) end
+	if marked then ns.TipLine(tip, "Marked as junk: sold with Sell All Junk.", 0.98, 0.78, 0.46) end
 	-- A hint only when a key is bound (no clutter otherwise).
 	local key = J:Key()
 	if key and (marked or J:Markable(rec)) then
-		tip:AddLine(("Press %s to %s"):format(key, marked and "unmark" or "mark as junk"), 0.6, 0.6, 0.6)
+		ns.TipLine(tip, ("Press %s to %s"):format(key, marked and "unmark" or "mark as junk"), 0.6, 0.6, 0.6)
 	end
 end
 
@@ -452,13 +452,13 @@ function J:SellButton()
 	b:SetScript("OnClick", function() J:SellMarked(true) end)
 	b:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText(J:ButtonTitle())
+		ns.TipText(GameTooltip, J:ButtonTitle())
 		local junk = J.retry and J.retryJunk
 		local list, value, loading = junk and J:JunkInBags() or J:MarkedInBags(), 0, false
 		for _, it in ipairs(list) do if it.value then value = value + it.value else loading = true end end
-		GameTooltip:AddLine(("%d %s %s for %s%s"):format(#list, junk and "junk" or "marked", #list == 1 and "item" or "items",
+		ns.TipLine(GameTooltip, ("%d %s %s for %s%s"):format(#list, junk and "junk" or "marked", #list == 1 and "item" or "items",
 			GetCoinTextureString and GetCoinTextureString(value) or ns.Money(value), loading and " (some prices still loading)" or ""), 1, 1, 1)
-		GameTooltip:AddLine(junk and "Junk that didn't sell last time, with any other junk in your bags." or "Items you marked as junk in BagSmith.", 0.6, 0.6, 0.6, true)
+		ns.TipLine(GameTooltip, junk and "Junk that didn't sell last time, with any other junk in your bags." or "Items you marked as junk in BagSmith.", 0.6, 0.6, 0.6, true)
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function() GameTooltip:Hide() end)

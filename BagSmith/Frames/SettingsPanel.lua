@@ -659,7 +659,7 @@ function Panel:Color(key, label, help)
 		w.swatch:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
 		w.swatch:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
 		w.swatch:SetScript("OnClick", function(b) local row = b:GetParent(); openPicker(row.key, ns.db[row.key]) end)
-		w.swatch:SetScript("OnEnter", function(b) GameTooltip:SetOwner(b, "ANCHOR_TOP"); GameTooltip:SetText("Pick a color"); GameTooltip:Show() end)
+		w.swatch:SetScript("OnEnter", function(b) GameTooltip:SetOwner(b, "ANCHOR_TOP"); ns.TipText(GameTooltip, "Pick a color"); GameTooltip:Show() end)
 		w.swatch:SetScript("OnLeave", function() GameTooltip:Hide() end)
 		ns.HoverWash(w.swatch, 0)
 		w.box = CreateFrame("EditBox", nil, w, "InputBoxTemplate"); w.box:SetSize(72, 22); w.box:SetAutoFocus(false); w.box:SetMaxLetters(7)
@@ -735,7 +735,7 @@ function Panel:List(items, onCheck, onMove)
 			-- A row can explain itself (for example why it can't be ticked).
 			local function tipOn(f)
 				local row = f.tipRow or f
-				if row.tip and ns.TooltipsOK() then GameTooltip:SetOwner(f, "ANCHOR_RIGHT"); GameTooltip:SetText(row.tip, 1, 1, 1, 1, true); GameTooltip:Show() end
+				if row.tip and ns.TooltipsOK() then GameTooltip:SetOwner(f, "ANCHOR_RIGHT"); ns.TipText(GameTooltip, row.tip, 1, 1, 1, 1, true); GameTooltip:Show() end
 			end
 			r.box.tipRow = r
 			r.box:SetScript("OnEnter", tipOn); r.box:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -794,7 +794,7 @@ local function makeDrop(parent)
 	d:RegisterForClicks("LeftButtonUp")
 	d:SetScript("OnClick", function(self) if self.onPick then self.onPick(self) end end)
 	d:SetScript("OnEnter", function(self)
-		if self.tip and ns.TooltipsOK() then GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(self.full or "", 1, 1, 1); GameTooltip:AddLine(self.tip, nil, nil, nil, true); GameTooltip:Show() end
+		if self.tip and ns.TooltipsOK() then GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); ns.TipText(GameTooltip, self.full or "", 1, 1, 1); ns.TipLine(GameTooltip, self.tip, nil, nil, nil, true); GameTooltip:Show() end
 	end)
 	d:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	return d
@@ -1087,8 +1087,8 @@ function Panel:GearSetRow(set)
 		w.pick:SetScript("OnClick", pick); w.pick:SetScript("OnDragStart", pick)
 		w.pick:SetScript("OnEnter", function(b)
 			if not ns.TooltipsOK() then return end
-			GameTooltip:SetOwner(b, "ANCHOR_TOP"); GameTooltip:SetText("Put on Action Bar")
-			GameTooltip:AddLine("Click or drag it, then click an action bar slot to place the set there.", nil, nil, nil, true)
+			GameTooltip:SetOwner(b, "ANCHOR_TOP"); ns.TipText(GameTooltip, "Put on Action Bar")
+			ns.TipLine(GameTooltip, "Click or drag it, then click an action bar slot to place the set there.", nil, nil, nil, true)
 			GameTooltip:Show()
 		end)
 		w.pick:SetScript("OnLeave", function() GameTooltip:Hide() end)

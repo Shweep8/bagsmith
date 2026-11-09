@@ -150,15 +150,15 @@ local function slotTooltip(btn)
 		if btn.invID and GetInventoryItemLink("player", btn.invID) then
 			GameTooltip:SetInventoryItem("player", btn.invID)
 		else
-			GameTooltip:SetText("Empty Bank Bag Slot", 1, 1, 1)
-			GameTooltip:AddLine("Drop a bag here", 0.6, 0.6, 0.6)
+			ns.TipText(GameTooltip, "Empty Bank Bag Slot", 1, 1, 1)
+			ns.TipLine(GameTooltip, "Drop a bag here", 0.6, 0.6, 0.6)
 		end
 	elseif btn.forSale then
-		GameTooltip:SetText("Bank Bag Slot for Sale", 1, 1, 1)
-		GameTooltip:AddLine("Click to buy for " .. (btn.cost and GetMoneyString(btn.cost, true) or "?"), 0.6, 0.6, 0.6)
+		ns.TipText(GameTooltip, "Bank Bag Slot for Sale", 1, 1, 1)
+		ns.TipLine(GameTooltip, "Click to buy for " .. (btn.cost and GetMoneyString(btn.cost, true) or "?"), 0.6, 0.6, 0.6)
 	else
-		GameTooltip:SetText("Bank Bag Slot", 1, 1, 1)
-		GameTooltip:AddLine("Buy the earlier slots first", 0.6, 0.6, 0.6)
+		ns.TipText(GameTooltip, "Bank Bag Slot", 1, 1, 1)
+		ns.TipLine(GameTooltip, "Buy the earlier slots first", 0.6, 0.6, 0.6)
 	end
 	GameTooltip:Show()
 end

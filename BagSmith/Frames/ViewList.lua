@@ -396,8 +396,8 @@ function View:LayoutColumnGrips(plan, narrowHeader)
 					local r1, g1, b1 = Skins:Accent(); s.tex:SetVertexColor(r1, g1, b1, 0.9)
 					if ns.TooltipsOK() then
 						GameTooltip:SetOwner(s, "ANCHOR_TOP")
-						GameTooltip:SetText(("Drag to resize %s and %s"):format(colName(s.left.key), colName(s.right.key)))
-						GameTooltip:AddLine("Double-click to reset both", 0.6, 0.6, 0.6)
+						ns.TipText(GameTooltip, ("Drag to resize %s and %s"):format(colName(s.left.key), colName(s.right.key)))
+						ns.TipLine(GameTooltip, "Double-click to reset both", 0.6, 0.6, 0.6)
 						GameTooltip:Show()
 					end
 				end)
@@ -768,8 +768,8 @@ function View:LockCell(host, i, rec, x, y, cell)
 			if not (cf.rec and ns.TooltipsOK()) then return end
 			local where = ns.Sections:Where() == "ah" and "the auction house" or "vendors"
 			GameTooltip:SetOwner(cf, "ANCHOR_RIGHT")
-			GameTooltip:SetText(cf.rec.name or "Hidden item", 1, 1, 1)
-			GameTooltip:AddLine(("Hidden at %s (%s). Use Show Them at the end of the bags list to show it."):format(where, ns.Sections:Label(ns.Sections:EffectiveSection(cf.rec))), 0.8, 0.8, 0.8, true)
+			ns.TipText(GameTooltip, cf.rec.name or "Hidden item", 1, 1, 1)
+			ns.TipLine(GameTooltip, ("Hidden at %s (%s). Use Show Them at the end of the bags list to show it."):format(where, ns.Sections:Label(ns.Sections:EffectiveSection(cf.rec))), 0.8, 0.8, 0.8, true)
 			GameTooltip:Show()
 		end)
 		c:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1336,22 +1336,22 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 					-- Holding an item over a section that takes it: say what dropping does.
 					local hint = ns.Sections and ns.Sections:DropHint(btn.laneId)
 					if hint then
-						GameTooltip:SetOwner(btn, "ANCHOR_TOP"); GameTooltip:SetText(hint, 1, 1, 1); GameTooltip:Show()
+						GameTooltip:SetOwner(btn, "ANCHOR_TOP"); ns.TipText(GameTooltip, hint, 1, 1, 1); GameTooltip:Show()
 						btn.dropLit = true; btn.accent:SetVertexColor(1, 1, 1, 1)
 						return
 					end
 					if not ns.TooltipsOK() then return end
 					GameTooltip:SetOwner(btn, "ANCHOR_TOP")
 					if btn.laneId == "~recent" then
-						GameTooltip:SetText("Recent Items", 1, 1, 1)
-						GameTooltip:AddLine("Items you picked up since you logged in. They're also in their usual sections; Clear Recent empties this list without moving or removing anything.", nil, nil, nil, true)
+						ns.TipText(GameTooltip, "Recent Items", 1, 1, 1)
+						ns.TipLine(GameTooltip, "Items you picked up since you logged in. They're also in their usual sections; Clear Recent empties this list without moving or removing anything.", nil, nil, nil, true)
 					else
-						GameTooltip:SetText(btn.text:GetText() or "", 1, 1, 1)
+						ns.TipText(GameTooltip, btn.text:GetText() or "", 1, 1, 1)
 						if ns.GearSets and ns.GearSets.IsLane(btn.laneId) then
-							GameTooltip:AddLine("A gear set from the game's Equipment Manager: its items that are in your bags. Right-click for more.", nil, nil, nil, true)
+							ns.TipLine(GameTooltip, "A gear set from the game's Equipment Manager: its items that are in your bags. Right-click for more.", nil, nil, nil, true)
 						end
-						GameTooltip:AddLine("Vendor (V): what a merchant pays for everything in this section.", nil, nil, nil, true)
-						if btn.showAH then GameTooltip:AddLine("AH: the total from Auctionator's last scan. Items it hasn't scanned are left out.", nil, nil, nil, true) end
+						ns.TipLine(GameTooltip, "Vendor (V): what a merchant pays for everything in this section.", nil, nil, nil, true)
+						if btn.showAH then ns.TipLine(GameTooltip, "AH: the total from Auctionator's last scan. Items it hasn't scanned are left out.", nil, nil, nil, true) end
 					end
 					GameTooltip:Show()
 				end)

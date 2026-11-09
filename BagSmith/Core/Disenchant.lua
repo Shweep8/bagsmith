@@ -281,7 +281,7 @@ function DE:LikelyLines(rec)
 			lines[#lines + 1] = ("%s: %s, about %d%%"):format(self.MatName(m[1]), qty, math.floor(m.chance * 100 + 0.5))
 		end
 	end
-	local head = basis == "yours" and ("from %d of your results"):format(n) or ("DE estimate, %d of %d of your disenchants"):format(n or 0, self.CALIBRATE_AT)
+	local head = basis == "yours" and ("from %d of your results"):format(n) or ("DE estimate, %d of %d in this range"):format(n or 0, self.CALIBRATE_AT)
 	return lines, head, basis, n
 end
 
@@ -753,7 +753,15 @@ function DE:Frame()
 	f.cur.likely = f.cur:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.cur.likely:SetPoint("TOPLEFT", f.cur.likelyHead, "BOTTOMLEFT", 0, -2); f.cur.likely:SetPoint("RIGHT", f.cur, "RIGHT", 0, 0); f.cur.likely:SetJustifyH("LEFT"); f.cur.likely:SetJustifyV("TOP"); f.cur.likely:SetWordWrap(true)
 	if f.cur.likely.SetFont and f.cur.likely.GetFont then local font, _, flags = f.cur.likely:GetFont(); if font then f.cur.likely:SetFont(font, 10, flags) end end
 	-- the basis on its own short line at the bottom of the box, never wrapping
-	f.cur.basis = f.cur:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.cur.basis:SetPoint("BOTTOMLEFT", f.cur.rule, "BOTTOMRIGHT", 10, 2); f.cur.basis:SetPoint("RIGHT", f.cur, "RIGHT", 0, 0); f.cur.basis:SetJustifyH("LEFT"); f.cur.basis:SetWordWrap(false)
+	f.cur.basis = f.cur:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.cur.basis:SetPoint("BOTTOMLEFT", f.cur.rule, "BOTTOMRIGHT", 10, 2); f.cur.basis:SetJustifyH("LEFT"); f.cur.basis:SetWordWrap(false)
+	-- (1.5.8) an (i) right after the count, explaining that it's shared (Shweep: it read as if it were per item)
+	f.cur.info = ns.Why.InfoButton(f.cur)
+	f.cur.info:SetPoint("LEFT", f.cur.basis, "RIGHT", 4, 0)
+	f.cur.info.title = "Your Disenchant Results"
+	f.cur.info.lines = {
+		"Items of the same quality and level range share this count. Uncommon weapons and armor count separately.",
+		("After %d, likely results come from your own disenchants."):format(DE.CALIBRATE_AT),
+	}
 	if f.cur.basis.SetFont and f.cur.basis.GetFont then local font, _, flags = f.cur.basis:GetFont(); if font then f.cur.basis:SetFont(font, 10, flags) end end
 	local b = self:Button(f.cur)
 	b:ClearAllPoints(); b:SetPoint("BOTTOMLEFT", f.cur, "BOTTOMLEFT", 0, 0)
@@ -761,8 +769,13 @@ function DE:Frame()
 	f.skip.tip = "Pass on it for now"
 	f.never = ns.TextButton(f.cur, "Exclude", 70, function() DE:NeverCurrent() end); f.never:SetHeight(24); f.never:SetPoint("LEFT", f.skip, "RIGHT", 6, 0)
 	f.never.tip = "Add it to your DE Exclusion List"
-	f.junk = ns.TextButton(f.cur, "Mark as Junk", 110, function() DE:JunkCurrent() end); f.junk:SetHeight(24); f.junk:SetPoint("LEFT", f.never, "RIGHT", 6, 0)
-	f.junk.tip = "Mark it as junk"
+	-- (1.5.8) A button like its neighbours with the pouch from List view's Junk column as its label (the word ran past the
+	-- vertical rule over the count line in narrower windows; a bare icon didn't look like a button: Shweep). The pouch is
+	-- the label, so both skins dress and place it like any button's text; the row ends at 324, before the rule (330+).
+	f.junk = ns.TextButton(f.cur, "|TInterface\\AddOns\\BagSmith\\Media\\ui-pouch.tga:16:16|t", 30, function() DE:JunkCurrent() end)
+	f.junk:SetHeight(24); f.junk:SetPoint("LEFT", f.never, "RIGHT", 6, 0)
+	f.junk.tip = "Mark as Junk"
+	f.junk.tipSub = "Sell Junk will sell it at your next vendor."
 	-- the list: a selection dot, the item, three values, the recommendation
 	f.heads = {}
 	for i = 1, #COLS do
@@ -897,15 +910,15 @@ function DE:RowTip(r)
 	if not (e and GameTooltip) then return end
 	GameTooltip:SetOwner(r, "ANCHOR_RIGHT")
 	GameTooltip:ClearLines()
-	if e.link then GameTooltip:SetHyperlink(e.link) else GameTooltip:AddLine(e.name or "") end
-	GameTooltip:AddLine(" ")
-	if not (ns.AH and ns.AH:Available()) then GameTooltip:AddLine(self.NO_AUCTIONATOR, 0.8, 0.8, 0.8, true)
-	elseif e.matsWhy == "no-price" then GameTooltip:AddLine(self.NoPriceTip(self.MatName(e.missing)), 0.8, 0.8, 0.8, true)
-	elseif e.ah == nil then GameTooltip:AddLine(self.NoPriceTip(e.name), 0.8, 0.8, 0.8, true) end
+	if e.link then GameTooltip:SetHyperlink(e.link) else ns.TipLine(GameTooltip, e.name or "") end
+	ns.TipLine(GameTooltip, " ")
+	if not (ns.AH and ns.AH:Available()) then ns.TipLine(GameTooltip, self.NO_AUCTIONATOR, 0.8, 0.8, 0.8, true)
+	elseif e.matsWhy == "no-price" then ns.TipLine(GameTooltip, self.NoPriceTip(self.MatName(e.missing)), 0.8, 0.8, 0.8, true)
+	elseif e.ah == nil then ns.TipLine(GameTooltip, self.NoPriceTip(e.name), 0.8, 0.8, 0.8, true) end
 	local lines, head = self:LikelyLines(e.rec)
 	if lines then
-		GameTooltip:AddLine(("Likely results (%s):"):format(head), 1, 0.82, 0)
-		for _, l in ipairs(lines) do GameTooltip:AddLine(l, 0.9, 0.9, 0.9) end
+		ns.TipLine(GameTooltip, ("Likely results (%s):"):format(head), 1, 0.82, 0)
+		for _, l in ipairs(lines) do ns.TipLine(GameTooltip, l, 0.9, 0.9, 0.9) end
 	end
 	GameTooltip:Show()
 end
@@ -1058,7 +1071,7 @@ function DE:Paint()
 		f.cur.likelyHead:SetText("Likely results")
 		f.cur.likely:SetText(lines and table.concat(lines, "\n") or "No table for this item.")
 		f.cur.basis:SetText(head and (head:sub(1, 1):upper() .. head:sub(2)) or "")
-		f.cur.rule:Show(); f.cur.likelyHead:Show(); f.cur.likely:Show(); f.cur.basis:Show()
+		f.cur.rule:Show(); f.cur.likelyHead:Show(); f.cur.likely:Show(); f.cur.basis:Show(); f.cur.info:SetShown(head ~= nil)
 		f.junk:SetShown(cur.verdict == "vendor" and ns.Junk ~= nil and not ns.Junk:Marked(cur.itemID))   -- never a nudge toward junking something the AH pays for
 	else
 		f.cur:Hide()

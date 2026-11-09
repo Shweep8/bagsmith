@@ -90,14 +90,14 @@ local function tooltip(btn)
 	if btn.inv and GetInventoryItemLink("player", btn.inv) then
 		GameTooltip:SetInventoryItem("player", btn.inv)
 	elseif btn.bag == 0 then
-		GameTooltip:SetText(bagName(0), 1, 1, 1)
+		ns.TipText(GameTooltip, bagName(0), 1, 1, 1)
 	else
-		GameTooltip:SetText(ns:IsReagentBag(btn.bag) and "Empty Reagent Bag Slot" or "Empty Bag Slot", 1, 1, 1)
-		GameTooltip:AddLine("Drop a bag here", 0.6, 0.6, 0.6)
+		ns.TipText(GameTooltip, ns:IsReagentBag(btn.bag) and "Empty Reagent Bag Slot" or "Empty Bag Slot", 1, 1, 1)
+		ns.TipLine(GameTooltip, "Drop a bag here", 0.6, 0.6, 0.6)
 	end
 	if info and (info.size or 0) > 0 then
-		GameTooltip:AddLine(("%d of %d slots free"):format(info.free or 0, info.size), 0.6, 0.6, 0.6)
-		GameTooltip:AddLine("Click to open or close its own window", 0.6, 0.6, 0.6)
+		ns.TipLine(GameTooltip, ("%d of %d slots free"):format(info.free or 0, info.size), 0.6, 0.6, 0.6)
+		ns.TipLine(GameTooltip, "Click to open or close its own window", 0.6, 0.6, 0.6)
 	end
 	GameTooltip:Show()
 end
@@ -204,18 +204,18 @@ end
 local function keyTooltip(btn)
 	if not ns.TooltipsOK() then return end
 	GameTooltip:SetOwner(btn, "ANCHOR_TOP")
-	GameTooltip:SetText("Keys", 1, 1, 1)
+	ns.TipText(GameTooltip, "Keys", 1, 1, 1)
 	local list = keys()
 	if #list == 0 then
-		GameTooltip:AddLine("No keys in your bags", 0.6, 0.6, 0.6)
+		ns.TipLine(GameTooltip, "No keys in your bags", 0.6, 0.6, 0.6)
 	else
 		for i, r in ipairs(list) do
-			if i > 12 then GameTooltip:AddLine(("and %d more"):format(#list - 12), 0.6, 0.6, 0.6); break end
+			if i > 12 then ns.TipLine(GameTooltip, ("and %d more"):format(#list - 12), 0.6, 0.6, 0.6); break end
 			local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[r.quality or 1]
 			local name = (r.count or 1) > 1 and ("%s x%d"):format(r.name or "?", r.count) or (r.name or "?")
-			if c then GameTooltip:AddLine(name, c.r, c.g, c.b) else GameTooltip:AddLine(name, 1, 1, 1) end
+			if c then ns.TipLine(GameTooltip, name, c.r, c.g, c.b) else ns.TipLine(GameTooltip, name, 1, 1, 1) end
 		end
-		GameTooltip:AddLine(keysOnly() and "Click to show everything again" or "Click to show only your keys", 0.6, 0.6, 0.6)
+		ns.TipLine(GameTooltip, keysOnly() and "Click to show everything again" or "Click to show only your keys", 0.6, 0.6, 0.6)
 	end
 	GameTooltip:Show()
 end

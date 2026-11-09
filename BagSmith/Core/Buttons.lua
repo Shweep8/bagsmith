@@ -285,8 +285,8 @@ function Buttons:PlaceKebab(b, x)
 			kebabAlpha(self:GetParent())
 			if not ns.TooltipsOK() then return end
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetText("Item menu", 1, 1, 1)
-			GameTooltip:AddLine("Move to Section, Favorite, Mark as Junk, Track as Currency", 0.8, 0.8, 0.8, true)
+			ns.TipText(GameTooltip, "Item menu", 1, 1, 1)
+			ns.TipLine(GameTooltip, "Move to Section, Favorite, Mark as Junk, Track as Currency", 0.8, 0.8, 0.8, true)
 			GameTooltip:Show()
 		end)
 		k:SetScript("OnLeave", function(self) GameTooltip:Hide(); kebabAlpha(self:GetParent()) end)
@@ -498,12 +498,12 @@ function Buttons.AddTooltipExtras(tip)
 	local sets = ns.GearSets and ns.GearSets:Showing() and ns.GearSets:SetsOf(rec)
 	if sets and #sets > 1 then
 		local names = table.concat(sets, ", ", 1, #sets - 1) .. " and " .. sets[#sets]
-		tip:AddLine(("In gear sets %s: one item, shown in each set."):format(names), 0.6, 0.85, 1, true)
+		ns.TipLine(tip, ("In gear sets %s: one item, shown in each set."):format(names), 0.6, 0.85, 1, true)
 	end
 	-- A live merged row at the bank: right-click moves every stack it shows.
 	-- (Saved rows, other characters' or the saved Bank sheet, can't move anything.)
 	if ns.atBank and rec.merged and (rec.stacks or 1) > 1 and not rec.cached and not owner.cached and rec.members and #rec.members > 1 then
-		tip:AddLine(("Right-click: move all %d stacks"):format(rec.stacks), 0.6, 0.85, 1)
+		ns.TipLine(tip, ("Right-click: move all %d stacks"):format(rec.stacks), 0.6, 0.85, 1)
 	end
 end
 function Buttons.InstallTooltipHook()
@@ -766,14 +766,14 @@ local function decorateCached(b)
 			-- A missing gear set piece: its name and where it was looked for.
 			if not self.rec.displayWhy then return end
 			Buttons.PlaceTooltip(self)
-			GameTooltip:SetText(self.rec.name or "", 1, 1, 1)
-			GameTooltip:AddLine(self.rec.displayWhy, nil, nil, nil, true)
+			ns.TipText(GameTooltip, self.rec.name or "", 1, 1, 1)
+			ns.TipLine(GameTooltip, self.rec.displayWhy, nil, nil, nil, true)
 			GameTooltip:Show()
 			return
 		end
 		Buttons.PlaceTooltip(self)
 		GameTooltip:SetHyperlink(self.rec.link)
-		if self.rec.display and self.rec.displayWhy then GameTooltip:AddLine(self.rec.displayWhy, 0.6, 0.6, 0.6, true) end
+		if self.rec.display and self.rec.displayWhy then ns.TipLine(GameTooltip, self.rec.displayWhy, 0.6, 0.6, 0.6, true) end
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -988,7 +988,7 @@ local function decorateMirror(b)
 		if not self.bag then return end
 		if ns.TooltipsOK() then
 			Buttons.PlaceTooltip(self)
-			if self.rec then GameTooltip:SetBagItem(self.bag, self:GetID()) else GameTooltip:SetText(ns:BagName(self.bag), 1, 1, 1) end
+			if self.rec then GameTooltip:SetBagItem(self.bag, self:GetID()) else ns.TipText(GameTooltip, ns:BagName(self.bag), 1, 1, 1) end
 			GameTooltip:Show()
 		end
 		CursorUpdate(self)

@@ -171,9 +171,9 @@ function M:CellEnter(c)
 	local key = ns.KeyBinds and ns.KeyBinds:Key(k.binding)
 	local title, line, showKey = k.tip(c.state, c.reason, key)
 	GameTooltip:SetOwner(c, "ANCHOR_TOP")
-	GameTooltip:SetText(title)
-	if line then GameTooltip:AddLine(line, 0.6, 0.6, 0.6, true) end
-	if showKey then GameTooltip:AddLine(("Or press %s with the pointer on the item."):format(showKey), 0.6, 0.6, 0.6, true) end
+	ns.TipText(GameTooltip, title)
+	if line then ns.TipLine(GameTooltip, line, 0.6, 0.6, 0.6, true) end
+	if showKey then ns.TipLine(GameTooltip, ("Or press %s with the pointer on the item."):format(showKey), 0.6, 0.6, 0.6, true) end
 	GameTooltip:Show()
 end
 function M:CellLeave(c)
@@ -195,12 +195,12 @@ end
 -- Tooltip lines on item tooltips (with the key hints once keys are set).
 function M:AddTooltipLines(tip, rec)
 	if not (tip and rec and not rec.empty and not rec.cached) then return end
-	if M:IsFavorite(rec.itemID) then tip:AddLine("Favorite", GOLD[1], GOLD[2], GOLD[3]) end
-	if M:IsTracked(rec.itemID) then tip:AddLine("Tracked as a currency", GOLD[1], GOLD[2], GOLD[3]) end
+	if M:IsFavorite(rec.itemID) then ns.TipLine(tip, "Favorite", GOLD[1], GOLD[2], GOLD[3]) end
+	if M:IsTracked(rec.itemID) then ns.TipLine(tip, "Tracked as a currency", GOLD[1], GOLD[2], GOLD[3]) end
 	local kf = ns.KeyBinds and ns.KeyBinds:Key("BAGSMITH_FAVORITE")
-	if kf then tip:AddLine(("Press %s to %s"):format(kf, M:IsFavorite(rec.itemID) and "unfavorite" or "favorite"), 0.6, 0.6, 0.6) end
+	if kf then ns.TipLine(tip, ("Press %s to %s"):format(kf, M:IsFavorite(rec.itemID) and "unfavorite" or "favorite"), 0.6, 0.6, 0.6) end
 	local kc = ns.KeyBinds and ns.KeyBinds:Key("BAGSMITH_CURRENCYITEM")
-	if kc and not M:IsBuiltInCurrency(rec) then tip:AddLine(("Press %s to %s"):format(kc, M:IsTracked(rec.itemID) and "stop tracking as a currency" or "track as a currency"), 0.6, 0.6, 0.6) end
+	if kc and not M:IsBuiltInCurrency(rec) then ns.TipLine(tip, ("Press %s to %s"):format(kc, M:IsTracked(rec.itemID) and "stop tracking as a currency" or "track as a currency"), 0.6, 0.6, 0.6) end
 end
 
 ------------------------------------------------------------------------

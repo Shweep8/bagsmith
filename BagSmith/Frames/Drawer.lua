@@ -130,7 +130,7 @@ local function row(f, i)
 	r.star:SetScript("OnEnter", function(b)
 		if not ns.TooltipsOK() then return end
 		GameTooltip:SetOwner(b, "ANCHOR_TOP")
-		GameTooltip:SetText(ns.Currency:IsFavorite(b:GetParent().key) and "Unpin" or "Pin to Footer")
+		ns.TipText(GameTooltip, ns.Currency:IsFavorite(b:GetParent().key) and "Unpin" or "Pin to Footer")
 		GameTooltip:Show()
 	end)
 	r.star:SetScript("OnLeave", function() GameTooltip:Hide() end)

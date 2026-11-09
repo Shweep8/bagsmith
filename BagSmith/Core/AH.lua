@@ -71,7 +71,7 @@ function AH:AddTooltipLines(tip, rec)
 	if not (tip and rec and self:ColumnOn()) then return end
 	local p = self:Price(rec)
 	if not p then
-		tip:AddLine("AH Price: not scanned", 0.6, 0.6, 0.6)
+		ns.TipLine(tip, "AH Price: not scanned", 0.6, 0.6, 0.6)
 		return
 	end
 	tip:AddDoubleLine("AH Price (each)", ns.Money(p), 0.98, 0.78, 0.46, 1, 1, 1)
@@ -81,7 +81,7 @@ function AH:AddTooltipLines(tip, rec)
 	elseif age < 1 then when = "Seen today"
 	elseif age < 2 then when = "Seen yesterday"
 	else when = ("Seen %d days ago"):format(age) end
-	tip:AddLine(when, 0.6, 0.6, 0.6)
+	ns.TipLine(tip, when, 0.6, 0.6, 0.6)
 end
 
 ns:On("AUCTION_HOUSE_CLOSED", function() if AH:ColumnOn() then ns:RefreshViews(true) end end)

@@ -141,7 +141,15 @@ local function textButton(parent, text, width, onClick, template, name)
 	b.label:SetPoint("CENTER")
 	b.label:SetText(text)
 	if onClick then b:SetScript("OnClick", onClick) end
-	b:SetScript("OnEnter", function(self) if self.tip and ns.TooltipsOK() then GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(self.tip); GameTooltip:Show() end end)
+	b:SetScript("OnEnter", function(self)
+		if self.tip and ns.TooltipsOK() then
+			GameTooltip:SetOwner(self, "ANCHOR_TOP"); ns.TipText(GameTooltip, self.tip)
+			-- (1.5.8) an optional second line, as icon buttons have (a function, so it can describe the moment)
+			local sub = type(self.tipSub) == "function" and self.tipSub(self) or self.tipSub
+			if sub then ns.TipLine(GameTooltip, sub, 0.8, 0.8, 0.8, true) end
+			GameTooltip:Show()
+		end
+	end)
 	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	hover(b, function(x) if modernSkin() and not x.classicOn then x:SetActive(x.active) end end)
 	function b:SetActive(on)
@@ -268,10 +276,10 @@ local function iconButton(parent, texture, tip, onClick)
 	b:SetScript("OnEnter", function(self)
 		self.tex:SetVertexColor(0.93, 0.91, 0.88)
 		if ns.TooltipsOK() then
-			GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(self.tip)
+			GameTooltip:SetOwner(self, "ANCHOR_TOP"); ns.TipText(GameTooltip, self.tip)
 			-- An optional second line (a function, so it can describe the moment).
 			local sub = type(self.tipSub) == "function" and self.tipSub(self) or self.tipSub
-			if sub then GameTooltip:AddLine(sub, nil, nil, nil, true) end
+			if sub then ns.TipLine(GameTooltip, sub, nil, nil, nil, true) end
 			GameTooltip:Show()
 		end
 	end)
@@ -621,9 +629,9 @@ function View:Build()
 		b:SetScript("OnEnter", function(btn)
 			if not ns.TooltipsOK() then return end
 			GameTooltip:SetOwner(btn, "ANCHOR_TOP")
-			GameTooltip:SetText("Click to sort by " .. text)
-			if key == "age" then GameTooltip:AddLine("Time since BagSmith first saw the item in your bags", 0.6, 0.6, 0.6) end
-			GameTooltip:AddLine("Drag the gold line on either side to resize", 0.6, 0.6, 0.6)
+			ns.TipText(GameTooltip, "Click to sort by " .. text)
+			if key == "age" then ns.TipLine(GameTooltip, "Time since BagSmith first saw the item in your bags", 0.6, 0.6, 0.6) end
+			ns.TipLine(GameTooltip, "Drag the gold line on either side to resize", 0.6, 0.6, 0.6)
 			GameTooltip:Show()
 		end)
 		b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1316,7 +1324,7 @@ function View:UpdateFooter(bagInfo)
 			chip.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 			chip.text = fontString(chip, "GameFontHighlightSmall"); chip.text:SetPoint("LEFT", chip.icon, "RIGHT", 4, 0)
 			chip:SetScript("OnClick", function() ns.Drawer:Toggle() end)
-			chip:SetScript("OnEnter", function(c) if ns.TooltipsOK() then GameTooltip:SetOwner(c, "ANCHOR_TOP"); GameTooltip:SetText(c.name); GameTooltip:Show() end end)
+			chip:SetScript("OnEnter", function(c) if ns.TooltipsOK() then GameTooltip:SetOwner(c, "ANCHOR_TOP"); ns.TipText(GameTooltip, c.name); GameTooltip:Show() end end)
 			chip:SetScript("OnLeave", function() GameTooltip:Hide() end)
 			hoverWash(chip, 0)
 			self.favChips[i] = chip

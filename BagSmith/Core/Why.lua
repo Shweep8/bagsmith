@@ -91,8 +91,8 @@ function Why.InfoButton(parent)
 	b:SetScript("OnEnter", function(self)
 		if not (self.lines and ns.TooltipsOK and ns.TooltipsOK()) then return end
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText(self.title or "", 1, 1, 1)
-		for _, l in ipairs(self.lines) do GameTooltip:AddLine(l, 0.9, 0.9, 0.9, true) end
+		ns.TipText(GameTooltip, self.title or "", 1, 1, 1)
+		for _, l in ipairs(self.lines) do ns.TipLine(GameTooltip, l, 0.9, 0.9, 0.9, true) end
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
