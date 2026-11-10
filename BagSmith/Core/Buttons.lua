@@ -302,6 +302,7 @@ end
 
 local function applyMode(b, mode, size)
 	b.mode = mode
+	b.colSig = nil   -- (1.6.2-beta1) the row's columns are placed afresh after a change of mode (ApplyColumns)
 	local icon = b.icon
 	icon:ClearAllPoints()
 	if mode == "row" then
@@ -425,7 +426,28 @@ end
 
 -- Position the text columns for one row; hide the rest; draw faint separators.
 local NUMERIC = { c = true, il = true, rq = true, v = true, age = true, ah = true }
+-- (1.6.2-beta1) What a row's column placement depends on: the plan's columns and their places, and the row height.
+-- Made once per plan (a fresh plan each layout), then compared per row.
+local function planSig(plan, rowH)
+	local sig = plan.sig
+	if not sig then
+		local parts = { tostring(plan.kebab) }
+		for _, col in ipairs(plan) do
+			parts[#parts + 1] = table.concat({ tostring(col.key), tostring(col.fs), tostring(col.x), tostring(col.width),
+				tostring(col.colX), tostring(col.colW), tostring(col.iconX), tostring(col.kebabX) }, ":")
+		end
+		sig = table.concat(parts, ";")
+		plan.sig = sig
+	end
+	return sig .. "|" .. tostring(rowH)
+end
 function Buttons:ApplyColumns(b, plan, rowH)
+	-- (1.6.2-beta1) A row's columns are placed again only when they change. An item change redraws every row, and
+	-- placing every column of every row each time was most of List view's cost; the same plan and row height as the
+	-- last placement leave the row as it is. Icons view forgets it (applyMode), and nothing is remembered in combat
+	-- (the item menu's dots can't be placed then).
+	local sig = planSig(plan, rowH)
+	if b.mode == "row" and b.colSig == sig then return end
 	local inPlan = {}
 	local iconSize = math.max(14, math.min(24, rowH - 6))
 	b.icon:SetSize(iconSize, iconSize)
@@ -474,6 +496,7 @@ function Buttons:ApplyColumns(b, plan, rowH)
 	if not inPlan.colCurr and b.colCurr then b.colCurr:Hide() end
 	-- The icon's own count is redundant next to a Qty column; show it only when Qty is hidden.
 	b.countOnIcon = not inPlan.colQty
+	b.colSig = (not InCombatLockdown()) and sig or nil
 end
 
 ------------------------------------------------------------------------
@@ -923,9 +946,13 @@ function Buttons:ReportTemplate(b)
 	local where = b.rec and b.rec.bag and ("%s:%s"):format(tostring(b.rec.bag), tostring(b.rec.slot)) or "?"
 	ns:Debug("Slot %s: %s", where, #out > 0 and ("game template pieces still visible: " .. table.concat(out, ", ")) or "no game template pieces visible")
 end
+-- (1.6.2-beta1) Only buttons that can be seen: the game sends this with every spell cast, and a closed window's buttons
+-- keep their own shown flag, so this updated every item's cooldown in combat with the bags closed. A window that opens
+-- catches its buttons up (View: OnShow). The Recent copies follow it too.
 function Buttons:RefreshCooldowns()
-	for _, b in ipairs(self.all or {}) do if b:IsShown() then self:Cooldown(b) end end
-	for _, pool in pairs(self.mirrors or {}) do for _, b in pairs(pool) do if b:IsShown() then self:Cooldown(b) end end end
+	for _, b in ipairs(self.all or {}) do if b:IsVisible() then self:Cooldown(b) end end
+	for _, b in ipairs(self.recent or {}) do if b:IsVisible() then self:Cooldown(b) end end
+	for _, pool in pairs(self.mirrors or {}) do for _, b in pairs(pool) do if b:IsVisible() then self:Cooldown(b) end end end
 end
 ns:OnSignal("ADDON_READY", function()
 	ns:On("BAG_UPDATE_COOLDOWN", function() Buttons:RefreshCooldowns() end)

@@ -250,18 +250,21 @@ local commands = {
 				(W.main and W.main:IsShown()) and "yes" or "no", tostring(ns.ui.sheet), ns.ui.owner and "   (browsing another character)" or "")
 			local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
 			local bags = {}
-			for bag in pairs(W.bagViews) do bags[#bags + 1] = bag end
+			for _, bag in ipairs(ns.BAGS) do if bag ~= ns.KEYRING then bags[#bags + 1] = bag end end
 			table.sort(bags)
 			for _, bag in ipairs(bags) do
-				local v = W.bagViews[bag]
-				local f = v.frame
+				local v = rawget(W.bagViews, bag)   -- (1.6.2-beta1) windows are built the first time they open
 				local size = ns.bagInfo[bag] and ns.bagInfo[bag].size or 0
-				local l, b, w, h = f:GetLeft(), f:GetBottom(), f:GetWidth() or 0, f:GetHeight() or 0
-				local s = (f.GetEffectiveScale and f:GetEffectiveScale() or 1) / (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1)
-				local onScreen = l and b and (l * s + w * s > 0) and (l * s < sw) and (b * s + h * s > 0) and (b * s < sh)
-				ns:Print("  %s: %d slots, %s, %dx%d, %s%s", ns:BagName(bag), size, f:IsShown() and "shown" or "hidden", w, h,
-					l and (onScreen and "on screen" or "|cffff6060off screen|r") or "not placed yet",
-					(ns.ui.closedBags and ns.ui.closedBags[bag]) and ", closed with its X" or "")
+				if not v then ns:Print("  %s: %d slots, not opened yet this session", ns:BagName(bag), size) end
+				local f = v and v.frame
+				if f then
+					local l, b, w, h = f:GetLeft(), f:GetBottom(), f:GetWidth() or 0, f:GetHeight() or 0
+					local s = (f.GetEffectiveScale and f:GetEffectiveScale() or 1) / (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1)
+					local onScreen = l and b and (l * s + w * s > 0) and (l * s < sw) and (b * s + h * s > 0) and (b * s < sh)
+					ns:Print("  %s: %d slots, %s, %dx%d, %s%s", ns:BagName(bag), size, f:IsShown() and "shown" or "hidden", w, h,
+						l and (onScreen and "on screen" or "|cffff6060off screen|r") or "not placed yet",
+						(ns.ui.closedBags and ns.ui.closedBags[bag]) and ", closed with its X" or "")
+				end
 			end
 		end
 		local J = ns.Junk

@@ -1,3 +1,11 @@
+## 1.6.2
+
+Changed:
+- Item cooldowns update only while your bags are open, so BagSmith does less during combat. They catch up the moment
+  you open your bags.
+- Each bag's own window, and each bank bag's, is built the first time you open it instead of at login.
+- List view redraws faster when your items change.
+
 ## 1.6.1
 
 Fixed:

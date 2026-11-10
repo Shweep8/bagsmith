@@ -66,7 +66,7 @@ function BB:ToggleWindow(bag)
 	if ns:IsReagentBag(bag) then
 		local _, r = ns.SessionWindows(); ns.ui.reagentWindow = not r
 	else
-		local v = ns.Window.bagViews[bag]
+		local v = rawget(ns.Window.bagViews, bag)   -- (1.6.2-beta1) only looks: a window not built yet isn't open
 		ns.ui.closedBags = ns.ui.closedBags or {}
 		if v and v:IsShown() then
 			ns:CloseBagWindow(bag, false)   -- the same as its X
@@ -316,7 +316,7 @@ function BB:FillBar(bar)
 		BB:ClassicFrame(b, classic)
 		-- A bag whose own window is open: the accent border (Modern), or a
 		-- brighter gold frame (Classic).
-		local v = ns.Window.bagViews and ns.Window.bagViews[bag]
+		local v = ns.Window.bagViews and rawget(ns.Window.bagViews, bag)   -- (1.6.2-beta1) only looks, never builds
 		local open = v and v:IsShown()
 		if classic then
 			b:SetBackdropBorderColor(0, 0, 0, 0)

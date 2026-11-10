@@ -154,14 +154,14 @@ function J:Decorate(b, rec)
 		end
 	end
 	if b.colJunk then
-		local state, reason = "none", nil
+		local state = "none"
 		if rec and not rec.empty then
 			if J:IsGrey(rec) then state = "grey"
 			elseif not rec.cached and J:Marked(rec.itemID) then state = "marked"   -- even if it couldn't be marked now: it can be unmarked
 			elseif J:Markable(rec) then state = "eligible"
-			else state, reason = "blocked", J:WhyNot(rec) end
+			else state = "blocked" end   -- (1.6.2-beta1) why, only when it's pointed at (J:CellEnter)
 		end
-		b.colJunk.state, b.colJunk.reason = state, reason
+		b.colJunk.state, b.colJunk.reason = state, nil
 		J:PaintCell(b)
 	end
 	-- Dim Junk Items: icon greyed and faded, row text faded.
@@ -190,7 +190,7 @@ function J:CellEnter(jc)
 	GameTooltip:SetOwner(jc, "ANCHOR_TOP")
 	local key = J:Key()
 	if jc.state == "blocked" then
-		ns.TipText(GameTooltip, "Can't Be Marked as Junk"); ns.TipLine(GameTooltip, jc.reason or "", 0.6, 0.6, 0.6, true)
+		ns.TipText(GameTooltip, "Can't Be Marked as Junk"); ns.TipLine(GameTooltip, (b.rec and J:WhyNot(b.rec)) or "", 0.6, 0.6, 0.6, true)
 	elseif jc.state == "grey" then
 		ns.TipText(GameTooltip, "Junk"); ns.TipLine(GameTooltip, "Grey items are always sold with Sell All Junk.", 0.6, 0.6, 0.6, true)
 	elseif jc.state == "marked" then

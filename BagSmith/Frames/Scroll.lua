@@ -118,6 +118,48 @@ function View:RefreshCanvas(why)
 	end)
 end
 
+-- (1.6.2-beta4, found with Shweep in game) After a /reload, the bags window could open in Icons view with its list area
+-- unplaced: no size or position ("list area 0x0 stale" with /bs debug), so nothing drew and nothing took the pointer,
+-- until the window was resized or the view switched. Placing the list area again and laying it out drew it at once when
+-- done after the window had drawn; done the frame after opening (beta3) it didn't take. So a little after each opening,
+-- while the list area is still unplaced, it's placed again and the list laid out: at most PLACE_CHECKS times an opening,
+-- through ns:Safely (after combat when opened in combat). A placed list area costs a look and nothing more.
+View.PLACE_CHECKS = { 0.1, 0.3, 0.8, 2 }
+local function unplaced(sf)
+	local ok, invalid = pcall(function() return sf.IsRectValid and not sf:IsRectValid() end)
+	return (ok and invalid) or (sf:GetWidth() or 0) < 1
+end
+View.ListUnplaced = unplaced
+function View:ScheduleListPlaced()
+	if not (self.scroll and C_Timer and C_Timer.After) then return end
+	self.placeToken = (self.placeToken or 0) + 1
+	self.placeTries = 0
+	local token = self.placeToken
+	for i, delay in ipairs(View.PLACE_CHECKS) do
+		C_Timer.After(delay, function() if self.placeToken == token then self:EnsureListPlaced(i) end end)
+	end
+end
+function View:EnsureListPlaced(check)
+	local sf = self.scroll
+	if not (sf and self.frame:IsShown()) then return end
+	if not unplaced(sf) then
+		if (self.placeTries or 0) > 0 and not self.placeReported then
+			self.placeReported = true
+			ns:Debug("%s: list area placed (%dx%d) after %d tr%s", self.name, math.floor((sf:GetWidth() or 0) + 0.5),
+				math.floor((sf:GetHeight() or 0) + 0.5), self.placeTries, self.placeTries == 1 and "y" or "ies")
+		end
+		return
+	end
+	ns:Safely("place" .. self.name, function()
+		if not (self.frame:IsShown() and unplaced(sf)) then return end
+		self.placeTries = (self.placeTries or 0) + 1
+		self.placeReported = false
+		ns:Debug("%s: list area unplaced (check %s): placing it again", self.name, tostring(check or "?"))
+		self:PlaceScroll()
+		ns:Guard("Refresh " .. (self.name or "window"), self.Refresh, self, true, "placed")
+	end)
+end
+
 function View:ClampScroll(why)
 	local sf = self.scroll
 	if not (sf and sf.GetVerticalScroll) then return end

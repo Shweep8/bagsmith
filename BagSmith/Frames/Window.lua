@@ -39,19 +39,30 @@ function Window:Create()
 			end
 		end)
 	end)
-	self.bagViews = {}
-	for _, bag in ipairs(ns.BAGS) do
-		if bag ~= ns.KEYRING then
-			self.bagViews[bag] = View.New("BagSmithBag" .. (bag < 0 and (100 - bag) or bag), { kind = "bag", title = ns:BagName(bag), bags = { bag },
-				width = bag == ns.BACKPACK and 306 or 264, anchor = function() return self.main.frame end })
-		end
+	-- (1.6.2-beta1) Each bag's own window, and each bank bag's ("Bank: ..."), is built the first time it opens, not at
+	-- login: most sessions open few of them or none. They hold plain cells, never secure buttons, so one can be built at
+	-- any time, in combat too. Indexing the table gets a window, building it if needed (only for a bag that has one);
+	-- rawget asks whether it exists, for code that only looks.
+	local function listed(list, bag)
+		for _, b in ipairs(list or {}) do if b == bag then return true end end
+		return false
 	end
-	-- Bank bags, including the bank's own slots, each in a small window titled "Bank: ...".
-	self.bankBagViews = {}
-	for _, bag in ipairs(ns.BANK_BAGS) do
-		self.bankBagViews[bag] = View.New("BagSmithBankBag" .. (bag < 0 and (100 - bag) or bag), { kind = "bag", bank = true, title = "Bank", bags = { bag },
+	local function id(bag) return bag < 0 and (100 - bag) or bag end
+	self.bagViews = setmetatable({}, { __index = function(t, bag)
+		if type(bag) ~= "number" or bag == ns.KEYRING or not listed(ns.BAGS, bag) then return nil end
+		local v = View.New("BagSmithBag" .. id(bag), { kind = "bag", title = ns:BagName(bag), bags = { bag },
+			width = bag == ns.BACKPACK and 306 or 264, anchor = function() return self.main.frame end })
+		rawset(t, bag, v)
+		return v
+	end })
+	self.bankBagViews = setmetatable({}, { __index = function(t, bag)
+		if type(bag) ~= "number" or not listed(ns.BANK_BAGS, bag) then return nil end
+		local v = View.New("BagSmithBankBag" .. id(bag), { kind = "bag", bank = true, title = "Bank", bags = { bag },
 			anchor = function() return self.bank.frame end })
-	end
+		rawset(t, bag, v)
+		return v
+	end })
+	self.bagWhy = {}
 end
 
 -- Which auxiliary windows should be open right now.
@@ -61,39 +72,46 @@ function ns:ApplyLayout()
 	local mainShown = W.main:IsShown()
 	local db = ns.db
 	local anyNew = false
-	for bag, v in pairs(W.bagViews) do
-		local sb, sr = ns.SessionWindows()
-		local toggled = ns:IsReagentBag(bag) and sr or (not ns:IsReagentBag(bag) and sb and not (ns.ui.closedBags and ns.ui.closedBags[bag]))
-		local size = ns.bagInfo[bag] and ns.bagInfo[bag].size or 0
-		local want = mainShown and toggled and ns.ui.sheet ~= "Bank" and not ns.ui.owner and size > 0
-		-- /bs debug: why a bag window that's switched on isn't showing (logged when it changes).
-		local why
-		if toggled and not want then
-			why = (not mainShown and "the bags window is closed") or (ns.ui.sheet == "Bank" and "the Bank sheet is showing")
-				or (ns.ui.owner and "browsing another character") or (size == 0 and "the game hasn't reported the bag's size yet") or "unknown"
+	W.bagWhy = W.bagWhy or {}
+	for _, bag in ipairs(ns.BAGS) do
+		if bag ~= ns.KEYRING then
+			local sb, sr = ns.SessionWindows()
+			local toggled = ns:IsReagentBag(bag) and sr or (not ns:IsReagentBag(bag) and sb and not (ns.ui.closedBags and ns.ui.closedBags[bag]))
+			local size = ns.bagInfo[bag] and ns.bagInfo[bag].size or 0
+			local want = mainShown and toggled and ns.ui.sheet ~= "Bank" and not ns.ui.owner and size > 0
+			-- /bs debug: why a bag window that's switched on isn't showing (logged when it changes).
+			local why
+			if toggled and not want then
+				why = (not mainShown and "the bags window is closed") or (ns.ui.sheet == "Bank" and "the Bank sheet is showing")
+					or (ns.ui.owner and "browsing another character") or (size == 0 and "the game hasn't reported the bag's size yet") or "unknown"
+			end
+			if why ~= W.bagWhy[bag] then
+				if why then ns:Debug("Bag window %s not shown: %s", ns:BagName(bag), why) end
+				W.bagWhy[bag] = why
+			end
+			local v = rawget(W.bagViews, bag)   -- (1.6.2-beta1) built only when it's wanted
+			if want then
+				v = v or W.bagViews[bag]
+				v.opts.title = ns.bagInfo[bag] and ns.bagInfo[bag].name or ns:BagName(bag)
+				if not v:IsShown() and not db.bagPoints[tostring(bag)] then anyNew = true end
+				v:Show()
+			elseif v then v:Hide() end
 		end
-		if why ~= v.lastWhy then
-			if why then ns:Debug("Bag window %s not shown: %s", ns:BagName(bag), why) end
-			v.lastWhy = why
-		end
-		if want then
-			v.opts.title = ns.bagInfo[bag] and ns.bagInfo[bag].name or ns:BagName(bag)
-			if not v:IsShown() and not db.bagPoints[tostring(bag)] then anyNew = true end
-			v:Show()
-		else v:Hide() end
 	end
 	-- Bank bag windows: only at a banker, with the bank window open, and only
 	-- while the bank window's footer icon has them turned on.
 	local bankOpen = W.bank and W.bank:IsShown() and ns.atBank and not ns.ui.owner
 	local anyNewBank = false
-	for bag, v in pairs(W.bankBagViews or {}) do
+	for _, bag in ipairs(W.bankBagViews and ns.BANK_BAGS or {}) do
 		local want = bankOpen and ns.ui.bankBagWindows and not (ns.ui.closedBankBags and ns.ui.closedBankBags[bag])
 			and (ns.bagInfo[bag] and ns.bagInfo[bag].size or 0) > 0
+		local v = rawget(W.bankBagViews, bag)   -- (1.6.2-beta1) built only when it's wanted
 		if want then
+			v = v or W.bankBagViews[bag]
 			v.opts.title = "Bank: " .. (ns.bagInfo[bag] and ns.bagInfo[bag].name or ns:BagName(bag))
 			if not v:IsShown() and not db.bagPoints[tostring(bag)] then anyNewBank = true end
 			v:Show()
-		else v:Hide() end
+		elseif v then v:Hide() end
 	end
 	if anyNewBank then
 		-- First time: a row to the right of the bank window, wrapping under it.
@@ -103,7 +121,7 @@ function ns:ApplyLayout()
 		local rowH = 0
 		local screenW = UIParent:GetWidth()
 		for _, bag in ipairs(ns.BANK_BAGS) do
-			local v = W.bankBagViews[bag]
+			local v = rawget(W.bankBagViews, bag)
 			if v and v:IsShown() and not db.bagPoints[tostring(bag)] then
 				local w, h = v.frame:GetWidth(), v.frame:GetHeight()
 				if x + w > screenW then x = x0; top = top - rowH - 8; rowH = 0 end
@@ -122,7 +140,7 @@ function ns:ApplyLayout()
 		local bottom = main:GetBottom() or 200
 		for i = #ns.BAGS, 1, -1 do
 			local bag = ns.BAGS[i]
-			local v = W.bagViews[bag]
+			local v = rawget(W.bagViews, bag)
 			if v and v:IsShown() and not db.bagPoints[tostring(bag)] then
 				local w = v.frame:GetWidth()
 				v.frame:ClearAllPoints()

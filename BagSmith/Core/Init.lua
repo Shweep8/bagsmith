@@ -4,7 +4,7 @@
 --]]
 
 local ADDON, ns = ...
-_G.BagSmith = ns
+_G.BagSmith = ns   -- (BagSmith's namespace, for its own tests and tooling; not a public contract: other addons use BagSmith.API)
 
 ns.name = ADDON
 ns.version = C_AddOns.GetAddOnMetadata(ADDON, "Version") or "dev"

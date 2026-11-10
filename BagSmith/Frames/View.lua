@@ -876,6 +876,10 @@ function View:Build()
 		if self.LayoutTools then ns:NextFrame("tools:show:" .. self.name, function() self:LayoutTools() end) end
 		-- (1.6.0) and its Background Opacity (a window built or re-dressed since it was last applied)
 		if ns.ApplyBgOpacity then ns:NextFrame("bgOpacity:show", function() ns:ApplyBgOpacity(); ns:ApplyCombatFade(InCombatLockdown()) end) end
+		-- (The full layout above fills every button, and with it each one's cooldown, so a cooldown that started while the
+		-- window was closed shows on opening: 1.6.2-beta1's extra refresh here was redundant and was removed in beta4.)
+		-- (1.6.2-beta4) and its list area placed, once the window has drawn (View:EnsureListPlaced)
+		if self.ScheduleListPlaced then self:ScheduleListPlaced() end
 	end)
 	f:SetScript("OnHide", function()
 		if ns.ready then PlaySound(SOUNDKIT.IG_BACKPACK_CLOSE) end
