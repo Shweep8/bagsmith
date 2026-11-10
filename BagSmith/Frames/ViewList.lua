@@ -771,6 +771,13 @@ function View:BagSetKey(bagInfo)
 		local info = (live and ns.bagInfo[bag]) or (bagInfo and bagInfo[bag])
 		parts[#parts + 1] = tostring(bag) .. ":" .. tostring(info and info.size or 0)
 	end
+	-- (1.6.1, Shweep) a bought bank bag slot has no bag yet, so it changes no size above; it's still a change to the bag
+	-- set, so it never holds either: the new empty slot (and the next one for sale) shows the moment the purchase goes
+	-- through, not when the pointer leaves the bank window.
+	if live and self.bankBar and ns.atBank and ns.Bank and ns.Bank.supported then
+		local ok, bought = pcall(ns.Bank.Info, ns.Bank)
+		parts[#parts + 1] = "bought:" .. tostring(ok and bought or "?")
+	end
 	return table.concat(parts, ",")
 end
 

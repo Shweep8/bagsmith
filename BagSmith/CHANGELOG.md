@@ -1,3 +1,9 @@
+## 1.6.1
+
+Fixed:
+- Bank: a bank bag slot you buy shows right away, ready for a bag, instead of when you move the pointer off the bank
+  window.
+
 ## 1.6.0
 
 New:
