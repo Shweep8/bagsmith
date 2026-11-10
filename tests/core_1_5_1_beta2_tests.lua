@@ -110,7 +110,8 @@
 	local function row(key) for _, w in ipairs(P.pools.check) do if w:IsShown() and w.key == key then return w end end end
 	local ask, rare = row("makeRoomAsk"), row("makeRoomAskRare")
 	check(ask and ask.text.text == "Ask Before Destroying" and not ask.box:GetChecked(), "Settings > Loot Helper: Ask Before Destroying, off")
-	check(ask and (ask.help.text or ""):find("at once", 1, true) and (ask.help.text or ""):find("Junk always goes in one click", 1, true), "its help says what off means and that junk is always one click (" .. tostring(ask and ask.help.text) .. ")")
+	-- (1.6.0-beta4, by design) the approved wording (item 28): what on means, in plain words
+	check(ask and (ask.help.text or "") == "Asks before destroying anything. Junk always goes in one click.", "its help says what it does and that junk is always one click (" .. tostring(ask and ask.help.text) .. ")")
 	check(rare and rare.text.text == "Always Ask for Rare or Better" and rare.box:GetChecked() and rare.box:IsEnabled(), "Always Ask for Rare or Better, on and usable")
 	check(rare and ask and rare.points[1][4] > ask.points[1][4], "it's nested under Ask Before Destroying (" .. tostring(rare and rare.points[1][4]) .. " vs " .. tostring(ask and ask.points[1][4]) .. ")")
 	n:Set("makeRoomAsk", true)

@@ -169,9 +169,12 @@ local function readSlot(bag, slot, now, bagIndex, firstStamp)
 	-- didn't report became common at once and the cached quality could never replace it.)
 	if rec.quality == nil then rec.quality, rec.qualityUnknown = 1, true end
 	-- Quest items and quest starters, whatever their class.
+	-- (1.6.0) and quest starters you haven't accepted yet (a quest, not active), for the Quest Starter corner mark
+	rec.questStart = nil
 	if C_Container.GetContainerItemQuestInfo then
 		local ok, q = pcall(C_Container.GetContainerItemQuestInfo, bag, slot)
 		if ok and type(q) == "table" and (q.isQuestItem or q.questID) then rec.isQuest = true end
+		if ok and type(q) == "table" and q.questID and not q.isActive then rec.questStart = true end
 	end
 	rec.ownCat = ns:Categorize(rec)
 	-- Moved to another section (per profile), unless marked as junk below.

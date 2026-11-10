@@ -283,7 +283,7 @@ function Buttons:PlaceKebab(b, x)
 		end)
 		k:SetScript("OnEnter", function(self)
 			kebabAlpha(self:GetParent())
-			if not ns.TooltipsOK() then return end
+			if not ns.HelpTipsOK() then return end
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			ns.TipText(GameTooltip, "Item menu", 1, 1, 1)
 			ns.TipLine(GameTooltip, "Move to Section, Favorite, Mark as Junk, Track as Currency", 0.8, 0.8, 0.8, true)
@@ -1130,7 +1130,8 @@ function Buttons:Fill(b, rec, opts)
 		-- AH Price: the stack's value from Auctionator's last scan, "-" when it has none.
 		if ns.AH:Available() then
 			local v = ns.AH:StackValue(rec)
-			b.colAH:SetText(v and ns.Money(v) or "-")
+			-- (1.6.0-beta11, Shweep) a soulbound item can't be sold there: empty, like the Vendor column for no value
+			b.colAH:SetText(v and ns.Money(v) or (ns.AH:Sellable(rec) and "-" or ""))
 		else
 			b.colAH:SetText("")
 		end

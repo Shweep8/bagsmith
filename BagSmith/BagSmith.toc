@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: BagSmith
 ## Notes: Spreadsheet-style bags for WoW Forever.
-## Version: 1.5.8
-## X-Date: 2026-11-08
+## Version: 1.6.0
+## X-Date: 2026-11-10
 ## Author: BagSmith
 ## IconTexture: Interface\AddOns\BagSmith\Media\icon.tga
 ## Category: Bags & Inventory
@@ -10,7 +10,7 @@
 # BagSmithProbeReport is a legacy variable from the 0.15 development builds, declared through one more
 # release so the Gamepad companion can migrate it; see docs/plugins/Gamepad-migration.md
 ## SavedVariablesPerCharacter: BagSmithCharDB
-## OptionalDeps: Pawn
+## OptionalDeps: Pawn, Auctionator, Blackthornes_TS
 ## AddonCompartmentFunc: BagSmith_OnAddonCompartmentClick
 ## X-Game: [Game]
 ## X-Family: [Family]

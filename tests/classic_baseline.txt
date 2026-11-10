@@ -62,6 +62,11 @@
 # 0.15.0-beta8: Settings list folds sub-pages under their page; arrows on Sections, Columns and Sheets.
 # Re-record only when a Classic change is intended, and note it here.
 # 0.16 development: the Settings sidebar gained a Plugins page (settings.3.12); the only change from the 0.15.0 snapshot.
+# 1.6.0-beta5 (Shweep): the search row ends at the row's right end (main.3, bank.3: 482, was 464) and the View group sits at the
+# toolbar's right end (main.5.5, bank.5.4: 504, was 486); the sheet tabs keep to one row, with 12 px padding (was 16) and
+# overlapping 2 px like Blizzard's (main.7, bank.8 tabs: narrower and closer). Nothing else changed.
+# 1.6.0-beta11 (Shweep): the character picker's level is its own text (main.2.6.r3, muted), so a long name can be cut short
+# before it, clear of the dropdown arrow. Nothing else changed.
 == classic
 look main bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=620 h=560 at=BOTTOMRIGHT,UIParent,BOTTOMRIGHT,-80,140
 look main.1 w=nil h=54 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
@@ -88,8 +93,9 @@ look main.2.5.r3 w=nil h=nil at= layer=BACKGROUND/nil
 look main.2.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=170 h=22 at=LEFT,frame,RIGHT,10,0
 look main.2.6.r1 text=1.00,1.00,1.00,1.00
 look main.2.6.r2 w=14 h=14 at=LEFT,parent,LEFT,6,0 layer=ARTWORK/nil
+look main.2.6.r3 text=0.56,0.55,0.51,1.00
 look main.2.7 w=nil h=nil at= level=3
-look main.3 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-44,-2;TOPRIGHT,main.2,BOTTOMLEFT,464,-2 level=4
+look main.3 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-44,-2;TOPRIGHT,main.2,BOTTOMLEFT,482,-2 level=4
 look main.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,main.3,RIGHT,6,0
 look main.4.1 w=nil h=nil at=
 look main.5 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-48,-32;TOPRIGHT,main.2,BOTTOMRIGHT,0,-32
@@ -108,7 +114,7 @@ look main.5.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=22 at=LEF
 look main.5.3.1 w=nil h=nil at=
 look main.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=22 at=LEFT,main.5,LEFT,352,0
 look main.5.4.1 w=nil h=nil at=
-look main.5.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,main.5,LEFT,486,0
+look main.5.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,main.5,LEFT,504,0
 look main.5.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=45 h=22 at=LEFT,main.5.5,LEFT,0,0 level=4
 look main.5.5.1.1 w=nil h=nil at=
 look main.5.5.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=51 h=22 at=LEFT,main.5.5,LEFT,45,0 level=2
@@ -166,21 +172,21 @@ look main.6.18.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;B
 look main.6.19 w=10 h=20 at=LEFT,main.6,LEFT,565,0 level=6
 look main.6.19.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
 look main.7 w=nil h=30 at=TOPLEFT,main,BOTTOMLEFT,12,3;TOPRIGHT,main,BOTTOMRIGHT,-12,3
-look main.7.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,0,-0
+look main.7.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,main.7,TOPLEFT,346,-0
 look main.7.1.1 w=nil h=nil at=
-look main.7.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,42,-0
+look main.7.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,0,-0
 look main.7.2.1 w=nil h=nil at=
-look main.7.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,main.7,TOPLEFT,84,-0
+look main.7.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,38,-0
 look main.7.3.1 w=nil h=nil at=
-look main.7.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,main.7,TOPLEFT,168,-0
+look main.7.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=78 h=28 at=TOPLEFT,main.7,TOPLEFT,76,-0
 look main.7.4.1 w=nil h=nil at=
-look main.7.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=46 h=28 at=TOPLEFT,main.7,TOPLEFT,252,-0
+look main.7.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=78 h=28 at=TOPLEFT,main.7,TOPLEFT,152,-0
 look main.7.5.1 w=nil h=nil at=
-look main.7.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,300,-0
+look main.7.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=42 h=28 at=TOPLEFT,main.7,TOPLEFT,228,-0
 look main.7.6.1 w=nil h=nil at=
-look main.7.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,342,-0
+look main.7.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,268,-0
 look main.7.7.1 w=nil h=nil at=
-look main.7.8 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,main.7,TOPLEFT,386,-0
+look main.7.8 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,306,-0
 look main.7.8.1 w=nil h=nil at=
 look main.8 w=nil h=26 at=BOTTOMLEFT,parent,BOTTOMLEFT,12,12;BOTTOMRIGHT,parent,BOTTOMRIGHT,-12,12
 look main.8.r2 text=0.84,0.83,0.79,1.00
@@ -359,7 +365,7 @@ look bank.1 w=nil h=29 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,
 look bank.2 w=nil h=1 at=TOPLEFT,bank,TOPLEFT,60,-26;TOPRIGHT,bank,TOPRIGHT,-10,-26 level=3
 look bank.2.r2 text=0.98,0.78,0.46,1.00
 look bank.2.r3 text=0.60,0.55,0.45,1.00
-look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,4,-2;TOPRIGHT,bank.2,BOTTOMLEFT,464,-2 level=4
+look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,4,-2;TOPRIGHT,bank.2,BOTTOMLEFT,482,-2 level=4
 look bank.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,bank.3,RIGHT,6,0
 look bank.4.1 w=nil h=nil at=
 look bank.5 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,-48,-32;TOPRIGHT,bank.2,BOTTOMRIGHT,0,-32
@@ -376,7 +382,7 @@ look bank.5.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=22 at=LEF
 look bank.5.2.1 w=nil h=nil at=
 look bank.5.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=22 at=LEFT,bank.5,LEFT,352,0
 look bank.5.3.1 w=nil h=nil at=
-look bank.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,bank.5,LEFT,486,0
+look bank.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,bank.5,LEFT,504,0
 look bank.5.4.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=45 h=22 at=LEFT,bank.5.4,LEFT,0,0 level=4
 look bank.5.4.1.1 w=nil h=nil at=
 look bank.5.4.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=51 h=22 at=LEFT,bank.5.4,LEFT,45,0 level=2
@@ -457,19 +463,19 @@ look bank.7.18.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;B
 look bank.7.19 w=10 h=20 at=LEFT,bank.7,LEFT,565,0 level=6
 look bank.7.19.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
 look bank.8 w=nil h=30 at=TOPLEFT,bank,BOTTOMLEFT,12,3;TOPRIGHT,bank,BOTTOMRIGHT,-12,3
-look bank.8.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,0,-0
+look bank.8.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,bank.8,TOPLEFT,308,-0
 look bank.8.1.1 w=nil h=nil at=
-look bank.8.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,42,-0
+look bank.8.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,0,-0
 look bank.8.2.1 w=nil h=nil at=
-look bank.8.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,bank.8,TOPLEFT,84,-0
+look bank.8.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,38,-0
 look bank.8.3.1 w=nil h=nil at=
-look bank.8.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,bank.8,TOPLEFT,168,-0
+look bank.8.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=78 h=28 at=TOPLEFT,bank.8,TOPLEFT,76,-0
 look bank.8.4.1 w=nil h=nil at=
-look bank.8.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=46 h=28 at=TOPLEFT,bank.8,TOPLEFT,252,-0
+look bank.8.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=78 h=28 at=TOPLEFT,bank.8,TOPLEFT,152,-0
 look bank.8.5.1 w=nil h=nil at=
-look bank.8.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,300,-0
+look bank.8.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=42 h=28 at=TOPLEFT,bank.8,TOPLEFT,228,-0
 look bank.8.6.1 w=nil h=nil at=
-look bank.8.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,bank.8,TOPLEFT,344,-0
+look bank.8.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,268,-0
 look bank.8.7.1 w=nil h=nil at=
 look bank.9 w=nil h=26 at=BOTTOMLEFT,parent,BOTTOMLEFT,12,12;BOTTOMRIGHT,parent,BOTTOMRIGHT,-12,12
 look bank.9.r2 text=0.84,0.83,0.79,1.00
@@ -517,8 +523,9 @@ look main.2.5.r3 w=nil h=nil at= layer=BACKGROUND/nil
 look main.2.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=170 h=22 at=LEFT,frame,RIGHT,10,0
 look main.2.6.r1 text=1.00,1.00,1.00,1.00
 look main.2.6.r2 w=14 h=14 at=LEFT,parent,LEFT,6,0 layer=ARTWORK/nil
+look main.2.6.r3 text=0.56,0.55,0.51,1.00
 look main.2.7 w=nil h=nil at= level=3
-look main.3 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-44,-2;TOPRIGHT,main.2,BOTTOMLEFT,464,-2 level=4
+look main.3 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-44,-2;TOPRIGHT,main.2,BOTTOMLEFT,482,-2 level=4
 look main.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,main.3,RIGHT,6,0
 look main.4.1 w=nil h=nil at=
 look main.5 w=nil h=26 at=TOPLEFT,main.2,BOTTOMLEFT,-48,-32;TOPRIGHT,main.2,BOTTOMRIGHT,0,-32
@@ -537,7 +544,7 @@ look main.5.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=22 at=LEF
 look main.5.3.1 w=nil h=nil at=
 look main.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=22 at=LEFT,main.5,LEFT,352,0
 look main.5.4.1 w=nil h=nil at=
-look main.5.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,main.5,LEFT,486,0
+look main.5.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,main.5,LEFT,504,0
 look main.5.5.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=45 h=22 at=LEFT,main.5.5,LEFT,0,0 level=4
 look main.5.5.1.1 w=nil h=nil at=
 look main.5.5.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=51 h=22 at=LEFT,main.5.5,LEFT,45,0 level=2
@@ -597,19 +604,19 @@ look main.6.19.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;B
 look main.7 w=nil h=30 at=TOPLEFT,main,BOTTOMLEFT,12,3;TOPRIGHT,main,BOTTOMRIGHT,-12,3
 look main.7.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,0,-0
 look main.7.1.1 w=nil h=nil at=
-look main.7.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,42,-0
+look main.7.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,38,-0
 look main.7.2.1 w=nil h=nil at=
-look main.7.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,main.7,TOPLEFT,84,-0
+look main.7.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=78 h=28 at=TOPLEFT,main.7,TOPLEFT,76,-0
 look main.7.3.1 w=nil h=nil at=
-look main.7.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,main.7,TOPLEFT,168,-0
+look main.7.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=78 h=28 at=TOPLEFT,main.7,TOPLEFT,152,-0
 look main.7.4.1 w=nil h=nil at=
-look main.7.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=46 h=28 at=TOPLEFT,main.7,TOPLEFT,252,-0
+look main.7.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=42 h=28 at=TOPLEFT,main.7,TOPLEFT,228,-0
 look main.7.5.1 w=nil h=nil at=
-look main.7.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,300,-0
+look main.7.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,268,-0
 look main.7.6.1 w=nil h=nil at=
-look main.7.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,342,-0
+look main.7.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,main.7,TOPLEFT,306,-0
 look main.7.7.1 w=nil h=nil at=
-look main.7.8 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,main.7,TOPLEFT,386,-0
+look main.7.8 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,main.7,TOPLEFT,346,-0
 look main.7.8.1 w=nil h=nil at=
 look main.8 w=nil h=26 at=BOTTOMLEFT,parent,BOTTOMLEFT,12,12;BOTTOMRIGHT,parent,BOTTOMRIGHT,-12,12
 look main.8.r2 text=0.84,0.83,0.79,1.00
@@ -788,7 +795,7 @@ look bank.1 w=nil h=29 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,
 look bank.2 w=nil h=1 at=TOPLEFT,bank,TOPLEFT,60,-26;TOPRIGHT,bank,TOPRIGHT,-10,-26 level=3
 look bank.2.r2 text=0.98,0.78,0.46,1.00
 look bank.2.r3 text=0.60,0.55,0.45,1.00
-look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,4,-2;TOPRIGHT,bank.2,BOTTOMLEFT,464,-2 level=4
+look bank.3 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,4,-2;TOPRIGHT,bank.2,BOTTOMLEFT,482,-2 level=4
 look bank.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=22 at=LEFT,bank.3,RIGHT,6,0
 look bank.4.1 w=nil h=nil at=
 look bank.5 w=nil h=26 at=TOPLEFT,bank.2,BOTTOMLEFT,-48,-32;TOPRIGHT,bank.2,BOTTOMRIGHT,0,-32
@@ -805,7 +812,7 @@ look bank.5.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=22 at=LEF
 look bank.5.2.1 w=nil h=nil at=
 look bank.5.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=22 at=LEFT,bank.5,LEFT,352,0
 look bank.5.3.1 w=nil h=nil at=
-look bank.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,bank.5,LEFT,486,0
+look bank.5.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=96 h=24 at=LEFT,bank.5,LEFT,504,0
 look bank.5.4.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=45 h=22 at=LEFT,bank.5.4,LEFT,0,0 level=4
 look bank.5.4.1.1 w=nil h=nil at=
 look bank.5.4.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=51 h=22 at=LEFT,bank.5.4,LEFT,45,0 level=2
@@ -886,19 +893,19 @@ look bank.7.18.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;B
 look bank.7.19 w=10 h=20 at=LEFT,bank.7,LEFT,565,0 level=6
 look bank.7.19.r1 color=0.98,0.78,0.46,0.25 w=nil h=nil at=TOP,parent,TOP,0,-3;BOTTOM,parent,BOTTOM,0,3 layer=OVERLAY/nil
 look bank.8 w=nil h=30 at=TOPLEFT,bank,BOTTOMLEFT,12,3;TOPRIGHT,bank,BOTTOMRIGHT,-12,3
-look bank.8.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,0,-0
+look bank.8.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,bank.8,TOPLEFT,308,-0
 look bank.8.1.1 w=nil h=nil at=
-look bank.8.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,42,-0
+look bank.8.2 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,0,-0
 look bank.8.2.1 w=nil h=nil at=
-look bank.8.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,bank.8,TOPLEFT,84,-0
+look bank.8.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,38,-0
 look bank.8.3.1 w=nil h=nil at=
-look bank.8.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=82 h=28 at=TOPLEFT,bank.8,TOPLEFT,168,-0
+look bank.8.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=78 h=28 at=TOPLEFT,bank.8,TOPLEFT,76,-0
 look bank.8.4.1 w=nil h=nil at=
-look bank.8.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=46 h=28 at=TOPLEFT,bank.8,TOPLEFT,252,-0
+look bank.8.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=78 h=28 at=TOPLEFT,bank.8,TOPLEFT,152,-0
 look bank.8.5.1 w=nil h=nil at=
-look bank.8.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,300,-0
+look bank.8.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=42 h=28 at=TOPLEFT,bank.8,TOPLEFT,228,-0
 look bank.8.6.1 w=nil h=nil at=
-look bank.8.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=28 at=TOPLEFT,bank.8,TOPLEFT,344,-0
+look bank.8.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=28 at=TOPLEFT,bank.8,TOPLEFT,268,-0
 look bank.8.7.1 w=nil h=nil at=
 look bank.9 w=nil h=26 at=BOTTOMLEFT,parent,BOTTOMLEFT,12,12;BOTTOMRIGHT,parent,BOTTOMRIGHT,-12,12
 look bank.9.r2 text=0.84,0.83,0.79,1.00

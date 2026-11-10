@@ -431,18 +431,63 @@ local function shieldFor(f)
 	return f.bsShield
 end
 
+-- (1.6.0) Opacity, for the bag windows (views) and every other BagSmith window:
+--   always       Background Opacity fades the bag windows' frame and background (ApplyBgOpacity); with Whole Window on,
+--                it's their whole window instead (items, text and buttons too).
+--   while moving Fade While Moving dims the bag windows (only) to Opacity While Moving while the character moves.
+--   in combat    the combat fade dims every BagSmith window, helpers included (and can ignore clicks).
+-- A fade never makes a window brighter than its normal opacity. (beta3: pointing at a window no longer brings it back
+-- while moving: Shweep found it unhelpful; it comes back when the character stops.)
 function ns:ApplyCombatFade(inCombat)
-	local fade = inCombat and ns.db.combatFade
-	local alpha = fade and ns.db.combatAlpha or 1
-	local lock = fade and ns.db.combatLock
+	local db = ns.db
+	local fade = inCombat and db.combatFade
+	local lock = fade and db.combatLock
+	local moving = not inCombat and ns.moving and db.fadeMoving and true or false
+	local whole = db.bgWhole and (tonumber(db.bgOpacity) or 1) or 1
 	for _, f in ipairs(combatFrames()) do
 		if not f.bsSoftClosed then   -- (1.5.6) a window closed as far as the player can tell stays that way
-			f:SetAlpha(alpha)
+			local base = f.view and whole or 1
+			local a = base
+			if fade then a = math.min(base, db.combatAlpha or 1)
+			elseif moving and f.view then a = math.min(base, db.movingAlpha or 0.5) end
+			f:SetAlpha(a)
 			shieldFor(f):SetShown(lock and true or false)
 		end
 	end
 	ns.combatFaded = fade or false
 end
+-- (1.6.0) Background Opacity: the bag windows' frame and background only (with Whole Window on, they stay full and the
+-- whole window fades instead, in ApplyCombatFade). Modern: the backdrop's own colours. Classic: the game frame's background
+-- pieces and BagSmith's own layers over them (the stone tile, the shade, the corner filigree: beta3, Shweep found Classic
+-- unchanged because only the pieces underneath were faded); the portrait, title and buttons are untouched.
+-- Each layer keeps its own designed opacity (Classic's corner filigree is drawn at 40%): Background Opacity scales from it,
+-- so at 100% the window looks exactly as before.
+local function scaleAlpha(r, a)
+	if not (r and r.SetAlpha) then return end
+	if r.bsBaseAlpha == nil then r.bsBaseAlpha = (r.GetAlpha and r:GetAlpha()) or 1 end
+	r:SetAlpha(r.bsBaseAlpha * a)
+end
+function ns:ApplyBgOpacity()
+	local db = ns.db or {}
+	local a = db.bgWhole and 1 or ((tonumber(db.bgOpacity)) or 1)
+	local classic = ns.Classic and ns.Classic.IsOn and ns.Classic.IsOn()
+	for _, v in pairs(ns.views or {}) do
+		local f = v.frame
+		if classic then
+			local ch = v.classicChrome
+			if ch then for _, k in ipairs({ "Bg", "TopTileStreaks", "NineSlice" }) do scaleAlpha(ch[k], a) end end
+			for _, k in ipairs({ "classicStone", "classicTile", "classicShade" }) do scaleAlpha(v[k], a) end
+			for _, r in ipairs(v.classicCorners or {}) do scaleAlpha(r, a) end
+		elseif f and f.SetBackdropColor and ns.Skins and ns.Skins.Current then
+			local s = ns.Skins:Current()
+			f:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], (s.bg[4] or 1) * a)
+			f:SetBackdropBorderColor(s.border[1], s.border[2], s.border[3], (s.border[4] or 1) * a)
+		end
+	end
+end
+-- the movement events (checked natively: PLAYER_STARTED_MOVING exists on this client); registered defensively
+pcall(ns.On, ns, "PLAYER_STARTED_MOVING", function() ns.moving = true; ns:ApplyCombatFade(InCombatLockdown()) end)
+pcall(ns.On, ns, "PLAYER_STOPPED_MOVING", function() ns.moving = false; ns:ApplyCombatFade(InCombatLockdown()) end)
 -- (1.5.6) Every BagSmith window fades in combat like the bags window (Shweep). Windows outside the bag windows register
 -- here when they're built: their click shield is made then (before any combat: a protected window's parts are best made
 -- outside it), and a window opened during combat fades at once.
@@ -467,7 +512,11 @@ ns:OnSignal("COMBAT_STARTED", function()
 end)
 ns:OnSignal("COMBAT_ENDED", function() ns:ApplyCombatFade(false) end)
 ns:OnSignal("SETTINGS_CHANGED", function(key)
-	if key == nil or key == "combatFade" or key == "combatAlpha" or key == "combatLock" then ns:ApplyCombatFade(InCombatLockdown()) end
+	if key == nil or key == "combatFade" or key == "combatAlpha" or key == "combatLock" or key == "fadeMoving" or key == "movingAlpha"
+		or key == "bgOpacity" or key == "bgWhole" then ns:ApplyCombatFade(InCombatLockdown()) end
+	-- (1.6.0) Background Opacity, now and after a skin change re-dresses the windows
+	if key == nil or key == "bgOpacity" or key == "bgWhole" then ns:ApplyBgOpacity() end
+	if key == "skin" and ns.NextFrame then ns:NextFrame("bgOpacity:skin", function() ns:ApplyBgOpacity() end) end
 end)
 
 ------------------------------------------------------------------------
@@ -543,6 +592,12 @@ ns:OnSignal("SETTINGS_CHANGED", function(key)
 	end
 	ns:RefreshViews(true)
 end)
+-- (1.6.0-beta7, the beta6 audit's R3) which columns are shown or may be set aside, or whether AH Price can show: the
+-- bags and bank windows' narrowest width follows (View.MinWidthFor)
+local MINW_KEYS = { cols = true, colAside = true, bankCols = true, bankColAside = true }
+local function minWidths() for _, v in pairs(ns.views) do if v.big then v:ApplyMinWidth() end end end
+ns:OnSignal("SETTINGS_CHANGED", function(key) if MINW_KEYS[key] then minWidths() end end)
+ns:OnSignal("PRICE_SOURCE_CHANGED", minWidths)
 -- At a banker the dedicated bank window opens beside the main window.
 ns:OnSignal("BANK_OPENED", function()
 	if ns.Bank and ns.Bank:Replacing() then Window.bank:Show() end

@@ -34,7 +34,8 @@
 	-- the stack count moves ahead of what's there; the displaced mark becomes the first backup
 	local items = P.CornerChoices("top_left", 1, "junk", false)
 	for _, it in ipairs(items) do if it.text == "Stack Count (in Bottom Right)" then it.onClick() end end
-	check(n.db.iconCorners.top_left[1] == "quantity" and n.db.iconCorners.top_left[2] == "junk" and C:CornerOf("quantity") == "top_left", "choosing the stack count in another corner moves it there, first; the mark there becomes the first backup")
+	-- (1.6.0, by design) after the locked Quest Starter
+	check(n.db.iconCorners.top_left[2] == "quantity" and n.db.iconCorners.top_left[3] == "junk" and C:CornerOf("quantity") == "top_left", "choosing the stack count in another corner moves it there, first; the mark there becomes the first backup")
 	local q = rows("top_left")[1]
 	check(q.drop.locked and q.lock:IsShown() and rows("top_left")[2].thenLabel:IsShown(), "it's locked there, with the junk coin as its backup")
 	C:Reset(); P:Refresh()

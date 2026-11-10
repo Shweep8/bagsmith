@@ -119,6 +119,13 @@ local commands = {
 	de = function() if ns.Disenchant then ns.Disenchant:Toggle() end end,
 	disenchant = function() if ns.Disenchant then ns.Disenchant:Toggle() end end,
 	toggle = function() ns.Window:Toggle() end,
+	-- (1.6.0) items in your bags that begin a quest you haven't accepted (the Quest Starter mark)
+	quest = function()
+		local found = {}
+		for _, rec in ipairs(ns.items or {}) do if rec.questStart then found[#found + 1] = rec.link or rec.name or "?" end end
+		if #found == 0 then ns:Print("No item in your bags begins a quest you haven't accepted.")
+		else ns:Print("Items that begin a quest: %s", table.concat(found, ", ")) end
+	end,
 	settings = function() ns.SettingsPanel:Toggle() end,
 	currency = function() ns.Window:Show(); ns.Drawer:Toggle() end,
 	show = function() ns.Window:Show() end,

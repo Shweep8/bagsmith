@@ -37,7 +37,7 @@ ns.uiBank = { sheet = "All", filters = ns.EmptyFilters() }
 
 -- Grouping, sort, view and stack merging are separate settings for the bank window.
 local BANK_PREF = { grp = "bankGrp", sort = "bankSort", view = "bankView", mergeStacks = "bankMerge",
-	cols = "bankCols", colOrder = "bankColOrder", colWidths = "bankColWidths" }
+	cols = "bankCols", colOrder = "bankColOrder", colWidths = "bankColWidths", colAside = "bankColAside" }
 -- Sheets remember their own view (optional, the sheetViews setting): each
 -- sheet tab keeps its own Sections, Sort, View, Merge Stacks and collapsed
 -- sections. The All tab, and every tab with the setting off, use the
@@ -142,7 +142,7 @@ local function textButton(parent, text, width, onClick, template, name)
 	b.label:SetText(text)
 	if onClick then b:SetScript("OnClick", onClick) end
 	b:SetScript("OnEnter", function(self)
-		if self.tip and ns.TooltipsOK() then
+		if self.tip and ns.HelpTipsOK() then
 			GameTooltip:SetOwner(self, "ANCHOR_TOP"); ns.TipText(GameTooltip, self.tip)
 			-- (1.5.8) an optional second line, as icon buttons have (a function, so it can describe the moment)
 			local sub = type(self.tipSub) == "function" and self.tipSub(self) or self.tipSub
@@ -275,7 +275,7 @@ local function iconButton(parent, texture, tip, onClick)
 	b:SetScript("OnClick", onClick)
 	b:SetScript("OnEnter", function(self)
 		self.tex:SetVertexColor(0.93, 0.91, 0.88)
-		if ns.TooltipsOK() then
+		if ns.HelpTipsOK() then
 			GameTooltip:SetOwner(self, "ANCHOR_TOP"); ns.TipText(GameTooltip, self.tip)
 			-- An optional second line (a function, so it can describe the moment).
 			local sub = type(self.tipSub) == "function" and self.tipSub(self) or self.tipSub
@@ -298,6 +298,37 @@ ns.IconButton = iconButton
 ------------------------------------------------------------------------
 -- Construction
 ------------------------------------------------------------------------
+View.MIN_W = { main = 440, bank = 500 }   -- (1.6.0; 620 for both before)
+-- (1.6.0-beta7, the beta6 audit's R3; Shweep) The columns a narrow window may not set aside (shown, unticked under Narrow
+-- Windows) must still fit at their narrowest (30 px each, Item 90) beside the list's margins and scrollbar lane, so the
+-- window can't be dragged narrower than that: the bags window's 440 (the bank's 500), or more when many columns are kept.
+-- Returns the narrowest width and the plain minimum.
+function View.MinWidthFor(bank)
+	local base = bank and View.MIN_W.bank or View.MIN_W.main
+	local db = ns.db
+	if not db then return base, base end
+	local cols, aside = db[bank and "bankCols" or "cols"], db[bank and "bankColAside" or "colAside"]
+	local kept = 0
+	for _, key in ipairs(type(cols) == "table" and cols or {}) do
+		local canGo = key ~= "c" and type(aside) == "table" and ns.IndexOf(aside, key) ~= nil   -- (Qty never goes)
+		if not canGo and (key ~= "ah" or (ns.AH and ns.AH:Available())) then kept = kept + 1 end
+	end
+	local need = PAD * 2 + BAR_ROOM + (View.ITEM_MIN or 90) + kept * (View.COL_MIN or 30)
+	return math.max(base, need), base
+end
+-- Applies that narrowest width to the bags or bank window: the resize grip stops there, and a window narrower than it
+-- widens to it (the saved size isn't changed). Out of combat only (the window holds protected item buttons).
+function View:ApplyMinWidth()
+	if not self.big then return end
+	ns:Safely("minwidth:" .. self.name, function()
+		local f = self.frame
+		local minW = View.MinWidthFor(self.isBank)
+		self.minWidth = minW
+		if f.SetResizeBounds then f:SetResizeBounds(minW, 300, 1400, 1200) end
+		if (f:GetWidth() or 0) < minW then f:SetWidth(minW) end
+	end)
+end
+
 function View.New(name, opts)
 	local self = setmetatable({ name = name, opts = opts, kind = opts.kind }, View)
 	self.isMain = opts.kind == "main"
@@ -323,7 +354,9 @@ function View:Build()
 	f:SetMovable(true)
 	f:EnableMouse(true)
 	f:SetResizable(true)
-	if f.SetResizeBounds then f:SetResizeBounds(620, 300, 1400, 1200) end   -- up to 1400 wide, 1200 tall
+	-- (1.6.0) as narrow as 440 px (the bags window) or 500 (the bank, whose bag strip needs the room); up to 1400 wide,
+	-- 1200 tall. Small bag windows size themselves.
+	if f.SetResizeBounds then f:SetResizeBounds((View.MinWidthFor(self.isBank)), 300, 1400, 1200) end
 
 	-- Title bar
 	-- The whole top band drags the window, from the very top edge down to the
@@ -429,10 +462,16 @@ function View:Build()
 		self.charIcon = self.charBtn:CreateTexture(nil, "ARTWORK")
 		self.charIcon:SetSize(14, 14)
 		self.charIcon:SetPoint("LEFT", 6, 0)
+		-- (1.6.0-beta11, Shweep: "feel free to ellipse names") the level stands on its own at the right, before the arrow, and
+		-- the name takes what's left, cut short with "..." in a narrow picker; the level is never cut
+		self.charLevel = fontString(self.charBtn, "GameFontHighlightSmall", "RIGHT")
+		self.charLevel:SetPoint("RIGHT", self.charBtn, "RIGHT", -View.PICKER_ARROW, 0)
+		self.charLevel:SetTextColor(0.56, 0.55, 0.51)
 		self.charBtn.label:ClearAllPoints()
 		self.charBtn.label:SetPoint("LEFT", self.charIcon, "RIGHT", 5, 0)
-		self.charBtn.label:SetPoint("RIGHT", -18, 0)
+		self.charBtn.label:SetPoint("RIGHT", self.charLevel, "LEFT", -5, 0)
 		self.charBtn.label:SetJustifyH("LEFT")
+		if self.charBtn.label.SetWordWrap then self.charBtn.label:SetWordWrap(false) end
 		self.charArrow = self.charBtn:CreateTexture(nil, "OVERLAY")
 		self.charArrow:SetSize(11, 11)
 		self.charArrow:SetPoint("RIGHT", -6, 0)
@@ -554,6 +593,28 @@ function View:Build()
 			return sync
 		end
 		self.syncGrp = seg("Sections", { { "none", "All", 38 }, { "type", "By Section", 64 }, { "bag", "By Bag", 54 } }, function() return self:Pref("grp") end, function(v) self:SetPref("grp", v) end)
+		self.toolItems[#self.toolItems].hideAt = 3
+		-- (1.6.0) For narrow windows: Sections as one button with a menu (from the fourth step), then, at the fifth,
+		-- Sort drops "Sort:", and Merge Stacks and List / Icons become icons.
+		self.btnGrpMenu = textButton(tools, "", 88, function(b)
+			local cur, items = self:Pref("grp"), {}
+			for _, it in ipairs(View.GRP_CHOICES) do
+				items[#items + 1] = { text = it[2], checked = cur == it[1], onClick = function()
+					self:SetPref("grp", it[1]); self.syncGrp(); self:SyncTools(); ns:RefreshViews(true)
+				end }
+			end
+			ns.ShowMenu(items, b)
+		end)
+		self.btnGrpMenu.tip = "Sections"
+		self.btnGrpMenu.tipSub = "Show all your items together, by section, or by bag"
+		self.btnGrpMenu.label:ClearAllPoints()
+		self.btnGrpMenu.label:SetPoint("LEFT", 8, 0); self.btnGrpMenu.label:SetPoint("RIGHT", -18, 0)
+		self.btnGrpMenu.chev = self.btnGrpMenu:CreateTexture(nil, "OVERLAY")
+		self.btnGrpMenu.chev:SetSize(10, 10); self.btnGrpMenu.chev:SetPoint("RIGHT", -6, 0)
+		self.btnGrpMenu.chev:SetTexture(MEDIA .. "ui-chev-down.tga")
+		self.btnGrpMenu.chev:SetVertexColor(MUTED[1], MUTED[2], MUTED[3])
+		self.btnGrpMenu.riders = { self.btnGrpMenu.chev }
+		self.toolItems[#self.toolItems + 1] = { frame = self.btnGrpMenu, width = 88, gap = 14, onlyAt = 3 }
 		self.btnLanes = iconButton(tools, MEDIA .. "ui-collapse.tga", "Collapse or Expand All Sections", function() self:ToggleAllLanes() end)
 		self.toolItems[#self.toolItems + 1] = { frame = self.btnLanes, width = 24, gap = 10, offset = -10 }
 		self.btnSort = textButton(tools, "Sort: quality", 96, function()
@@ -563,11 +624,21 @@ function View:Build()
 			self:SetPref("sort", modes[i % #modes + 1])
 			self:SyncTools(); ns:RefreshViews(true)
 		end)
-		self.toolItems[#self.toolItems + 1] = { frame = self.btnSort, width = 96, gap = 8 }
-		self.btnMerge = textButton(tools, "Merge Stacks", 92, function() self:SetPref("mergeStacks", not self:Pref("mergeStacks")); self:SyncTools(); ns:RefreshViews(true) end)
+		self.toolItems[#self.toolItems + 1] = { frame = self.btnSort, width = 96, gap = 8, w4 = 72 }
+		local function toggleMerge() self:SetPref("mergeStacks", not self:Pref("mergeStacks")); self:SyncTools(); ns:RefreshViews(true) end
+		self.btnMerge = textButton(tools, "Merge Stacks", 92, toggleMerge)
 		self.btnMerge.tip = "Combine stacks of the same item into one, with the total count: one row in List view, one icon in Icons"
-		self.toolItems[#self.toolItems + 1] = { frame = self.btnMerge, width = 92, gap = 12, compactText = "Merge", fullText = "Merge Stacks", compactWidth = 56 }
+		self.toolItems[#self.toolItems + 1] = { frame = self.btnMerge, width = 92, gap = 12, compactText = "Merge", fullText = "Merge Stacks", compactWidth = 56, hideAt = 4 }
+		self.btnMergeIcon = iconButton(tools, MEDIA .. "ui-merge.tga", "Merge Stacks", toggleMerge)
+		self.btnMergeIcon.tipSub = function() return self:Pref("mergeStacks") and "On: each item shows once, with its total count" or "Off: click to show each item once, with its total count" end
+		self.toolItems[#self.toolItems + 1] = { frame = self.btnMergeIcon, width = 24, gap = 4, onlyAt = 4, live = true }
 		self.syncView = seg("View", { { "list", "List", 46 }, { "icons", "Icons", 50 } }, function() return self:Pref("view") end, function(v) self:SetPref("view", v) end)
+		self.toolItems[#self.toolItems].hideAt = 4
+		self.btnViewIcon = iconButton(tools, MEDIA .. "ui-list.tga", "List View", function()
+			self:SetPref("view", self:Pref("view") == "list" and "icons" or "list"); self.syncView(); self:SyncTools(); ns:RefreshViews(true)
+		end)
+		self.btnViewIcon.tipSub = function() return self:Pref("view") == "list" and "Click to switch to Icons" or "Click to switch to List" end
+		self.toolItems[#self.toolItems + 1] = { frame = self.btnViewIcon, width = 24, gap = 0, onlyAt = 4, live = true }
 		title.band:ClearAllPoints()
 		title.band:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -4)
 		title.band:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
@@ -627,11 +698,14 @@ function View:Build()
 			ns:RefreshViews(true)
 		end)
 		b:SetScript("OnEnter", function(btn)
-			if not ns.TooltipsOK() then return end
+			if not ns.HelpTipsOK() then return end
 			GameTooltip:SetOwner(btn, "ANCHOR_TOP")
 			ns.TipText(GameTooltip, "Click to sort by " .. text)
 			if key == "age" then ns.TipLine(GameTooltip, "Time since BagSmith first saw the item in your bags", 0.6, 0.6, 0.6) end
 			ns.TipLine(GameTooltip, "Drag the gold line on either side to resize", 0.6, 0.6, 0.6)
+			-- (1.6.0-beta6) what a narrow window has set aside, and where to choose
+			local aside = self:AsideText()
+			if aside then ns.TipLine(GameTooltip, aside, 0.98, 0.78, 0.46) end
 			GameTooltip:Show()
 		end)
 		b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -800,6 +874,8 @@ function View:Build()
 		-- this client its size event may not fire when it opens, so the header kept a width it read as 0 (Shweep: it
 		-- didn't fill the window until resized)
 		if self.LayoutTools then ns:NextFrame("tools:show:" .. self.name, function() self:LayoutTools() end) end
+		-- (1.6.0) and its Background Opacity (a window built or re-dressed since it was last applied)
+		if ns.ApplyBgOpacity then ns:NextFrame("bgOpacity:show", function() ns:ApplyBgOpacity(); ns:ApplyCombatFade(InCombatLockdown()) end) end
 	end)
 	f:SetScript("OnHide", function()
 		if ns.ready then PlaySound(SOUNDKIT.IG_BACKPACK_CLOSE) end
@@ -814,15 +890,28 @@ end
 ------------------------------------------------------------------------
 -- Skin, size, position
 ------------------------------------------------------------------------
--- Places the toolbar items left to right. If the full form does not fit the window, it narrows in two steps
--- (1.4.1): first the group labels ("Sections", "View") are hidden; only if it still doesn't fit does "Merge Stacks"
--- become "Merge".
+-- Places the toolbar items left to right. If the full form does not fit the window, it narrows in steps (1.4.1):
+-- first the group labels ("Sections", "View") are hidden; then "Merge Stacks" becomes "Merge"; (1.6.0-beta5) then
+-- Sections becomes one button with a menu (the widest piece goes first); last, for the narrowest windows, Sort drops
+-- "Sort:", and Merge Stacks and List / Icons become icons. (beta5, Shweep) The last control (List / Icons) sits at the
+-- row's right end, so the toolbar and the search row above it both end at the window's edge, at every width.
+View.GRP_CHOICES = { { "none", "All" }, { "type", "By Section" }, { "bag", "By Bag" } }
+View.TOOL_LEVELS = 4
+local function toolShown(it, level)
+	if it.isLabel and level >= 1 then return false end
+	if it.onlyAt and level < it.onlyAt then return false end
+	if it.hideAt and level >= it.hideAt then return false end
+	return true
+end
+local function toolWidth(it, level)
+	if it.live and it.frame.GetWidth then return it.frame:GetWidth() end
+	if level >= 4 and it.w4 then return it.w4 end
+	return (level >= 2 and it.compactWidth) or it.width
+end
 function View:ToolsTotal(level)
 	local w = 0
 	for _, it in ipairs(self.toolItems or {}) do
-		if not (level >= 1 and it.isLabel) then
-			w = w + ((level >= 2 and it.compactWidth) or it.width) + it.gap + (it.offset or 0)
-		end
+		if toolShown(it, level) then w = w + toolWidth(it, level) + it.gap + (it.offset or 0) end
 	end
 	return w
 end
@@ -832,40 +921,83 @@ function View:LayoutTools()
 	local level = 0
 	-- (1.5.5) A width that reads 0 (or nearly) isn't known yet (a window built while closed): it isn't "too narrow",
 	-- so the full header is laid out, and the window's next open lays it out again for its real width.
-	if avail and avail > 50 and self:ToolsTotal(0) > avail then level = (self:ToolsTotal(1) > avail) and 2 or 1 end
+	if avail and avail > 50 then
+		while level < View.TOOL_LEVELS and self:ToolsTotal(level) > avail do level = level + 1 end
+	end
 	self.toolsLevel = level
 	self.toolsCompact = level >= 1
-	local compact = level >= 1
-	local x = 0
+	local x, last, lastX, lastW = 0, nil, 0, 0
+	local prev, lastLabel = nil, nil   -- (1.6.0) a shown group label right before the last control ("View")
 	for _, it in ipairs(self.toolItems) do
 		local f = it.frame
-		if compact and it.isLabel then
+		if not toolShown(it, level) then
 			f:Hide()
 		else
 			-- (1.5.5) Collapse All Sections shows only when there are sections (as SyncTools decides): laying the toolbar
 			-- out again on every open mustn't bring it back with nothing to collapse
 			if f == self.btnLanes and #(self.laneIds or {}) == 0 then f:Hide() else f:Show() end
-			local short = level >= 2 and it.compactWidth ~= nil
-			local w = short and it.compactWidth or it.width
+			local w = toolWidth(it, level)
 			if it.compactText then
-				f.label:SetText(short and it.compactText or it.fullText); f:SetWidth(w)
+				f.label:SetText((level >= 2 and it.compactWidth) and it.compactText or it.fullText); f:SetWidth(w)
+			elseif it.w4 then
+				f:SetWidth(w)
 			end
 			x = x + (it.offset or 0)
 			f:ClearAllPoints(); f:SetPoint("LEFT", self.tools, "LEFT", x, 0)
+			lastLabel = (prev and prev.isLabel) and prev or nil
+			last, lastX, lastW = it, x, w
 			x = x + w + it.gap
+			prev = it
 		end
 	end
 	self.toolsWidth = x
-	-- The search row ends where the toolbar ends: Filter's right edge lines up
-	-- with the last button (Icons), whatever the window's width or skin. If
-	-- the toolbar ever reaches the window's edge, Filter stays at the edge.
-	local last
-	for _, it in ipairs(self.toolItems) do if not (compact and it.isLabel) then last = it end end
-	local toolsEnd = x - (last and last.gap or 0)
+	-- (1.6.0-beta5) the last control moves to the row's right end (never back over the one before it). (1.6.0, Shweep's
+	-- screenshot) its group label moves with it, keeping its gap: "View" stayed behind after Merge Stacks.
+	if last and avail and avail > 50 and avail - lastW > lastX then
+		lastX = avail - lastW
+		last.frame:ClearAllPoints(); last.frame:SetPoint("LEFT", self.tools, "LEFT", lastX, 0)
+		if lastLabel then
+			lastLabel.frame:ClearAllPoints(); lastLabel.frame:SetPoint("LEFT", self.tools, "LEFT", lastX - lastLabel.gap - toolWidth(lastLabel, level), 0)
+		end
+	end
+	if self.btnSort then self:SyncSortLabel() end
+	if self.btnGrpMenu then self:SyncGrpMenu() end
+	-- The search row ends where the toolbar ends: Filter's right edge lines up with the last button (List / Icons), which
+	-- now sits at the row's end, so both rows reach the window's edge. Before the first layout pass (width unknown) it's
+	-- where the toolbar's controls end. If the toolbar ever runs past the window's edge, Filter stays at the edge.
+	local toolsEnd = last and (lastX + lastW) or 0
 	local cap = (avail and avail > 50) and avail or math.huge   -- before the first layout pass, width can read 0
 	if toolsEnd > cap then toolsEnd = cap end
 	self.toolsEnd = toolsEnd
 	self:PlaceSearch()
+	if self.LayoutTitleRow then self:LayoutTitleRow() end
+end
+
+-- (1.6.0) The toolbar's narrowest step: the Sort button without "Sort:", the Sections button naming the choice.
+local SORT_NAME = { quality = "Quality", name = "Name", ilvl = "iLvl", newest = "Newest", oldest = "Oldest", off = "Off" }
+function View:SyncSortLabel()
+	local name = self.st.colSort and (ns.COL_LABEL[self.st.colSort.key] or "Item") or (SORT_NAME[self:Pref("sort")] or self:Pref("sort"))
+	self.btnSort.label:SetText(((self.toolsLevel or 0) >= 4) and name or ("Sort: " .. name))
+end
+function View:SyncGrpMenu()
+	local cur = self:Pref("grp")
+	for _, it in ipairs(View.GRP_CHOICES) do if it[1] == cur then self.btnGrpMenu.label:SetText(it[2]) end end
+	if self.btnMergeIcon then self.btnMergeIcon:SetActive(self:Pref("mergeStacks") and true or false) end
+	if self.btnViewIcon then
+		local list = self:Pref("view") == "list"
+		self.btnViewIcon.tex:SetTexture("Interface\\AddOns\\BagSmith\\Media\\" .. (list and "ui-list.tga" or "ui-grid.tga"))
+		self.btnViewIcon.tip = list and "List View" or "Icons View"
+	end
+end
+
+-- (1.6.0-beta6) The header tooltip's line about columns a narrow window has set aside, or nil when none are.
+function View:AsideText()
+	local plan = self.columnPlan
+	local d = plan and plan.dropped
+	if not (d and #d > 0) then return nil end
+	local names = {}
+	for _, key in ipairs(d) do names[#names + 1] = ns.COL_LABEL[key] or key end
+	return ("Set aside to fit: %s. Widen the window, or choose in Settings > %s."):format(table.concat(names, ", "), self.isBank and "Bank Columns" or "Bag Columns")
 end
 
 -- The search box: its own row under the title (ending with the toolbar), or
@@ -887,7 +1019,9 @@ function View:PlaceSearch()
 		-- The character picker is hidden in Travel Mode: search starts after the title. (1.5.5) It ends at Travel Mode's
 		-- Collapse All Sections button when that shows, else at the broom.
 		local T = self.btnLanesTravel
-		self.search:SetPoint("LEFT", self.subText, "RIGHT", 12, 0)
+		-- (1.6.0-beta11) after the note while it shows, else where it would start (12 past the title either way)
+		if self.subText:IsShown() then self.search:SetPoint("LEFT", self.subText, "RIGHT", 12, 0)
+		else self.search:SetPoint("LEFT", self.subText, "LEFT", 4, 0) end
 		if T and T:IsShown() then self.search:SetPoint("RIGHT", T, "LEFT", -6, 0)
 		else self.search:SetPoint("RIGHT", self.btnClean, "LEFT", -8, 0) end
 		self.search:SetHeight(22)
@@ -1038,6 +1172,7 @@ function View:ApplySize()
 		end
 	end
 	self.grip:SetShown(self.big)
+	self:ApplyMinWidth()   -- (1.6.0-beta7, R3) never narrower than the kept columns need
 end
 
 function View:SavePosition()
@@ -1053,16 +1188,116 @@ end
 ------------------------------------------------------------------------
 -- Chrome: title, tools, tabs, footer
 ------------------------------------------------------------------------
+-- The title in its longest form first, then shorter ones for a narrow window (1.6.0): Travel Mode's "(Travel Mode)" goes
+-- first (the lit signpost still says so), then "Your Bags" becomes "Bags" and "Bank (Saved)" becomes "Bank".
+function View:TitleForms()
+	if self.isBank then return { "Bank" } end
+	if not self.isMain then return { self.opts.title or "" } end
+	local saved = self.st.sheet == "Bank"
+	local base, short = saved and "Bank (Saved)" or "Your Bags", saved and "Bank" or "Bags"
+	if self:TravelOn() then return { base .. " (Travel Mode)", base, short } end
+	return { base, short }
+end
 function View:UpdateTitle()
-	local title = self.opts.title
-	if self.isMain then
-		title = self.st.sheet == "Bank" and "Bank (Saved)" or "Your Bags"
-		if self:TravelOn() then title = title .. " (Travel Mode)" end
-	end
-	if self.isBank then title = "Bank" end
+	local title = self:TitleForms()[1]
 	self.titleText:SetText(title)
 	if self.classicApplied and self.classicTitle then self.classicTitle:SetText(title); self.titleText:SetText("") end
-	if self.isMain then self:PlaceSearch() end
+	if self.isMain then self:PlaceSearch(); self:LayoutTitleRow() end
+end
+
+-- (1.6.0) The title row of the bags window, fitted to a narrow window. The icons at its right end never move; what's left
+-- of them gives way in this order: the character picker narrows (170 px down to 110), the title shortens (TitleForms),
+-- and the note after the title ("12 of 80 shown") is cut short, or hidden when there's no room for it at all. In Travel
+-- Mode the search box sits in this row and keeps at least SEARCH_MIN.
+local PICKER_W, PICKER_MIN, SEARCH_MIN = 170, 110, 120
+View.TITLE_FIT = { PICKER_W = PICKER_W, PICKER_MIN = PICKER_MIN, SEARCH_MIN = SEARCH_MIN }
+-- (1.6.0-beta11) how far the picker's level sits from its right edge: clear of Modern's small chevron, and of Classic's
+-- larger dropdown arrow (Shweep's screenshot: the level ran under it); Classic sets its own (Frames/Classic.lua)
+View.PICKER_ARROW, View.PICKER_ARROW_CLASSIC = 18, 28
+-- How far the left edge of f sits from the title row's right edge, following its RIGHT-to-LEFT anchors back to the row.
+local function fromRight(f, title, depth)
+	depth = depth or 0
+	if not f or depth > 16 then return nil end
+	local p, rel, rp, x = f:GetPoint(1)
+	if type(rel) ~= "table" then rel, rp, x = (f.GetParent and f:GetParent()) or title, p, rel end   -- ("RIGHT", x, y)
+	if p ~= "RIGHT" then return nil end
+	local base
+	if rel == title and rp == "RIGHT" then base = 0
+	elseif rp == "LEFT" then base = fromRight(rel, title, depth + 1) end
+	if not base then return nil end
+	return base - (tonumber(x) or 0) + (f:GetWidth() or 0)
+end
+View.FromRight = fromRight
+local function textWidth(fs)
+	if fs.GetUnboundedStringWidth then return fs:GetUnboundedStringWidth() or 0 end
+	return fs:GetStringWidth() or 0
+end
+-- (1.6.0-beta11, Shweep's screenshots) What comes after the note (the picker; in Travel Mode the search box) follows it
+-- only while it shows. A hidden note keeps its width, so at the narrowest width the picker and its X slid over the icons
+-- when viewing another character, and Travel Mode's search box shrank while searching ("1 of 13 shown").
+function View:FollowNote()
+	local shown = self.subText and self.subText:IsShown()
+	if self.charBtn then
+		self.charBtn:ClearAllPoints()
+		if shown then self.charBtn:SetPoint("LEFT", self.subText, "RIGHT", 10, 0)
+		else self.charBtn:SetPoint("LEFT", self.subText, "LEFT", 2, 0) end   -- (the note starts 8 past the title: 10 in all)
+	end
+	if self:TravelOn() then self:PlaceSearch() end
+end
+function View:LayoutTitleRow()
+	if not (self.isMain and self.title and self.titleText) then return end
+	local avail = self.title:GetWidth() or 0
+	local forms = self:TitleForms()
+	local classic = self.classicApplied and self.classicTitle and true or false
+	local travel = self:TravelOn()
+	local T = self.btnLanesTravel
+	local edge = (travel and T and T:IsShown()) and T or self.btnClean
+	local right = edge and fromRight(edge, self.title)
+	self.titleFit = nil
+	if avail <= 50 or not right then
+		-- Not laid out yet (a window built while closed): the full forms, as before.
+		if not classic then self.titleText:SetText(forms[1]) end
+		if self.charBtn then self.charBtn:SetWidth(PICKER_W) end
+		self.subText:SetWidth(0); self.subText:Show()
+		return
+	end
+	local lead = classic and 2 or (16 + 6)   -- the mark and its gap (Modern); Classic's note starts at the row's edge
+	local subW = textWidth(self.subText)
+	local picker = (not travel) and self.charBtn and self.charBtn:IsShown()
+	local reset = (picker and self.charReset and self.charReset:IsShown()) and (2 + self.charReset:GetWidth()) or 0
+	-- What the row must keep after the note: the picker at its narrowest, or Travel Mode's search box.
+	local tail = travel and (12 + SEARCH_MIN + 8) or (picker and (10 + PICKER_MIN + reset) or 0)
+	local room = avail - right - 8
+	local function titleW(form)
+		if classic then return 0 end
+		self.titleText:SetText(form)
+		return textWidth(self.titleText) + 8
+	end
+	local chosen, tw = #forms, 0
+	for i, form in ipairs(forms) do
+		tw = titleW(form)
+		if lead + tw + subW + tail <= room then chosen = i; break end
+	end
+	if chosen == #forms then tw = titleW(forms[#forms]) end
+	local subRoom = room - lead - tw - tail
+	if subW <= subRoom then
+		self.subText:SetWidth(0); self.subText:Show()
+	elseif subRoom >= 24 then
+		self.subText:SetWidth(subRoom); self.subText:SetWordWrap(false); self.subText:Show()
+		subW = subRoom
+	else
+		self.subText:Hide(); subW = 0
+	end
+	local pw
+	if picker then
+		pw = math.max(PICKER_MIN, math.min(PICKER_W, math.floor(room - lead - tw - subW - 10 - reset)))
+		self.charBtn:SetWidth(pw)
+	elseif self.charBtn then
+		self.charBtn:SetWidth(PICKER_W)
+	end
+	self:FollowNote()
+	if not classic then self.titleText:SetText(forms[chosen]) end
+	self.titleFit = { form = chosen, picker = pw, sub = self.subText:IsShown() and subW or nil, room = room, right = right }
 end
 
 function View:UpdateChrome(shown, total, bagInfo, cached)
@@ -1073,7 +1308,7 @@ function View:UpdateChrome(shown, total, bagInfo, cached)
 	local sub = ""
 	if ns.ui.owner then
 		local data = BagSmithDB.cache[ns.ui.owner]
-		sub = (data and data.name or "?") .. ", read only"
+		sub = "read only"   -- (1.6.0-beta11, Shweep) the picker already says whose bags these are
 		if self.st.sheet == "Bank" then sub = sub .. ", saved bank" end
 	elseif self.st.sheet == "Bank" and self.isMain then
 		sub = "saved view"
@@ -1086,8 +1321,9 @@ function View:UpdateChrome(shown, total, bagInfo, cached)
 		local data = ns.ui.owner and BagSmithDB.cache[ns.ui.owner] or BagSmithDB.cache[ns:CharKey()]
 		local name, class, level = data and data.name or ns:DisplayName("player"), data and data.class, data and data.level or UnitLevel("player")
 		if not class then local _, c = UnitClass("player"); class = c end
-		self.charBtn.label:SetText(("%s  |cff8f8c83%d|r"):format(name or "?", level or 0))
+		self.charBtn.label:SetText(name or "?")
 		self.charBtn.label:SetTextColor(ns.ClassColor(class))
+		if self.charLevel then self.charLevel:SetText(tostring(level or 0)) end
 		if CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class] then
 			self.charIcon:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
 			self.charIcon:SetTexCoord(unpack(CLASS_ICON_TCOORDS[class]))
@@ -1104,6 +1340,7 @@ function View:UpdateChrome(shown, total, bagInfo, cached)
 		self.btnFilter:SetActive(ns.FilterCount(self.st.filters) > 0)
 		self.btnFilter.label:SetText(ns.FilterCount(self.st.filters) > 0 and ("Filter (%d)"):format(ns.FilterCount(self.st.filters)) or "Filter")
 	end
+	if self.isMain then self:LayoutTitleRow() end   -- (1.6.0) the note and picker just changed
 end
 
 -- The Disenchant Helper's toolbar button: shown while the helper is on, lit while its window is open (1.2.0).
@@ -1140,8 +1377,8 @@ function View:SyncTools()
 	end
 	if self.btnMerge then self.btnMerge:SetActive(self:Pref("mergeStacks")); self.btnMerge.label:SetText((self.toolsLevel or 0) >= 2 and "Merge" or "Merge Stacks") end
 	if self.btnReagent then self.btnReagent:SetActive(sr and true or false) end
-	local SORT_NAME = { quality = "Quality", name = "Name", ilvl = "iLvl", newest = "Newest", oldest = "Oldest", off = "Off" }
-	self.btnSort.label:SetText(self.st.colSort and ("Sort: " .. (ns.COL_LABEL[self.st.colSort.key] or "Item")) or ("Sort: " .. (SORT_NAME[self:Pref("sort")] or self:Pref("sort"))))
+	self:SyncSortLabel()
+	if self.btnGrpMenu then self:SyncGrpMenu() end
 	self.btnSort:SetActive(self.st.colSort ~= nil)
 	local ids, collapsedSet = self.laneIds or {}, {}
 	for _, id in ipairs(self:CollapsedList()) do collapsedSet[id] = true end
@@ -1159,54 +1396,72 @@ function View:SyncTools()
 	end
 end
 
+-- (1.6.0-beta5, Shweep) The sheet tabs keep to one row in both skins (Classic's hang below the window, where a second
+-- row looked broken). They fit first: Classic's tabs trim their padding and overlap a little, like Blizzard's. Tabs that
+-- still don't fit fold into a "»" tab whose menu lists them, with New Sheet... at the bottom (the "+" steps aside while
+-- anything is folded). The tab you're on always stays in view: if it would fold, it takes the last place that fits.
+View.TAB_MORE_W = 30
+function View:TabPlan(widths, avail, current, endRoom, pencilRoom)
+	-- widths: { id, w } in order; endRoom: what the + and the pencil need after the tabs; pencilRoom: the pencil alone
+	-- (it stays while folding, for the current custom sheet). Returns the ids shown and the ids folded, each in order.
+	-- step: the distance between one tab's right edge and the next one's left (Classic's overlap a little).
+	local step = self.classicApplied and -2 or 2
+	local total = 0
+	for _, t in ipairs(widths) do total = total + t.w + step end
+	if total + endRoom <= avail then
+		local all = {}; for _, t in ipairs(widths) do all[#all + 1] = t.id end
+		return all, {}
+	end
+	-- Folding: the "»" tab and the pencil (for the current custom sheet) stay; the + goes into the menu.
+	local room = avail - (View.TAB_MORE_W + step) - (pencilRoom or 0)
+	local shown, folded, x = {}, {}, 0
+	for _, t in ipairs(widths) do
+		if #folded == 0 and x + t.w + step <= room then shown[#shown + 1] = t; x = x + t.w + step
+		else folded[#folded + 1] = t end
+	end
+	-- the current tab must be in view: it replaces shown tabs from the end until it fits
+	local curFolded
+	for i, t in ipairs(folded) do if t.id == current then curFolded = i end end
+	if curFolded then
+		local cur = table.remove(folded, curFolded)
+		while #shown > 0 and x + cur.w + step > room do
+			local t = table.remove(shown)
+			x = x - t.w - step
+			table.insert(folded, 1, t)
+		end
+		shown[#shown + 1] = cur
+		-- folded tabs keep their own order
+		local order = {}; for i, t in ipairs(widths) do order[t.id] = i end
+		table.sort(folded, function(p, q) return order[p.id] < order[q.id] end)
+	end
+	local s, f = {}, {}
+	for _, t in ipairs(shown) do s[#s + 1] = t.id end
+	for _, t in ipairs(folded) do f[#f + 1] = t.id end
+	return s, f
+end
 function View:UpdateTabs()
 	-- Row height: Blizzard's tabs are taller in Classic. Everything is still
 	-- created at its Modern size; only this pass's layout uses rowH.
 	local rowH = self.classicApplied and 30 or TAB_H
-	local db, x = ns.db, 0
+	local db = ns.db
 	local hidden = {}
 	for _, t in ipairs(self.isBank and db.bankHiddenTabs or db.hiddenTabs) do hidden[t] = true end
 	-- No equipment sets on this client: no Gear Sets tab.
 	if not (ns.GearSets and ns.GearSets:Available()) then hidden.GearSets = true end
-	local i, row = 0, 0
 	local order = self.isBank and db.bankTabOrder or db.tabOrder
+	-- Each tab's width: its label plus padding (Classic's art needs less than it had: 12 px, not 16).
+	self.tabMeasure = self.tabMeasure or self.tabs:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	local pad = self.classicApplied and 12 or 16
+	local widths, labels = {}, {}
 	for _, id in ipairs(order) do
 		if not hidden[id] then
-			i = i + 1
-			local b = self.tabButtons[i]
-			if not b then
-				b = textButton(self.tabs, "", 60, function(btn) self:SetSheet(btn.sheet) end)
-				b:SetHeight(TAB_H - 2)
-				if self.classicApplied then b:SetClassic(true, ns.Classic.TabTemplate()) end
-				b:RegisterForDrag("LeftButton")
-				b:SetScript("OnDragStart", function(btn) ns.dragTab = btn.sheet; btn:SetAlpha(0.5) end)
-				b:SetScript("OnDragStop", function(btn)
-					btn:SetAlpha(1)
-					local target = ns.FrameUnderCursor("sheet")
-					if ns.dragTab and target and target ~= ns.dragTab then ns:ReorderTab(ns.dragTab, target, self) end
-					ns.dragTab = nil
-				end)
-				self.tabButtons[i] = b
-			end
-			b:SetHeight(rowH - 2)
-			if b.classicOn and ns.Classic and ns.Classic.FitTabArt then ns.Classic.FitTabArt(b) end   -- (1.5.0-beta6)
 			local label = ns.TAB_LABEL[id] or id
-			b.sheet = id
-			b.label:SetText(label)
-			b.label:ClearAllPoints(); b.label:SetPoint("CENTER"); b.label:SetWordWrap(false)
-			local w = math.min(160, math.max(40, b.label:GetStringWidth() + 16))
-			b.label:SetWidth(w - 12)
-			b:SetWidth(w)
-			if x + w > self.tabs:GetWidth() and x > 0 then x = 0; row = row + 1 end
-			b:ClearAllPoints(); b:SetPoint("TOPLEFT", self.tabs, "TOPLEFT", x, -row * rowH)
-			b:SetActive(self.st.sheet == id)
-			b:Show()
-			x = x + w + 2
+			labels[id] = label
+			self.tabMeasure:SetText(label)
+			widths[#widths + 1] = { id = id, w = math.min(160, math.max(40, (self.tabMeasure:GetStringWidth() or 0) + pad)) }
 		end
 	end
-	for j = i + 1, #self.tabButtons do self.tabButtons[j]:Hide() end
-	local rows = row + 1
-	if self.tabs:GetHeight() ~= rows * rowH then self.tabs:SetHeight(rows * rowH) end
+	self.tabMeasure:SetText("")
 
 	-- Plus: new sheet from the Filter panel. Pencil: edit the selected custom
 	-- sheet. Modern uses small icon buttons (sized on every pass, so a size
@@ -1216,6 +1471,19 @@ function View:UpdateTabs()
 		self.tabAdd.tex:SetSize(12, 12)
 		self.tabEdit = iconButton(self.tabs, "Interface\\AddOns\\BagSmith\\Media\\ui-pencil.tga", "Edit this sheet: rename, change its filters, or delete it", function() ns.Popups:OpenFilters(self, "edit", self.st.sheet) end)
 		self.tabEdit.tex:SetSize(13, 13)
+	end
+	-- (1.6.0-beta5) the "»" tab: the tabs that don't fit, and New Sheet...
+	if not self.tabMore then
+		self.tabMore = textButton(self.tabs, "\194\187", View.TAB_MORE_W, function(b)
+			local items = {}
+			for _, id in ipairs(self.tabFolded or {}) do
+				items[#items + 1] = { text = ns.TAB_LABEL[id] or id, checked = self.st.sheet == id, onClick = function() self:SetSheet(id) end }
+			end
+			items[#items + 1] = { text = "New Sheet...", gap = true, onClick = function() ns.Popups:OpenFilters(self, "new") end }
+			ns.ShowMenu(items, b)
+		end)
+		self.tabMore.tip = "More Sheets"
+		self.tabMore.tipSub = "The tabs that don't fit, and New Sheet..."
 	end
 	local addBtn, editBtn = self.tabAdd, self.tabEdit
 	if self.classicApplied then
@@ -1238,12 +1506,70 @@ function View:UpdateTabs()
 		if self.tabAddTab then self.tabAddTab:Hide(); self.tabEditTab:Hide() end
 		self.tabAdd:SetSize(TAB_H - 2, TAB_H - 2); self.tabEdit:SetSize(TAB_H - 2, TAB_H - 2)
 	end
+	local more = self.tabMore
+	if self.classicApplied and not more.classicOn then more:SetClassic(true, ns.Classic.TabTemplate()) end
+	if not self.classicApplied and more.classicOn then more:SetClassic(false) end
+	more:SetHeight(rowH - 2)
+	if more.classicOn and ns.Classic and ns.Classic.FitTabArt then ns.Classic.FitTabArt(more) end
+
 	local aw, ew = addBtn:GetWidth(), editBtn:GetWidth()
 	local isCustom = not ns.TAB_LABEL[self.st.sheet]
-	local extras = (aw + 2) + (isCustom and (ew + 2) or 0)
-	if x + extras > self.tabs:GetWidth() then x = 0; row = row + 1; self.tabs:SetHeight((row + 1) * rowH) end
-	addBtn:ClearAllPoints(); addBtn:SetPoint("TOPLEFT", self.tabs, "TOPLEFT", x + 2, -row * rowH); addBtn:Show()
-	x = x + aw + 4
+	local avail = self.tabs:GetWidth()
+	local pencil = isCustom and (ew + 2) or 0
+	local shown, folded
+	if avail and avail > 50 then
+		shown, folded = self:TabPlan(widths, avail, self.st.sheet, (aw + 4) + pencil, pencil)
+	else
+		shown, folded = {}, {}
+		for _, t in ipairs(widths) do shown[#shown + 1] = t.id end
+	end
+	self.tabFolded = folded
+	local wOf = {}; for _, t in ipairs(widths) do wOf[t.id] = t.w end
+	local step = self.classicApplied and -2 or 2
+	local x, i, row = 0, 0, 0   -- one row (row stays 0: the offsets are written as before, so layouts compare unchanged)
+	for _, id in ipairs(shown) do
+		i = i + 1
+		local b = self.tabButtons[i]
+		if not b then
+			b = textButton(self.tabs, "", 60, function(btn) self:SetSheet(btn.sheet) end)
+			b:SetHeight(TAB_H - 2)
+			if self.classicApplied then b:SetClassic(true, ns.Classic.TabTemplate()) end
+			b:RegisterForDrag("LeftButton")
+			b:SetScript("OnDragStart", function(btn) ns.dragTab = btn.sheet; btn:SetAlpha(0.5) end)
+			b:SetScript("OnDragStop", function(btn)
+				btn:SetAlpha(1)
+				local target = ns.FrameUnderCursor("sheet")
+				if ns.dragTab and target and target ~= ns.dragTab then ns:ReorderTab(ns.dragTab, target, self) end
+				ns.dragTab = nil
+			end)
+			self.tabButtons[i] = b
+		end
+		b:SetHeight(rowH - 2)
+		if b.classicOn and ns.Classic and ns.Classic.FitTabArt then ns.Classic.FitTabArt(b) end   -- (1.5.0-beta6)
+		local w = wOf[id]
+		b.sheet = id
+		b.label:SetText(labels[id])
+		b.label:ClearAllPoints(); b.label:SetPoint("CENTER"); b.label:SetWordWrap(false)
+		b.label:SetWidth(w - 12)
+		b:SetWidth(w)
+		b:ClearAllPoints(); b:SetPoint("TOPLEFT", self.tabs, "TOPLEFT", x, -row * rowH)
+		b:SetActive(self.st.sheet == id)
+		b:Show()
+		x = x + w + step
+	end
+	for j = i + 1, #self.tabButtons do self.tabButtons[j]:Hide() end
+	if self.tabs:GetHeight() ~= rowH then self.tabs:SetHeight(rowH) end   -- one row, always (1.6.0-beta5)
+
+	if #folded > 0 then
+		more:ClearAllPoints(); more:SetPoint("TOPLEFT", self.tabs, "TOPLEFT", x, -row * rowH)
+		more:SetActive(false); more:Show()
+		x = x + more:GetWidth() + step
+		addBtn:Hide()
+	else
+		more:Hide()
+		addBtn:ClearAllPoints(); addBtn:SetPoint("TOPLEFT", self.tabs, "TOPLEFT", x + 2, -row * rowH); addBtn:Show()
+		x = x + aw + 4
+	end
 	editBtn:SetShown(isCustom)
 	if isCustom then editBtn:ClearAllPoints(); editBtn:SetPoint("TOPLEFT", self.tabs, "TOPLEFT", x, -row * rowH) end
 end
@@ -1353,7 +1679,9 @@ function View:UpdateFooter(bagInfo)
 			shownCount = shownCount - 1
 		end
 		self.favMore.label:SetText("+" .. (#favs - shownCount))
-		if x + 34 <= avail or shownCount == 0 then
+		-- (1.6.0) only where it fits: in a narrow window it never covers the buttons on the right (the wallet in the
+		-- title row still opens every currency)
+		if x + 34 <= avail then
 			self.favMore:ClearAllPoints(); self.favMore:SetPoint("LEFT", self.footer, "LEFT", x, 0); self.favMore:Show()
 		else self.favMore:Hide() end
 	elseif self.favMore then self.favMore:Hide() end

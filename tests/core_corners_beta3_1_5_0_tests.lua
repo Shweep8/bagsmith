@@ -25,7 +25,7 @@
 	P:Show(); P:ShowPage("icons")
 	-- (1.5.0-beta10: a corner's dropdown opens the menu)
 	local function cards() return P.pools.cornerCards[1].groups end
-	local junkRow = P.pools.cornerCards[1].groups.top_left.rows[1]
+	local junkRow = P.pools.cornerCards[1].groups.top_left.rows[2]   -- (1.6.0, by design) second: the locked Quest Starter is first
 	junkRow.name = junkRow.drop
 	junkRow.name:GetScript("OnClick")(junkRow.name)
 	local m = n.menuFrame
@@ -46,7 +46,8 @@
 	local b = w.preview
 	check(b and b:IsShown() and b.bsPreview and b.rec and b.rec.name == "Sample Item", "the preview is a real BagSmith item button with a sample item")
 	check(b.bsDisplayOnly == true, "it's display-only: no clicks, drags or item actions")
-	check(b.previewShown.top_left == "junk" and b.junkCoin:IsShown(), "top left shows the junk coin")
+	-- (1.6.0, by design) the locked Quest Starter leads the top left, so the preview shows it there (the junk coin is behind)
+	check(b.previewShown.top_left == "quest_start" and b.questMark and b.questMark:IsShown() and not b.junkCoin:IsShown(), "top left shows the Quest Starter mark (locked first there)")
 	check(b.previewShown.top_right == nil and not (b.ilvlText and b.ilvlText:IsShown()), "item level is off, so the top right shows nothing")
 	check(b.previewShown.bottom_left == "equipment_set" and b.linkMark:IsShown(), "without Pawn installed, the bottom left shows the next mark, the gear-set shield")
 	check(b.previewShown.bottom_right == "quantity" and b.Count:IsShown() and b.Count.text == "20", "bottom right shows the stack count")
@@ -57,14 +58,15 @@
 	check(b.previewShown.bottom_right == "quantity" and b.Count:IsShown(), "the stack count can't be hidden: it stays on the preview")
 	n:Set("iconItemLevel", false)
 	n.Corners:Place("junk", "top_right"); P:Refresh(); b = P.pools.cornerCards[1].preview
-	check(b.previewShown.top_right == "junk" and b.previewShown.top_left == nil, "move the junk coin and it moves on the preview")
+	check(b.previewShown.top_right == "junk" and b.previewShown.top_left == "quest_start", "move the junk coin and it moves on the preview")
 	n.Corners:Reset(); P:Refresh(); b = P.pools.cornerCards[1].preview
-	check(b.previewShown.top_left == "junk" and b.previewShown.bottom_right == "quantity", "Reset puts the preview back")
+	check(b.previewShown.top_left == "quest_start" and b.previewShown.bottom_right == "quantity", "Reset puts the preview back")
 	-- another addon's mark: a neutral tag; its code isn't run on the pretend item
 	local initOnPreview = 0
-	BagSmith.API.RegisterCornerWidget("Tree Mark", "tree_mark", function() return true end, function(btn) if btn.bsPreview then initOnPreview = initOnPreview + 1 end; return btn:CreateTexture() end, { corner = "top_left", priority = 1 })
+	BagSmith.API.RegisterCornerWidget("Tree Mark", "tree_mark", function() return true end, function(btn) if btn.bsPreview then initOnPreview = initOnPreview + 1 end; return btn:CreateTexture() end, { corner = "top_right", priority = 1 })
 	P:Refresh(); b = P.pools.cornerCards[1].preview
-	check(b.previewShown.top_left == "tree_mark" and b.previewTags.top_left and b.previewTags.top_left:IsShown() and not b.junkCoin:IsShown(), "another addon's mark shows as a small tag in its corner")
+	-- (1.6.0, by design) registered in the top right (item level is off there): the top left leads with the locked Quest Starter
+	check(b.previewShown.top_right == "tree_mark" and b.previewTags.top_right and b.previewTags.top_right:IsShown() and not b.junkCoin:IsShown(), "another addon's mark shows as a small tag in its corner")
 	check(initOnPreview == 0, "and its own code never runs on the preview")
 	-- the frame and the rarity border follow your settings; the size follows Icon Size
 	n:Set("border", "off"); P:Refresh(); b = P.pools.cornerCards[1].preview
@@ -90,12 +92,12 @@
 	local text = {}
 	for _, t in ipairs(P.pools.text) do if t:IsShown() and t.text and t.text.text then text[#text + 1] = t.text.text end end
 	local all = table.concat(text, " || ")
-	check(all:find("In List view, Item Level and Stack Count show in their columns instead", 1, true), "the intro explains List view")
+	check(all:find("In List view, item level and stack count have their own columns.", 1, true), "the intro explains List view")   -- (1.6.0-beta4, by design) the approved wording
 	-- (1.5.0-beta6) the line under the cards stays, with words for when other addons' marks are there, and carries
 	-- the info icon; the heading is plain
 	local otherLine
 	for _, t in ipairs(P.pools.text) do if t:IsShown() and t.othersLine then otherLine = t end end
-	check(otherLine and otherLine.text.text == "Marks from other addons are listed in the cards above." and otherLine.info:IsShown() and otherLine.info.title == "Marks from other addons" and otherLine.info.lines[2]:find("doesn't support BagSmith yet", 1, true), "with another addon's marks there, the line says so and its info icon explains other addons' marks")
+	check(otherLine and otherLine.text.text == "Marks from other addons that support BagSmith are listed above." and otherLine.info:IsShown() and otherLine.info.title == "Marks from other addons" and otherLine.info.lines[2]:find("can only be changed in that addon's settings", 1, true), "with another addon's marks there, the line says so and its info icon explains other addons' marks")
 	local head
 	for _, h in ipairs(P.pools.head) do if h:IsShown() and h.text.text == "Icon Corners" then head = h end end
 	check(head and not (head.info and head.info:IsShown()), "the Icon Corners heading is plain")
@@ -122,7 +124,7 @@ end)()
 	local P = n.SettingsPanel
 	P:Show(); P:ShowPage("icons")
 	local found
-	for _, t in ipairs(P.pools.text) do if t:IsShown() and t.othersLine and t.text.text == "Other addons' marks appear here when they support BagSmith." then found = t end end
+	for _, t in ipairs(P.pools.text) do if t:IsShown() and t.othersLine and t.text.text == "Other addons' marks show up here when they support BagSmith." then found = t end end
 	check(found and found.info and found.info:IsShown(), "Classic, no other addon's marks yet: the line says where they'll appear, with its info icon")
 	check(P.pools.cornerCards[1].preview:IsShown(), "Classic: the preview shows too")
 	P:Hide()

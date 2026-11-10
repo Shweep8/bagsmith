@@ -162,15 +162,19 @@ end
 ------------------------------------------------------------------------
 -- Value: vendor and AH (when Auctionator knows it); the setting picks which ranks.
 ------------------------------------------------------------------------
-function MR:Values(id, count, link)
+-- (1.6.0-beta11, Shweep: "handle everywhere") bound: "soulbound" (an item in your bags, AH:Sellable) or "bop" (loot that
+-- binds when picked up). Neither can be sold at the auction house, so it has no AH value and ranks at its vendor price,
+-- whatever Rank Suggestions By says.
+function MR:Values(id, count, link, bound)
 	count = count or 1
-	local v = { vendor = sellPrice(id) * count }
-	if ns.AH and ns.AH:Available() then
+	local v = { vendor = sellPrice(id) * count, bound = bound or nil }
+	if ns.AH and ns.AH:Available() and not bound then
 		local p = ns.AH:Price({ itemID = id, link = link })
 		if p then v.ah = p * count end
 	end
 	return v
 end
+local function bindsOnPickup(id) return id and select(14, itemInfo(id)) == 1 end   -- (Enum.ItemBind: 1 is on pickup)
 function MR:Rank(v)
 	if (ns.db.makeRoomValue or "ah") == "ah" and v.ah then return v.ah end
 	return v.vendor
@@ -178,6 +182,9 @@ end
 function MR:ValueText(v)
 	local vt = "Vendor " .. ((v.vendor or 0) > 0 and money(v.vendor) or "-")
 	if not (ns.AH and ns.AH:Available()) then return "|cffffffff" .. vt .. "|r" end
+	if v.bound then   -- (1.6.0-beta11) the vendor price is the one that counts
+		return "|cffffffff" .. vt .. "|r   AH " .. (v.bound == "bop" and (ITEM_BIND_ON_PICKUP or "Binds when picked up") or (ITEM_SOULBOUND or "Soulbound"))
+	end
 	local at = "AH " .. (v.ah and money(v.ah) or "no price yet")
 	-- the price the ranking follows is the brighter one
 	if (ns.db.makeRoomValue or "ah") == "ah" and v.ah then return vt .. "   |cffffffff" .. at .. "|r" end
@@ -300,7 +307,7 @@ local function fitting(self, entries)
 		if need > 0 then
 			for _, b in ipairs(taken) do b.free = b.free + 1 end   -- it won't fit: give the slots back
 			if not e.reserved then
-				e.values = id and self:Values(id, qty, e.link) or { vendor = 0 }
+				e.values = id and self:Values(id, qty, e.link, bindsOnPickup(id) and "bop" or nil) or { vendor = 0 }
 				out[#out + 1] = e
 			end
 		elseif id then
@@ -362,7 +369,9 @@ function MR:WorthLettingGo(bag, rank, junk, waiting)
 	if junk then return true end
 	local best = self:BestFor(bag, waiting)
 	-- (1.5.1) Loot with no price (no vendor price and no AH price yet) has nothing to compare with. Rather than offer
-	-- nothing, the cheapest items are offered, cheapest first, each still asking before it's destroyed.
+	-- nothing, the cheapest items are offered, cheapest first. (1.6.0, the beta11 audit's D1) Destroying one follows the
+	-- same rules as any other (MR:AsksFirst): junk in one click; with Ask Before Destroying on, everything asks; otherwise
+	-- rare or better asks while Always Ask for Rare or Better is on. This comment used to say each one asks.
 	if best <= 0 then return true, true end
 	return (rank or 0) < best
 end
@@ -407,7 +416,7 @@ function MR:Suggestions(waiting)
 	local held = ns.Why:New()
 	for _, r in ipairs(ns.items or {}) do
 		if r.itemID and r.bag and not r.isLocked and not loot[r.itemID] and r.itemID ~= SHARD and self:SlotHelps(r.bag, waiting) then
-			local v = self:Values(r.itemID, r.count or 1, r.link)
+			local v = self:Values(r.itemID, r.count or 1, r.link, r.isBound and "soulbound" or nil)
 			local rank = self:Rank(v)
 			local junk = ns.Junk and ns.Junk:IsJunk(r)
 			local worth, noPrice = self:WorthLettingGo(r.bag, rank, junk, waiting)
@@ -514,10 +523,14 @@ end
 -- What a destroy offer was about: this exact item, this many.
 -- (1.5.1-beta2) basis: why it's offered ("junk", "priced": worth less than the loot, or "noprice": the loot has no
 -- price to compare with). An offer is only good while that reason still holds.
-function MR:Offer(rec, junk, basis)
+-- (1.6.0-beta6, the beta5 audit's F1; Shweep) value: the value the offer was ranked by (MR:Rank) when it was made. A
+-- different value at the click (another price source, a fresh scan, Rank Suggestions By changed) means it's no longer the
+-- offer that was shown, and nothing is destroyed.
+function MR:Offer(rec, junk, basis, value)
 	return { bag = rec.bag, slot = rec.slot, itemID = rec.itemID, count = rec.count or 1, link = rec.link,
 		guid = rec.guid or guidAt(rec.bag, rec.slot), name = rec.name, junk = junk and true or false, session = MR.offerToken,
-		basis = junk and "junk" or basis or "priced" }   -- (no reason given: only the strict rule, worth less than the loot)
+		basis = junk and "junk" or basis or "priced",   -- (no reason given: only the strict rule, worth less than the loot)
+		value = (not junk) and value or nil }
 end
 -- (1.5.1-beta2) Does destroying this ask first? Junk never does; with Ask Before Destroying on, everything else does;
 -- otherwise rare quality or better does while Always Ask for Rare or Better is on, as the game asks for those.
@@ -574,7 +587,9 @@ function MR:StillOk(o)
 	end
 	if C_Container.GetContainerItemQuestInfo then
 		local ok, q = pcall(C_Container.GetContainerItemQuestInfo, o.bag, o.slot)
-		if ok and type(q) == "table" and (q.isQuestItem or q.questID) then return false, "quest" end
+		-- (1.6.0-beta7, the beta6 audit's advisory) a check that errors is a no, like an unreadable gear-set check
+		if not ok then return false, "questunknown" end
+		if type(q) == "table" and (q.isQuestItem or q.questID) then return false, "quest" end
 	end
 	-- (1.5.1-beta2) an item with no vendor price is kept: protected when suggestions are made, and checked again here
 	if info.hasNoValue or (select(11, itemInfo(o.itemID)) or 0) <= 0 then return false, "novalue" end
@@ -595,12 +610,14 @@ function MR:StillOk(o)
 	-- may have been looted by someone else or skipped since (1.3.0-beta2). Protections are checked first, so a
 	-- protected item says why it's protected.
 	if not o.junk then
-		local v = self:Values(o.itemID, o.count or 1, o.link)
+		local v = self:Values(o.itemID, o.count or 1, o.link, info.isBound and "soulbound" or nil)   -- (bound as the bag says now)
 		local worth, noPrice = self:WorthLettingGo(o.bag, self:Rank(v), false, waitingNow)
 		if not worth then return false, "worth" end
 		-- (1.5.1-beta2, the beta1 audit) and for the same reason it was offered: an offer made because valuable loot was
 		-- waiting isn't carried out on the no-price fallback (or the other way round) without being offered again
 		if o.basis and o.basis ~= "junk" and o.basis ~= (noPrice and "noprice" or "priced") then return false, "basis" end
+		-- (1.6.0-beta6, F1) and at the value it was offered at
+		if o.value ~= nil and self:Rank(v) ~= o.value then return false, "price" end
 	end
 	return true
 end
@@ -615,8 +632,10 @@ local REFUSED = {
 	stale = "That offer was for a different loot window, so nothing was destroyed.",
 	nohelp = "Destroying that wouldn't make room for what's waiting now, so nothing was destroyed.",
 	unknown = "BagSmith couldn't check your gear sets just now, so nothing was destroyed. Try again in a moment.",
+	questunknown = "BagSmith couldn't check whether that's a quest item just now, so nothing was destroyed. Try again in a moment.",   -- (1.6.0-beta7, Shweep)
 	worth = "That item is now worth more than what's waiting for its slot, so nothing was destroyed. The Loot Helper has updated.",
 	basis = "What's waiting changed since that was offered, so nothing was destroyed. The Loot Helper has updated.",
+	price = "That item's price changed since it was offered, so nothing was destroyed. The Loot Helper has updated.",   -- (1.6.0-beta6, Shweep's wording)
 	novalue = "That item has no vendor price, so it's kept. Nothing was destroyed.",
 	ask = "Your settings say to ask before destroying that, so nothing was destroyed. Click it again to be asked.",
 }
@@ -1220,7 +1239,7 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 			-- The offer is this exact item and count; it's checked again at the moment of destroying.
 			-- (1.5.1-beta2) the offer and its row's key carry why it's offered, so a change of reason closes an open question
 			local basis = d.junk and "junk" or (d.noPrice and "noprice" or "priced")
-			local offer = MR:Offer(rec, d.junk, basis)
+			local offer = MR:Offer(rec, d.junk, basis, (not d.junk) and MR:Rank(d.values) or nil)
 			local key = ("d:%d:%d:%d:%s"):format(rec.bag, rec.slot, rec.itemID, basis)
 			local ask = MR:AsksFirst(rec, d.junk)   -- for the button's words; the click decides afresh (1.5.1-beta3)
 			local what = (rec.name or "this item") .. ((rec.count or 1) > 1 and (" x" .. rec.count) or "")
@@ -1254,14 +1273,20 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 	end
 	-- The one action, for the chosen row.
 	if #options > 0 then
+		-- (1.6.0-beta7, the beta6 audit's R1) The default is always the first option, the cheapest as ranked now: it follows
+		-- every repaint. A row the player picked stays chosen while it's offered, until what the ranking follows changes
+		-- (Rank Suggestions By, or the price source in use), by whatever route: a setting, a profile, a price addon.
+		local basis = (ns.db.makeRoomValue or "ah") .. "|" .. tostring(ns.AH and ns.AH:Source())
+		if self.rankBasis ~= basis then self.rankBasis = basis; self.sel, self.selPicked = nil, nil end
 		local chosen
-		for _, o in ipairs(options) do if o.key == self.sel then chosen = o end end
+		if self.selPicked then for _, o in ipairs(options) do if o.key == self.sel then chosen = o end end end
+		if not chosen then self.selPicked = nil end
 		chosen = chosen or options[1]
 		self.sel = chosen.key
 		for _, o in ipairs(options) do
 			local on = o == chosen
 			o.row.hl:SetShown(on); o.row.dotFill:SetShown(on)
-			o.row.onPick = function() MR.sel = o.key; MR:Paint() end
+			o.row.onPick = function() MR.sel = o.key; MR.selPicked = true; MR:Paint() end
 		end
 		placeRule(f, f.rule2, y + 6); y = y + 14
 		f.act:ClearAllPoints(); f.act:SetPoint("TOPLEFT", 12, -y); f.act:SetWidth(W - 24)
@@ -1271,7 +1296,10 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 		f.act:Show(); y = y + 24 + 8
 		self.chosen = chosen
 	else
+		-- (1.6.0-beta8, the beta7 audit's A1) nothing offered: a pick ends, as when its own row goes, so the list starts
+		-- from the cheapest when items come back
 		MR.actRun = nil; self.chosen = nil
+		self.sel, self.selPicked = nil, nil
 	end
 	-- The footer: what the ranking follows, or a status line when there is one.
 	local st = f.status:GetText()
@@ -1347,6 +1375,7 @@ function MR:Install()
 	-- window (or the old one closing) ends them, and closes their confirmation.
 	local function newOffers()
 		MR.offerToken = (MR.offerToken or 0) + 1
+		MR.sel, MR.selPicked = nil, nil   -- (1.6.0-beta8, A1) a new loot window starts from the cheapest
 		local c = ns.Popups and ns.Popups.confirm
 		if c and c:IsShown() and c.lootHelper then c:Hide() end
 	end
@@ -1470,7 +1499,18 @@ function MR:Install()
 	ns:OnSignal("ITEMS_CHANGED", function() MR.settling = false; MR:CheckArrivals(); MR:AfterBags() end)
 	-- (1.5.1-beta3, L3) a change to either destroy setting, or another profile, shows at once in the open panel; a shard
 	-- batch started without a question ends when asking turns on (the next click asks)
+	-- (1.6.0-beta6, the beta5 audit's F1) a different price source, or a different price to rank by: the open panel's values,
+	-- order and chosen action are redone together from it, and an open question about an offer is closed (its offer was
+	-- for the old values)
+	local function repriced()
+		MR.sel, MR.selPicked = nil, nil
+		local c = ns.Popups and ns.Popups.confirm
+		if c and c:IsShown() and c.lootHelper and c.lootHelperKey then c:Hide() end
+		if MR.frame and MR.frame:IsShown() then MR:Refresh() end
+	end
+	ns:OnSignal("PRICE_SOURCE_CHANGED", repriced)
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
+		if key == "makeRoomValue" then repriced(); return end
 		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" then return end
 		if MR.shardBatch and not MR.shardConfirmed and ns.db and ns.db.makeRoomAsk then MR.shardBatch = nil end
 		if MR.frame and MR.frame:IsShown() then MR:Refresh() end

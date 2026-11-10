@@ -173,7 +173,7 @@ end
 local function record(view)
 	local snap = {
 		title = grab(view.title), subText = grab(view.subText), tabs = grab(view.tabs), scroll = grab(view.scroll),
-		bar = grab(view.scroll and view.scroll.ScrollBar), btnSort = grab(view.btnSort), btnMerge = grab(view.btnMerge),
+		bar = grab(view.scroll and view.scroll.ScrollBar), btnSort = grab(view.btnSort), btnMerge = grab(view.btnMerge), btnGrpMenu = grab(view.btnGrpMenu),
 		segs = {}, boxes = {}, items = {},
 	}
 	for i, b in ipairs(view.segButtons or {}) do snap.segs[i] = grab(b); snap.segs[i].divider = b.divider and b.divider:IsShown() end
@@ -189,6 +189,7 @@ local function restore(view, snap)
 	put(view.scroll and view.scroll.ScrollBar, snap.bar)
 	put(view.btnSort, snap.btnSort, "height")
 	put(view.btnMerge, snap.btnMerge, "height")
+	put(view.btnGrpMenu, snap.btnGrpMenu, "height")   -- (1.6.0)
 	for i, b in ipairs(view.segButtons or {}) do
 		local s = snap.segs[i]
 		if s then put(b, s, "both"); if b.divider then b.divider:SetShown(s.divider and true or false) end end   -- (beta8: Classic widens some)
@@ -516,6 +517,12 @@ local function dropdownArt(view, on)
 			end
 		end
 	end
+	-- (1.6.0-beta11) the level clears whichever arrow shows: Classic's dropdown arrow is larger than Modern's chevron
+	if view.charLevel then
+		local View = ns.View
+		local inset = (on and view.classicDropdown) and (View and View.PICKER_ARROW_CLASSIC or 28) or (View and View.PICKER_ARROW or 18)
+		view.charLevel:ClearAllPoints(); view.charLevel:SetPoint("RIGHT", btn, "RIGHT", -inset, 0)
+	end
 	local art = view.classicDropdown
 	if not art then return end
 	art:SetShown(on and btn:IsShown())
@@ -705,7 +712,7 @@ function Classic:Apply(view, on)
 
 	-- Buttons: full height so Blizzard's art isn't squashed.
 	local function each(list, fn) for _, b in pairs(list or {}) do fn(b) end end
-	local buttons = { view.btnFilter, view.btnSort, view.btnMerge, view.btnBags, view.btnReagent, view.btnBagBar }
+	local buttons = { view.btnFilter, view.btnSort, view.btnMerge, view.btnBags, view.btnReagent, view.btnBagBar, view.btnGrpMenu }
 	each(buttons, function(b)
 		if b and b.SetClassic then
 			b:SetClassic(on)
@@ -750,6 +757,10 @@ function Classic:Apply(view, on)
 	squareButton(view.btnClean, on)
 	if view.btnLanesTravel then squareButton(view.btnLanesTravel, on) end   -- (1.5.5) Travel Mode's Collapse All Sections
 	if view.btnDisenchant then squareButton(view.btnDisenchant, on) end
+	-- (1.6.0) the narrowest toolbar's Merge Stacks and List / Icons icons
+	if view.btnMergeIcon then squareButton(view.btnMergeIcon, on) end
+	if view.btnViewIcon then squareButton(view.btnViewIcon, on) end
+	if view.LayoutTools then view:LayoutTools() end
 
 	-- Travel Mode: beside Blizzard's red close button in the title strip (the
 	-- close button's art has its X drawn in, so the signpost goes on the same

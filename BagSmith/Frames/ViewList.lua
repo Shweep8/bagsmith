@@ -192,6 +192,16 @@ function View:WatchRowWidth()
 end
 
 local COL_MIN, COL_MAX, ITEM_MIN = 30, 400, 90
+View.COL_MIN, View.ITEM_MIN = COL_MIN, ITEM_MIN   -- (1.6.0-beta7) for View.MinWidthFor
+View.DROP_ORDER = { "t", "age", "v", "ah" }   -- (1.6.0) the List view columns a narrow window leaves out first, by default
+-- (1.6.0-beta6, Shweep) the player's choice (Settings > Bag Columns or Bank Columns > Narrow Windows), first to go first
+function View:AsideOrder()
+	local list = self:Pref("colAside")
+	if type(list) ~= "table" then return View.DROP_ORDER end
+	-- (1.6.0-beta8, Shweep) Qty, like Item, is always shown
+	if ns.IndexOf(list, "c") then local out = {}; for _, k in ipairs(list) do if k ~= "c" then out[#out + 1] = k end end; return out end
+	return list
+end
 
 -- When the fixed columns don't fit beside Item's minimum, they shrink in
 -- proportion (none below COL_MIN) just for display: the saved widths are
@@ -247,8 +257,19 @@ function View:ColumnPlan()
 			fixed = fixed + w
 		end
 	end
-	local squeezed = false
+	local squeezed, dropped = false, {}
 	if not narrow then
+		-- (1.6.0) A window too narrow for every column at its width first sets aside the columns the player ticked under
+		-- Narrow Windows (by default every one but Item and Qty, Type first), one at a time until the rest fit; a wider window
+		-- brings them back (nothing saved changes). Only then does what's left shrink to fit.
+		for _, key in ipairs(self:AsideOrder()) do
+			if fixed <= width - ITEM_MIN then break end
+			local at = ns.IndexOf(order, key)
+			if at then
+				fixed = fixed - widths[key]; widths[key] = nil
+				table.remove(order, at); dropped[#dropped + 1] = key
+			end
+		end
 		squeezed = squeeze(order, widths, width - ITEM_MIN)
 		if squeezed then fixed = 0; for _, key in ipairs(order) do if key ~= "n" then fixed = fixed + widths[key] end end end
 	end
@@ -267,6 +288,7 @@ function View:ColumnPlan()
 		x = x + w
 	end
 	plan.squeezed = squeezed
+	plan.dropped = dropped
 	return plan, width
 end
 
@@ -394,7 +416,7 @@ function View:LayoutColumnGrips(plan, narrowHeader)
 				local ar, ag, ab = Skins:Accent(); g.tex:SetVertexColor(ar, ag, ab, 0.25)
 				g:SetScript("OnEnter", function(s)
 					local r1, g1, b1 = Skins:Accent(); s.tex:SetVertexColor(r1, g1, b1, 0.9)
-					if ns.TooltipsOK() then
+					if ns.HelpTipsOK() then
 						GameTooltip:SetOwner(s, "ANCHOR_TOP")
 						ns.TipText(GameTooltip, ("Drag to resize %s and %s"):format(colName(s.left.key), colName(s.right.key)))
 						ns.TipLine(GameTooltip, "Double-click to reset both", 0.6, 0.6, 0.6)
@@ -1340,7 +1362,7 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 						btn.dropLit = true; btn.accent:SetVertexColor(1, 1, 1, 1)
 						return
 					end
-					if not ns.TooltipsOK() then return end
+					if not ns.HelpTipsOK() then return end
 					GameTooltip:SetOwner(btn, "ANCHOR_TOP")
 					if btn.laneId == "~recent" then
 						ns.TipText(GameTooltip, "Recent Items", 1, 1, 1)
@@ -1351,7 +1373,7 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 							ns.TipLine(GameTooltip, "A gear set from the game's Equipment Manager: its items that are in your bags. Right-click for more.", nil, nil, nil, true)
 						end
 						ns.TipLine(GameTooltip, "Vendor (V): what a merchant pays for everything in this section.", nil, nil, nil, true)
-						if btn.showAH then ns.TipLine(GameTooltip, "AH: the total from Auctionator's last scan. Items it hasn't scanned are left out.", nil, nil, nil, true) end
+						if btn.showAH then ns.TipLine(GameTooltip, ("AH: the total from %s. Items it hasn't priced are left out."):format(ns.AH:SourceName() or "your price addon"), nil, nil, nil, true) end
 					end
 					GameTooltip:Show()
 				end)

@@ -47,7 +47,8 @@
 		check(not all:find("Icon View", 1, true) and not all:find("icon view", 1, true) and not all:find("Icon view", 1, true), skin .. ": no \"Icon View\" or \"icon view\" left: it's Icons view")
 		check(all:find("Split View (Icons View)", 1, true) and all:find("Icon Size (Icons View)", 1, true) and all:find("Rarity Borders", 1, true) and all:find("Item Level (ilvl)", 1, true) and all:find("Green Dot on New Items", 1, true), skin .. ": the new labels")
 		check(not all:find("on Icons", 1, true), skin .. ": no \"on Icons\" in labels: the page says it")
-		check(all:find("Hidden in By Section, where a free space belongs to no section.", 1, true) and not all:find("grouping by type", 1, true), skin .. ": Show Empty Slots no longer says \"grouping by type\" (By Section since 1.4.0)")
+		-- (1.6.0-beta4, by design) the approved wording for Show Empty Slots
+		check(all:find("Not shown in By Section.", 1, true) and not all:find("grouping by type", 1, true), skin .. ": Show Empty Slots no longer says \"grouping by type\" (By Section since 1.4.0)")
 		-- search still finds them on their new page
 		local box = P.frame.search
 		box:SetText("rarity"); box:GetScript("OnTextChanged")(box, true)

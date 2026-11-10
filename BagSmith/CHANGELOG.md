@@ -1,3 +1,67 @@
+## 1.6.0
+
+New:
+- Price Source: BagSmith can take auction prices from Blackthornes Tradeskills as well as Auctionator, for the AH Price
+  column and the Loot and Disenchant Helpers. It uses whichever you have installed; with both, choose in
+  Settings > General > Price Source (Auctionator until you do). Changing it, or a price addon loading later, updates
+  an open Loot Helper and Disenchant Helper at once. A price with no scan date of your own says "Scan date unknown".
+- Quest Starter: an item that begins a quest you haven't accepted wears a yellow "!" (with a slight shadow, so it stands
+  out on bright icons) in the top left of its icon. Like the stack count, it can be moved to another corner
+  (Settings > Item Icons) but not hidden. /bs quest lists them.
+- Background Opacity (Settings > Windows > Opacity): the bag windows' frame and background can be see-through, while
+  your items and text stay solid. Turn on Whole Window to fade everything.
+- Fade While Moving (Settings > Windows > Opacity): the bag windows dim while your character moves, to their own Opacity
+  While Moving, and come back when you stop.
+- Show Help Tips (Settings > General): turn off the tooltips on BagSmith's buttons, column headers and marks. Item
+  tooltips stay.
+- Narrower windows: the bags window can be as narrow as 440 pixels (the bank window 500; both were 620). As it narrows,
+  the toolbar folds into one Sections button with a menu, a shorter Sort button and small Merge Stacks and List / Icons
+  buttons; List view sets aside columns, Type first, then Age, Vendor, AH Price and the rest, and brings them back when
+  there's room (Item and Qty are always shown); the title shortens and the character button narrows; pinned currencies
+  in the footer fold into "+N" first. Choose which columns are set aside, and in what order, in Settings > Bag Columns
+  (or Bank Columns) > Narrow Windows; a column you untick is always kept. Pointing at a column header says what's set
+  aside. Keep many columns and the window stops narrowing where they'd no longer fit (the Narrow Windows card says how
+  narrow it can go).
+- Sheet tabs stay on one row: the ones that don't fit go into a "»" tab with a menu, with New Sheet... at the bottom.
+  The tab you're on always stays in view.
+- Disenchant Helper: Selling at the AH Must Beat the Vendor By (Settings > Disenchant Helper, 20% to start). Selling at
+  the auction house is only suggested when it pays at least this much more than the vendor.
+- Disenchant Helper: Leveling Enchanting (Automatic, Always or Never). While you're leveling, materials count at full
+  value and disenchanting wins even when it's worth up to 10% less than selling; the helper says "(for leveling)" and
+  shows your skill. Automatic does this until your Enchanting reaches its current cap.
+
+Changed:
+- Bags and bank windows: the search box now reaches the window's right edge at every width, with Filter at the end,
+  and List / Icons sits at the toolbar's right end below it.
+- Settings > Windows: one Opacity card for everything see-through (Always, While Moving, In Combat). Fade Windows During
+  Combat is now called Fade in Combat.
+- Icon Corners explains that marks some addons draw themselves aren't listed there and are set in that addon.
+- An addon whose icon mark can't be added to Icon Corners is told why in chat.
+- Settings: plainer help text throughout, in everyday words (no setting was renamed or moved).
+- Loot Helper: an item is only destroyed at the price it was offered at. If its price changed since (a new scan, another
+  price source, or Rank Suggestions By), nothing is destroyed and the Loot Helper updates. Changing Rank Suggestions By
+  re-ranks an open Loot Helper at once.
+- Loot Helper: the item it suggests by default is always the cheapest as ranked right now, including after switching
+  to a profile that ranks differently. A row you choose yourself stays chosen while it's still offered and the ranking
+  hasn't changed; once it's no longer offered, even for a moment, the cheapest is suggested again.
+- Loot Helper: if the game can't say whether an item is a quest item at that moment, it isn't destroyed (try again).
+- Disenchant Helper: auction prices, the item's and its materials', count after the auction house's 5% cut.
+- Soulbound items can't be sold at the auction house, so BagSmith no longer gives them an AH value: their AH Price
+  cell is empty and section totals leave them out; the Disenchant Helper says "Soulbound" and chooses only between
+  Disenchant and Vendor; the Loot Helper counts them (and loot that binds when picked up) at their vendor price.
+- Viewing another character: the note after the title says "read only" (the character picker already shows whose bags
+  they are), and a long name is cut short so the picker fits.
+
+Fixed:
+- Disenchant Helper: during combat it no longer changes at all (clicking a row does nothing until combat ends), so it
+  can't cause "action blocked" errors when you click it or when materials arrive.
+- Disenchant Helper: closed during combat, it stays closed and its button stays off after combat, even if your bags
+  changed in the meantime.
+- Disenchant Helper: moving or resizing it when combat starts finishes when combat ends.
+- Disenchant Helper: changing the style, accent color or profile during combat no longer touches it until combat ends
+  (it could cause an "action blocked" error); it takes the new look then.
+- Icon Corners: a corner already holding 16 marks keeps all of them now that Quest Starter joins it.
+
 ## 1.5.8
 
 Changed:

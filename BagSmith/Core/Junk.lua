@@ -186,7 +186,7 @@ function J:CellEnter(jc)
 	jc.hover = true
 	local b = jc:GetParent()
 	J:PaintCell(b)
-	if not ns.TooltipsOK() then return end
+	if not ns.HelpTipsOK() then return end
 	GameTooltip:SetOwner(jc, "ANCHOR_TOP")
 	local key = J:Key()
 	if jc.state == "blocked" then

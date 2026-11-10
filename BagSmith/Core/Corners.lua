@@ -23,7 +23,7 @@ C.CORNERS = { "top_left", "top_right", "bottom_left", "bottom_right" }
 C.LABEL = { top_left = "Top Left", top_right = "Top Right", bottom_left = "Bottom Left", bottom_right = "Bottom Right" }
 local POINT = { top_left = "TOPLEFT", top_right = "TOPRIGHT", bottom_left = "BOTTOMLEFT", bottom_right = "BOTTOMRIGHT" }
 local SIGN = { top_left = { 1, -1 }, top_right = { -1, -1 }, bottom_left = { 1, 1 }, bottom_right = { -1, 1 } }
-C.DEFAULTS = { top_left = { "junk" }, top_right = { "item_level" }, bottom_left = { "pawn", "equipment_set" }, bottom_right = { "quantity" } }
+C.DEFAULTS = { top_left = { "quest_start", "junk" }, top_right = { "item_level" }, bottom_left = { "pawn", "equipment_set" }, bottom_right = { "quantity" } }
 C.MAX_ERRORS = 5          -- a widget that keeps failing is switched off until reload
 C.BUDGET_MS = 4           -- per frame, for widgets that aren't marked fast
 C.RETRY_LIMIT = 600       -- frames a "not ready yet" item keeps being asked again
@@ -56,6 +56,36 @@ builtin("equipment_set", "Gear Set Shield", function(b) return b.linkMark end,
 	function(b) return b.linkOn and true or false end, { 0, 0 }, function(b) return b.linkCount end)
 builtin("quantity", "Stack Count", function(b) return b.Count end,
 	function(b, rec) return (rec.count or 0) > 1 and (b.mode ~= "row" or b.countOnIcon) and true or false end, { 0, 0 }, nil, { -2, -1 })
+-- (1.6.0) Quest Starter (a player's request): the game's yellow "available quest" mark on an item that begins a quest you
+-- haven't accepted (Scanner: rec.questStart). BagSmith hides the item template's own quest overlay (Buttons.lua), so
+-- this is its replacement. Locked like the stack count; top left by default, ahead of the junk coin (quest items can't be
+-- marked as junk, so the two never compete).
+local QUEST_ART = "Interface\\GossipFrame\\AvailableQuestIcon"
+-- (1.6.0-beta9, Shweep: "very little but some contrast") a slight drop shadow, like the item level's text shadow: the
+-- same art in black, 1 px down and right, just under the mark. It's anchored to the mark by two corners, so it follows
+-- the mark's size and corner; it shows and hides with it as the mark's extra region (Apply, the preview, hide).
+C.QUEST_SHADE = { alpha = 0.8, x = 1, y = -1 }
+local function questMark(b)
+	if not b.questMark and b.CreateTexture then
+		local t = b:CreateTexture(nil, "OVERLAY", nil, 6)
+		t:SetTexture(QUEST_ART); t:Hide()
+		local w = (b.icon and b.icon.GetWidth and b.icon:GetWidth()) or 0
+		if w <= 0 then w = 32 end
+		local px = math.max(8, math.floor(w * 0.45)); t:SetSize(px, px)
+		b.questMark = t
+		local sh = b:CreateTexture(nil, "OVERLAY", nil, 5)
+		sh:SetTexture(QUEST_ART); sh:Hide()
+		local q = C.QUEST_SHADE
+		if sh.SetVertexColor then sh:SetVertexColor(0, 0, 0, q.alpha) end
+		sh:SetPoint("TOPLEFT", t, "TOPLEFT", q.x, q.y)
+		sh:SetPoint("BOTTOMRIGHT", t, "BOTTOMRIGHT", q.x, q.y)
+		b.questShade = sh
+	end
+	return b.questMark
+end
+local function questShade(b) questMark(b); return b.questShade end
+C.QUEST_ART = QUEST_ART
+builtin("quest_start", "Quest Starter", questMark, function(b, rec) return rec and rec.questStart and true or false end, { 0, 0 }, questShade)
 C.COLUMN_NOTE = { item_level = "In List view the item level shows in its column, so the next mark in this corner takes its place.",
 	quantity = "In List view the stack count shows in the Qty column, so the next mark in this corner takes its place (if you hide that column, it shows here instead)." }
 
@@ -83,16 +113,30 @@ function C:CornerOf(id)
 end
 function C:Touch(corner) if ns.db and C.LABEL[corner] then ns.db.iconCornersTouched[corner] = true end end
 -- (1.5.0-beta4) The stack count is protected: when an item has a stack its count always shows, first in its corner
--- (nothing ranks above it), and it can be moved but not hidden. This keeps the lists that way.
+-- (nothing ranks above it), and it can be moved but not hidden. (1.6.0) The Quest Starter mark is locked the same way.
+-- Locked marks are always in some corner (back in their home corner if a save lacks one), ahead of every other mark
+-- there, in this order if they share one. C.PROTECTED stays the stack count, for anything that reads it.
 C.PROTECTED = "quantity"
+C.LOCKED = { "quest_start", "quantity" }
+local LOCKED_SET, LOCKED_HOME = { quest_start = true, quantity = true }, { quest_start = "top_left", quantity = "bottom_right" }
+function C:IsLocked(id) return id ~= nil and LOCKED_SET[id] == true end
 function C:Normalize()
 	local l = lists()
 	if not l then return end
-	local corner, i = C:CornerOf(C.PROTECTED)
-	if corner and i == 1 then return end
-	if corner then table.remove(l[corner], i) else corner = "bottom_right" end
-	l[corner] = l[corner] or {}
-	table.insert(l[corner], 1, C.PROTECTED)
+	for _, id in ipairs(C.LOCKED) do
+		if not C:CornerOf(id) then local home = LOCKED_HOME[id]; l[home] = l[home] or {}; table.insert(l[home], 1, id) end
+	end
+	for _, corner in ipairs(C.CORNERS) do
+		local list = l[corner]
+		if list and #list > 1 then
+			local front, rest = {}, {}
+			for _, id in ipairs(C.LOCKED) do if ns.IndexOf(list, id) then front[#front + 1] = id end end
+			for _, v in ipairs(list) do if not LOCKED_SET[v] then rest[#rest + 1] = v end end
+			local i = 0
+			for _, v in ipairs(front) do i = i + 1; list[i] = v end
+			for _, v in ipairs(rest) do i = i + 1; list[i] = v end
+		end
+	end
 end
 
 -- A newly registered widget's first placement: at the position it asks for, unless the player has arranged
@@ -122,13 +166,13 @@ function C:Move(id, delta)
 	local list = ns.db.iconCorners[corner]
 	local j = i + delta
 	if j < 1 or j > #list then return end
-	if id == C.PROTECTED or list[j] == C.PROTECTED then return end   -- nothing moves past the stack count
+	if C:IsLocked(id) or C:IsLocked(list[j]) then return end   -- nothing moves past a locked mark
 	C:Seen(id)
 	list[i], list[j] = list[j], list[i]
 	C:Touch(corner); C:Changed()
 end
 function C:Remove(id)
-	if id == C.PROTECTED then return end   -- the stack count can be moved, not hidden
+	if C:IsLocked(id) then return end   -- a locked mark can be moved, not hidden
 	local corner, i = C:CornerOf(id)
 	if not corner then return end
 	C:Seen(id)
@@ -169,14 +213,14 @@ function C:SetSlot(corner, index, id)
 	-- (1.5.0-beta11, audit F2) nothing in a corner's first slot means the corner shows nothing, backups included
 	if id == nil and index == 1 then return C:ClearCorner(corner) end
 	if id == nil then
-		if cur and cur ~= C.PROTECTED then table.remove(list, index); C:Seen(cur) end
+		if cur and not C:IsLocked(cur) then table.remove(list, index); C:Seen(cur) end
 	else
 		local from, j = C:CornerOf(id)
 		if from then table.remove(ns.db.iconCorners[from], j); C:Touch(from) end
 		list = ns.db.iconCorners[corner]
 		cur = list[index]
-		if id == C.PROTECTED or cur == nil or cur == C.PROTECTED then
-			table.insert(list, math.min(index + ((cur == C.PROTECTED) and 1 or 0), #list + 1), id)
+		if C:IsLocked(id) or cur == nil or C:IsLocked(cur) then
+			table.insert(list, math.min(index + (C:IsLocked(cur) and 1 or 0), #list + 1), id)
 		else
 			list[index] = id; C:Seen(cur)
 		end
@@ -192,7 +236,7 @@ function C:ClearCorner(corner)
 	local list = ns.db.iconCorners[corner]
 	local keep = {}
 	for _, id in ipairs(list) do
-		if id == C.PROTECTED then keep[#keep + 1] = id else C:Seen(id) end
+		if C:IsLocked(id) then keep[#keep + 1] = id else C:Seen(id) end
 	end
 	ns.db.iconCorners[corner] = keep
 	C:Normalize()
@@ -380,7 +424,7 @@ function C:Ask(b, rec, id, w, widget)
 end
 
 -- BagSmith's picture marks never grow past their quarter of the icon (1.5.0-beta4).
-local CAPPED = { junk = true, pawn = true, equipment_set = true }
+local CAPPED = { junk = true, pawn = true, equipment_set = true, quest_start = true }
 local function place(b, id, w, widget, corner, mode, px)
 	mode = mode or b.mode
 	local sx, sy = SIGN[corner][1], SIGN[corner][2]
@@ -427,7 +471,14 @@ function C:Apply(b, fresh)
 	if b.bsPreview then return end   -- the settings preview draws itself (C:DrawPreview)
 	local live = (b.mode == "cell" or b.mode == "row") and rec and not rec.empty and b.hasItem and ns.db and ns.db.iconCorners
 	if b.cornerHolder then b.cornerHolder:SetShown(live and true or false) end
-	if not live then return end
+	if not live then
+		-- (1.6.0-beta10, the beta9 audit's B9 R1) nothing in the slot (an empty slot shown, or a slot blanked in combat): the
+		-- Quest Starter mark and its shadow go too. BagSmith's other marks are hidden by their own code (Buttons:Blank); this
+		-- one only has the corners'. Only what exists is hidden: nothing is made here.
+		if b.questMark then b.questMark:Hide() end
+		if b.questShade then b.questShade:Hide() end
+		return
+	end
 	-- the other view's instances of other addons' widgets stay hidden
 	for _, wd in pairs((b.mode == "row" and b.cornerWidgets or b.cornerWidgetsRow) or {}) do if wd and wd.Hide then wd:Hide() end end
 	if b.mode == "row" and b.cornerRowSlot then C:RowSlot(b) end
@@ -533,6 +584,7 @@ end
 local function markSize(px, factor) return math.max(10, math.floor(px * factor + 0.5)) end
 C.PREVIEW_ENSURE = {
 	junk = function(b, mode, px) local t = b.junkCoin; if t then t:SetSize(markSize(px, 0.45), markSize(px, 0.45)) end; return t end,
+	quest_start = function(b, mode, px) local t = questMark(b); if t then t:SetSize(markSize(px, 0.45), markSize(px, 0.45)) end; return t end,
 	item_level = function(b, mode, px)
 		local was = b.mode; b.mode = "cell"
 		local db = ns.db; local on = db.iconItemLevel; db.iconItemLevel = true
@@ -625,15 +677,25 @@ end
 local API = _G.BagSmith and _G.BagSmith.API
 local function args(first, ...) if first == API then return ... end return first, ... end
 
+-- (1.6.0) A refused registration says why in chat, once per mark per session (it was only in debug), so an addon's
+-- author doesn't have to guess.
+local refusedSaid = {}
+local function refuse(id, why)
+	local key = tostring(id) .. "|" .. why
+	if ns.Debug then ns:Debug("RegisterCornerWidget refused: %s", why) end
+	if not refusedSaid[key] and ns.Print then
+		refusedSaid[key] = true
+		ns:Print("An addon's icon mark (%s) couldn't be added to Icon Corners: %s.", type(id) == "string" and id ~= "" and id or "no id", why)
+	end
+	return false
+end
 function C:Register(label, id, onUpdate, onInit, defaultPosition, isFast, options)
 	if type(label) ~= "string" or label == "" or type(id) ~= "string" or id == "" or #id > 64 or not id:match("^[%w_%-%.:]+$")
 		or type(onUpdate) ~= "function" or type(onInit) ~= "function" then
-		if ns.Debug then ns:Debug("RegisterCornerWidget refused: it needs a label, an id (letters, digits, _ - . :), onUpdate and onInit") end
-		return false
+		return refuse(id, "it needs a label, an id (letters, digits, _ - . :), onUpdate and onInit")
 	end
 	if C.widgets[id] then
-		if ns.Debug then ns:Debug("RegisterCornerWidget refused: %q is already registered", id) end
-		return false
+		return refuse(id, ("%q is already registered"):format(id))
 	end
 	local dp
 	if type(defaultPosition) == "table" and C.LABEL[defaultPosition.corner] then

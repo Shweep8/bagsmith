@@ -41,6 +41,11 @@
 # diffing old against new, and list it here.
 # 0.16 development: the Settings sidebar gained a Plugins page (settings.3.12); the only change from the 0.15.0 snapshot.
 #   1.5.2   tools, bank.tools: anchored to the title at the inner margin (was the search box's BOTTOMLEFT -4,-4); same place on screen
+#   1.6.0-beta5  search, bank search: the search row reaches the row's right end (Filter at the window's edge),
+#           and the List / Icons group sits at the toolbar's right end (Shweep); the toolbar's "look" lines are
+#           listed by position, so they reorder (main.7, bank.8): same lines, nothing else changed
+#   1.6.0-beta11  main.2.7.r3: the character picker's level is its own text (muted), so a long name can be cut short
+#           before it (Shweep); the chevron moves to r4. Nothing else changed
 title | w=nil h=26 shown=true | TOPLEFT,window,TOPLEFT,12,-12 ; TOPRIGHT,window,TOPRIGHT,-12,-12
 scroll | w=nil h=nil shown=true | TOPLEFT,header,BOTTOMLEFT,0,-2 ; BOTTOMRIGHT,tabs,TOPRIGHT,0,4
 tabs | w=nil h=22 shown=true | BOTTOMLEFT,window,BOTTOMLEFT,12,40 ; BOTTOMRIGHT,window,BOTTOMRIGHT,-12,40
@@ -52,7 +57,7 @@ btnSort | w=96 h=20 shown=true | LEFT,tools,LEFT,250,0
 btnMerge | w=92 h=20 shown=true | LEFT,tools,LEFT,354,0
 btnFilter | w=64 h=22 shown=true | LEFT,BagSmithFrameSearch,RIGHT,6,0
 scrollbar | w=nil h=nil shown=true | TOPLEFT,scroll,TOPRIGHT,6,-2 ; BOTTOMLEFT,scroll,BOTTOMRIGHT,6,2
-search | w=nil h=26 shown=true | TOPLEFT,title,BOTTOMLEFT,4,-2 ; TOPRIGHT,title,BOTTOMLEFT,516,-2
+search | w=nil h=26 shown=true | TOPLEFT,title,BOTTOMLEFT,4,-2 ; TOPRIGHT,title,BOTTOMLEFT,530,-2
 tools | w=nil h=26 shown=true | TOPLEFT,title,BOTTOMLEFT,0,-32 ; TOPRIGHT,title,BOTTOMRIGHT,0,-32
 tab1 | w=40 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,0,-0
 tab2 | w=40 h=20 shown=true | TOPLEFT,tabs,TOPLEFT,42,-0
@@ -92,7 +97,8 @@ look main.2.5.r1 color=0.62,0.60,0.55,1.00
 look main.2.6.r1 color=0.62,0.60,0.55,1.00
 look main.2.7 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
 look main.2.7.r1 text=0.56,0.55,0.51,1.00
-look main.2.7.r3 color=0.62,0.60,0.55,1.00
+look main.2.7.r3 text=0.56,0.55,0.51,1.00
+look main.2.7.r4 color=0.62,0.60,0.55,1.00
 look main.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
 look main.4.r1 text=0.56,0.55,0.51,1.00
 look main.5.r1 text=0.56,0.55,0.51,1.00
@@ -149,10 +155,9 @@ look main.6.16.r1 color=0.98,0.78,0.46,0.25
 look main.6.17.r1 color=0.98,0.78,0.46,0.25
 look main.6.18.r1 color=0.98,0.78,0.46,0.25
 look main.6.19.r1 color=0.98,0.78,0.46,0.25
-look main.7.1 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
-look main.7.1.r1 text=0.93,0.91,0.88,1.00
-look main.7.2 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
-look main.7.2.r1 text=0.56,0.55,0.51,1.00
+look main.7.1.r1 color=0.62,0.60,0.55,1.00
+look main.7.2 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
+look main.7.2.r1 text=0.93,0.91,0.88,1.00
 look main.7.3 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
 look main.7.3.r1 text=0.56,0.55,0.51,1.00
 look main.7.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
@@ -163,7 +168,8 @@ look main.7.6 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
 look main.7.6.r1 text=0.56,0.55,0.51,1.00
 look main.7.7 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
 look main.7.7.r1 text=0.56,0.55,0.51,1.00
-look main.7.8.r1 color=0.62,0.60,0.55,1.00
+look main.7.8 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look main.7.8.r1 text=0.56,0.55,0.51,1.00
 look main.8.r1 color=0.23,0.22,0.20,1.00
 look main.8.r2 text=0.84,0.83,0.79,1.00
 look main.8.r3 text=0.98,0.78,0.46,1.00
@@ -326,10 +332,9 @@ look bank.7.16.r1 color=0.98,0.78,0.46,0.25
 look bank.7.17.r1 color=0.98,0.78,0.46,0.25
 look bank.7.18.r1 color=0.98,0.78,0.46,0.25
 look bank.7.19.r1 color=0.98,0.78,0.46,0.25
-look bank.8.1 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
-look bank.8.1.r1 text=0.93,0.91,0.88,1.00
-look bank.8.2 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
-look bank.8.2.r1 text=0.56,0.55,0.51,1.00
+look bank.8.1.r1 color=0.62,0.60,0.55,1.00
+look bank.8.2 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
+look bank.8.2.r1 text=0.93,0.91,0.88,1.00
 look bank.8.3 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
 look bank.8.3.r1 text=0.56,0.55,0.51,1.00
 look bank.8.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
@@ -338,7 +343,8 @@ look bank.8.5 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
 look bank.8.5.r1 text=0.56,0.55,0.51,1.00
 look bank.8.6 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
 look bank.8.6.r1 text=0.56,0.55,0.51,1.00
-look bank.8.7.r1 color=0.62,0.60,0.55,1.00
+look bank.8.7 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look bank.8.7.r1 text=0.56,0.55,0.51,1.00
 look bank.9.r1 color=0.23,0.22,0.20,1.00
 look bank.9.r2 text=0.84,0.83,0.79,1.00
 look bank.9.r3 text=0.98,0.78,0.46,1.00

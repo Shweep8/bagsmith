@@ -166,7 +166,7 @@ function M:CellEnter(c)
 	c.hover = true
 	local b = c:GetParent()
 	M:Paint(b, c.kind)
-	if not ns.TooltipsOK() then return end
+	if not ns.HelpTipsOK() then return end
 	local k = KINDS[c.kind]
 	local key = ns.KeyBinds and ns.KeyBinds:Key(k.binding)
 	local title, line, showKey = k.tip(c.state, c.reason, key)

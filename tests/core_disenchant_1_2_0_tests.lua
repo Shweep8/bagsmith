@@ -91,7 +91,10 @@
 	-- the margin setting changes verdicts
 	n:Set("deMargin", 2); M.runTimers()
 	byId = {}; for _, e in ipairs(DE.entries) do byId[e.itemID] = e end
-	check(byId[7002].verdict == "ah", "at a 200% margin the dagger is no longer worth disenchanting: Sell at AH")
+	-- (1.6.0-beta8, by design: Shweep) the AH counts after its 5% cut, and must beat the vendor by 20% to be recommended
+	local dg = byId[7002]
+	local dgWant = (dg.ah * 0.95 > dg.vendor and dg.ah * 0.95 >= dg.vendor * 1.2) and "ah" or "vendor"
+	check(dg.verdict == dgWant, ("at a 200%% margin the dagger is no longer worth disenchanting: %s (AH %d after the cut, vendor %d)"):format(dg.verdict, dg.ah * 0.95, dg.vendor))
 	prices[7003] = 1000; DE:Refresh(); byId = {}; for _, e in ipairs(DE.entries) do byId[e.itemID] = e end
 	check(byId[7003].verdict == "vendor" and DE.VERDICT_TEXT.vendor == "Vendor" and DE.VERDICT_TEXT.ah == "Sell at AH", "with the vendor paying more than the AH (and the mats not winning) the recommendation is Vendor")
 	prices[7003] = nil; DE:Refresh(); byId = {}; for _, e in ipairs(DE.entries) do byId[e.itemID] = e end
@@ -116,7 +119,11 @@
 	-- (1.5.3, by design) the spell is given by its ID, which works in every language (it was the English name)
 	check(b:GetAttribute("type") == "spell" and b:GetAttribute("spell") == DEID and b:GetAttribute("target-bag") == 0 and b:GetAttribute("target-slot") == 2 and #drivers == 1 and drivers[1][3] == "[combat] lock; open", "the secure button is armed for the dagger with a combat state driver")
 	combat = true
+	-- (1.6.0-beta6, by design: the beta5 audit's F2, Shweep) a row click in combat does nothing; arming itself still waits
+	local before = DE.current
 	DE:Select(DE.entries[2])
+	check(DE.armPending == nil and DE.current == before and b:GetAttribute("target-slot") == 2, "in combat a row click does nothing")
+	DE:Arm(DE.entries[2])
 	check(DE.armPending == DE.entries[2] and b:GetAttribute("target-slot") == 2, "in combat the arming waits (no attribute changes)")
 	combat = false; M.fire("PLAYER_REGEN_ENABLED"); M.runTimers()
 	check(DE.armPending == nil and b:GetAttribute("target-slot") ~= nil, "after combat the pending arming lands")

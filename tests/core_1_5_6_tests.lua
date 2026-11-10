@@ -180,8 +180,10 @@
 	local firstRow
 	for _, e in ipairs(rows) do if e.kind ~= "ptitle" and e.kind ~= "head" and e.w.key then firstRow = e.w.key; break end end
 	check(firstRow == "recentSection", "\"recent\": and Recent Items is the first setting in the results (" .. tostring(firstRow) .. ")")
-	local ii, de = indexOf(t, "Item Icons"), indexOf(t, "Disenchant Helper")
-	check(ii and de and ii < de, "a name that contains it (Item Icons: Clear Recent...) comes before a help line that mentions it (Disenchant Helper)")
+	-- (1.6.0-beta4, by design) the approved Settings wording dropped "a recent roll" from the Disenchant Helper's Skip
+	-- Refundable line, so the page that matches only by its text is now Sections ("just under Recent", Pinned Sections)
+	local ii, de = indexOf(t, "Item Icons"), indexOf(t, "Sections")
+	check(ii and de and ii < de, "a name that contains it (Item Icons: Clear Recent...) comes before text that mentions it (Sections)")
 	local seen, dup = {}, false
 	for _, e in ipairs(rows) do
 		if e.w.key then local k = e.kind .. ":" .. tostring(e.w.key); if seen[k] then dup = true end; seen[k] = true end

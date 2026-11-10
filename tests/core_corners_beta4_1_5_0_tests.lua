@@ -77,7 +77,8 @@
 	C:Move("br_first", -1)
 	check(n.db.iconCorners.bottom_right[1] == "quantity", "nothing moves above it")
 	C:Place("quantity", "top_left")
-	check(n.db.iconCorners.top_left[1] == "quantity", "it can move to another corner, and goes first there")
+	-- (1.6.0, by design) ahead of everything there but the other locked mark, the Quest Starter
+	check(n.db.iconCorners.top_left[1] == "quest_start" and n.db.iconCorners.top_left[2] == "quantity", "it can move to another corner, and goes first there (after the locked Quest Starter)")
 	C:Reset()
 	n.db.iconCorners.bottom_right = {}; C:Normalize()
 	check(C:CornerOf("quantity") == "bottom_right" and n.db.iconCorners.bottom_right[1] == "quantity", "saved settings missing it get it back, first in the bottom right")

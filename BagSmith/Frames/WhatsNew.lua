@@ -24,6 +24,14 @@ ns.WhatsNew = WN
 -- Newest first. Only notable releases get an entry; keep a handful of short
 -- bullets that say what it is and where to turn it on.
 WN.ENTRIES = {
+	{ v = "1.6.0", heading = "BagSmith 1.6", items = {
+		"|cfffac775Blackthornes Tradeskills Prices:|r BagSmith can now take auction prices from Blackthornes Tradeskills as well as Auctionator. It uses whichever you have; with both, pick one in Settings > General > Price Source.",
+		"|cfffac775Quest Starters:|r an item that begins a quest now wears a yellow \"!\" in the top left of its icon until you accept the quest. You can move it to another corner in Settings > Item Icons.",
+		"|cfffac775See-Through Windows:|r turn down Background Opacity to let the world show through your bags' frame (or the whole window), and turn on Fade While Moving to dim your bags while you run. Both are in Settings > Windows > Opacity.",
+		"|cfffac775Fewer Tips:|r know your way around? Turn off Show Help Tips in Settings > General to stop the tooltips on BagSmith's buttons and columns. Item tooltips stay.",
+		"|cfffac775Narrower Windows:|r your bags can now be as narrow as 440 pixels. Drag the corner in: the toolbar folds into a few small buttons, and List view sets a few columns aside until there's room for them again (you choose which in Settings > Bag Columns).",
+		"|cfffac775Smarter Disenchant Advice:|r the Disenchant Helper counts the AH's cut and leans toward disenchanting while you level Enchanting (Settings > Disenchant Helper).",
+	} },
 	{ v = "1.5.1", heading = "BagSmith 1.5.1", items = {
 		"|cfffac775Faster Destroying:|r when the Loot Helper helps you make room, choosing an item and pressing Destroy now removes it right away. Blue and epic items, and anything whose quality the game hasn't shown yet, still ask first, just like the game does. Junk is still one click.",
 		"|cfffac775Your Choice:|r prefer to be asked every time? Turn on Ask Before Destroying in Settings > Automations & Actions > Loot Helper. Want blue and epic items gone at once too? Untick Always Ask for Rare or Better.",
@@ -197,7 +205,7 @@ local function create()
 	f.fieldText:SetJustifyH("LEFT"); f.fieldText:SetWordWrap(false)
 	f.field:SetScript("OnClick", function() WN:StartCopy() end)
 	f.field:SetScript("OnEnter", function(b)
-		if ns.TooltipsOK() then GameTooltip:SetOwner(b, "ANCHOR_TOP"); ns.TipText(GameTooltip, WN.URL, 1, 1, 1); ns.TipLine(GameTooltip, "Click to copy", 0.6, 0.6, 0.6); GameTooltip:Show() end
+		if ns.HelpTipsOK() then GameTooltip:SetOwner(b, "ANCHOR_TOP"); ns.TipText(GameTooltip, WN.URL, 1, 1, 1); ns.TipLine(GameTooltip, "Click to copy", 0.6, 0.6, 0.6); GameTooltip:Show() end
 	end)
 	f.field:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	f.copy = ns.IconButton(f, "Interface\\AddOns\\BagSmith\\Media\\ui-copy.tga", "Copy the address", function() WN:StartCopy() end)

@@ -129,10 +129,12 @@
 	local SP = n.SettingsPanel; SP:Show(); SP:ShowPage("loothelper")
 	local texts = {}; for _, w in ipairs(SP.pools.text) do if w:IsShown() then texts[#texts + 1] = w.text.text end end
 	local all = table.concat(texts, "|")
-	check(all:find("Your Loot Exclusion List is empty. Use Exclude in the Loot Helper to add items.", 1, true) and all:find("Favorites are never destroyed by the Loot Helper", 1, true) and all:find("never suggested for destroying", 1, true), "the Loot Helper page names the list and what's protected")
+	check(all:find("Your Loot Exclusion List is empty. Use Exclude in the Loot Helper to add items.", 1, true) and all:find("The helpers never destroy or disenchant favorites", 1, true) and all:find("never suggested for destroying", 1, true), "the Loot Helper page names the list and what's protected")
 	SP:ShowPage("automation")
 	texts = {}; for _, w in ipairs(SP.pools.text) do if w:IsShown() then texts[#texts + 1] = w.text.text end end
-	check(table.concat(texts, "|"):find("The enchant box from a profession window is always left for you.", 1, true), "the Prompts help says which box is always left for you")
+	-- (1.6.0-beta4, by design) the approved wording (item 21) no longer mentions the profession window's enchant box (still
+	-- always left for you: core_prompts_1_2_0_tests.lua); the intro says what Prompts do and how to answer yourself
+	check(table.concat(texts, "|"):find("Some actions ask yes or no first, like equipping gear that binds or replacing an enchant. BagSmith can answer Yes for you on the kinds you choose. Hold Shift to answer yourself.", 1, true), "the Prompts help says what it does and how to answer yourself")
 	SP:Hide()
 
 	-- ---- junk kept out of a sale is said

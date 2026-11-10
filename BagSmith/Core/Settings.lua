@@ -66,6 +66,7 @@ local DEFAULTS = {
 	makeRoom = true,           -- show the Loot Helper when loot won't fit
 	autoSellJunk = false,      -- sell grey and junk-marked items on opening a vendor
 	makeRoomValue = "ah",      -- rank Make Room's suggestions by "ah" (AH price when known, else vendor) or "vendor"
+	priceSource = "auto",      -- (1.6.0) auction prices from "auto" (the installed one; Auctionator when both), "auctionator" or "blackthornes"
 	shardKeep = 0,             -- Clear Soul Shards never offers your last N shards
 	makeRoomAsk = false,       -- (1.5.1-beta2) the Loot Helper asks before destroying anything but junk (off: at once)
 	makeRoomAskRare = true,    -- (1.5.1-beta2) ...and while that's off, still asks for rare quality or better, as the game does
@@ -78,6 +79,8 @@ local DEFAULTS = {
 	-- 1.2.0: the Disenchant Helper (Core/Disenchant.lua)
 	deEnabled = false,
 	deMargin = 0.10,           -- disenchanting must beat selling by this fraction (shown as a percent) to be recommended
+	deAhMargin = 0.20,         -- (1.6.0-beta8) selling at the AH, after its 5% cut, must beat the vendor by this fraction
+	deLeveling = "auto",       -- (1.6.0-beta8) leveling Enchanting: "auto" (below the rank's cap), "always", "never"
 	deIncludeEpics = false,
 	deSkipRefundable = true,   -- refundable and still-tradeable items are left out
 	makeRoomPos = false,
@@ -91,6 +94,10 @@ local DEFAULTS = {
 	hideJunk = false, minimap = true, animations = true,
 	combatFade = true, combatAlpha = 0.15,   -- fade every BagSmith window during combat
 	combatLock = true,                       -- and ignore clicks while faded
+	bgOpacity = 1,                           -- (1.6.0) the bag windows' frame and backdrop (items and text stay crisp)
+	bgWhole = false,                         -- (1.6.0) Whole Window: the bag windows' items, text and buttons follow it too
+	fadeMoving = false, movingAlpha = 0.5,   -- (1.6.0) the bag windows fade while the character moves (back on hover)
+	helpTips = true,                         -- (1.6.0) tooltips on BagSmith's own controls (item tooltips always show)
 	replaceBlizzardBags = true,   -- open with the bag keybind and stand in for Blizzard's bags
 	-- Plugin preferences: one bounded plain-data namespace per plugin ID ({ schemaVersion, data }), owned by
 	-- the plugin through BagSmith.API; core only persists and validates the shape.
@@ -103,6 +110,11 @@ local DEFAULTS = {
 	cols = { "c", "t", "bd", "v", "w", "age", "fv", "cc", "jk" },
 	colOrder = { "c", "n", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
 	colWidths = {},            -- key -> pixels, set by dragging header edges
+	-- (1.6.0-beta6, Shweep) the columns a narrow window may set aside, first to go first; the rest shrink to fit instead
+	-- (1.6.0-beta8, Shweep) every column ticked; wide text columns go first, the small icon columns last. Qty and Item
+	-- are never set aside.
+	colAside = { "t", "age", "v", "ah", "w", "sl", "rq", "il", "bd", "fv", "cc", "jk" },
+	bankColAside = { "t", "age", "v", "ah", "w", "sl", "rq", "il", "bd", "fv", "cc", "jk" },
 	-- The bank window's own column layout (the Bank tab in the bags window uses the bags layout).
 	bankCols = { "c", "t", "bd", "v", "w", "age", "fv", "cc", "jk" },
 	bankColOrder = { "c", "n", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
@@ -190,6 +202,8 @@ end
 local COL_SET, LANE_SET = {}, {}
 for _, c in ipairs(ns.COLS) do COL_SET[c[1]] = true end
 local ORDER_SET = { n = true }
+local ASIDE_SET = {}   -- (1.6.0-beta8) the columns Narrow Windows may set aside: all but Qty (and Item, which isn't in COL_SET)
+for k in pairs(COL_SET) do if k ~= "c" then ASIDE_SET[k] = true end end
 for k in pairs(COL_SET) do ORDER_SET[k] = true end
 for _, c in ipairs(ns.CATS) do if c ~= "Keys" then LANE_SET[c] = true end end
 LANE_SET["~ky"], LANE_SET["~rb"], LANE_SET["~recent"], LANE_SET["~fav"] = true, true, true, true
@@ -251,7 +265,7 @@ local validators = {
 		for k, p in pairs(v) do local pv = pointV(p); if pv then out[tostring(k)] = pv end end
 		return out
 	end,
-	reagent = oneOf("inline", "lane"), makeRoomValue = oneOf("ah", "vendor"), deMargin = num(0, 2), autoConfirmKey = oneOf("always", "shift", "ctrl", "custom"), grp = oneOf("none", "type", "bag"),
+	reagent = oneOf("inline", "lane"), makeRoomValue = oneOf("ah", "vendor"), priceSource = oneOf("auto", "auctionator", "blackthornes"), deMargin = num(0, 2), deAhMargin = num(0, 2), deLeveling = oneOf("auto", "always", "never"), autoConfirmKey = oneOf("always", "shift", "ctrl", "custom"), grp = oneOf("none", "type", "bag"),
 	recentWindow = oneOf("session", "1h", "15m"), recentMax = num(0, 200, true),
 	sheetPrefs = function(v)
 		if type(v) ~= "table" then return nil end
@@ -276,11 +290,11 @@ local validators = {
 	end,
 	sort = oneOf("quality", "name", "newest", "oldest", "ilvl", "off"), sizeMode = oneOf("auto", "fixed"),
 	bankGrp = oneOf("none", "type", "bag"), bankSort = oneOf("quality", "name", "newest", "oldest", "ilvl", "off"), bankView = oneOf("list", "icons"),
-	combatAlpha = num(0.05, 1), scale = num(0.5, 1.5), bagCols = num(4, 12, true), bagScale = num(0.5, 1.5), bagMaxH = num(200, 800, true), shardKeep = num(0, 40, true), maxW = num(620, 1400, true), maxH = num(300, 1200, true),
-	fixW = num(620, 1400, true), bankW = num(620, 1400, true), bankH = num(300, 1200, true), fixH = num(300, 1200, true), iconSize = num(24, 48, true), rowHeight = num(20, 32, true),
+	combatAlpha = num(0.05, 1), bgOpacity = num(0, 1), movingAlpha = num(0.05, 1), scale = num(0.5, 1.5), bagCols = num(4, 12, true), bagScale = num(0.5, 1.5), bagMaxH = num(200, 800, true), shardKeep = num(0, 40, true), maxW = num(440, 1400, true), maxH = num(300, 1200, true),
+	fixW = num(440, 1400, true), bankW = num(500, 1400, true), bankH = num(300, 1200, true), fixH = num(300, 1200, true), iconSize = num(24, 48, true), rowHeight = num(20, 32, true),
 	minimapAngle = num(0, 360), point = pointV, bankPoint = pointV, settingsPoint = pointV,
 	makeRoomPos = function(v) if v == false then return false end return pointV(v) end,
-	cols = strList(COL_SET), colOrder = ordered(ORDER_SET, DEFAULTS.colOrder),
+	cols = strList(COL_SET), colOrder = ordered(ORDER_SET, DEFAULTS.colOrder), colAside = strList(ASIDE_SET),
 	colWidths = function(v)
 		if type(v) ~= "table" then return nil end
 		local out = {}
@@ -289,11 +303,20 @@ local validators = {
 	end, iconCorners = function(v)
 		if type(v) ~= "table" then return nil end
 		local out, seen = {}, {}
+		-- (1.6.0-beta6, the beta5 audit's F6) up to 16 marks a corner, not counting the locked built-ins (Quest Starter, Stack
+		-- Count), which every profile carries: adding Quest Starter to a full corner never pushes a mark out
+		local C = ns.Corners
+		local function locked(id) if C and C.IsLocked then return C:IsLocked(id) end return id == "quest_start" or id == "quantity" end
 		for _, corner in ipairs({ "top_left", "top_right", "bottom_left", "bottom_right" }) do
 			out[corner] = {}
+			local others = 0
 			for _, id in ipairs(type(v[corner]) == "table" and v[corner] or {}) do
-				if type(id) == "string" and id ~= "" and #id <= 64 and id:match("^[%w_%-%.:]+$") and not seen[id] and #out[corner] < 16 then
-					seen[id] = true; out[corner][#out[corner] + 1] = id
+				if type(id) == "string" and id ~= "" and #id <= 64 and id:match("^[%w_%-%.:]+$") and not seen[id] then
+					local isLocked = locked(id)
+					if isLocked or others < 16 then
+						seen[id] = true; out[corner][#out[corner] + 1] = id
+						if not isLocked then others = others + 1 end
+					end
 				end
 			end
 		end
@@ -384,6 +407,7 @@ local copy = ns.Copy
 validators.bankCols = validators.cols
 validators.bankCollapsed = validators.collapsed
 validators.bankColOrder = validators.colOrder
+validators.bankColAside = validators.colAside
 validators.bankColWidths = validators.colWidths
 
 -- Plugin preference data: plain and bounded. Strings, booleans, finite numbers and plain tables with string or

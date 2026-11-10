@@ -140,6 +140,7 @@
 	local SP = n.SettingsPanel; SP:Show(); SP:ShowPage("loothelper")
 	local texts = {}; for _, w in ipairs(SP.pools.text) do if w:IsShown() then texts[#texts + 1] = w.text.text end end
 	local all = table.concat(texts, "|")
-	check(not all:find("everywhere", 1, true) and all:find("Favorites are never destroyed by the Loot Helper or offered by the Disenchant Helper; junk selling still includes them.", 1, true), "the help no longer claims Favorites protect everywhere, and names junk selling")
+	-- (1.6.0-beta4, by design) the approved Settings wording (item 31): the same facts in plainer words
+	check(not all:find("everywhere", 1, true) and all:find("The helpers never destroy or disenchant favorites, but junk selling still sells grey favorites.", 1, true), "the help no longer claims Favorites protect everywhere, and names junk selling")
 	SP:Hide()
 end)()

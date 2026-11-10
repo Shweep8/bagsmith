@@ -159,7 +159,7 @@ function Panel:Create()
 	child:SetSize(1, 1)
 	scroll:SetScrollChild(child)
 	f.child, self.scroll = child, scroll
-	self.pools = { cornerCards = {}, head = {}, check = {}, seg = {}, step = {}, list = {}, text = {}, edit = {}, btn = {}, color = {}, profiles = {}, cmd = {}, bind = {}, about = {}, csec = {}, csechead = {}, moved = {}, gset = {}, ptitle = {}, vis = {}, vishead = {}, pin = {}, card = {}, sep = {}, plug = {}, pnotice = {}, feat = {} }
+	self.pools = { cornerCards = {}, head = {}, check = {}, seg = {}, step = {}, list = {}, text = {}, edit = {}, btn = {}, color = {}, profiles = {}, cmd = {}, bind = {}, about = {}, csec = {}, csechead = {}, moved = {}, gset = {}, ptitle = {}, vis = {}, vishead = {}, pin = {}, card = {}, sep = {}, plug = {}, pnotice = {}, feat = {}, sub = {} }   -- (1.6.0) sub: sub-headings inside a card
 	self.page = self.page or "general"
 	table.insert(UISpecialFrames, "BagSmithSettings")
 	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
@@ -408,13 +408,25 @@ function Panel:Head(text, info)
 	self.y = self.y + 2
 end
 
-function Panel:Text(text)
+-- color (optional, 1.6.0): a skin colour name for a line that needs weight ("heading"); muted otherwise.
+function Panel:Text(text, color)
 	local w = acquire(self, "text", function(p) local w = CreateFrame("Frame", nil, p); w:SetSize(ROW_W, 20); w.text = fs(w); w.text:SetPoint("TOPLEFT", 2, -2); return w end)
 	if w.info then w.info:Hide(); w.othersLine = nil end   -- (1.5.0-beta6) a reused row loses the Icon Corners line's info icon
-	w.text:SetText(text); w.text:SetTextColor(Skins:Color("muted"))
+	w.emphasis = color
+	w.text:SetText(text); w.text:SetTextColor(Skins:Color(color or "muted"))
 	local h = wrapText(w.text, rowW - 4)
 	w:SetHeight(h + 8)
 	self.y = self.y + h + 10
+end
+
+-- (1.6.0) A small sub-heading inside a card, in the heading colour (the Opacity card's Always, While Moving, In Combat).
+-- Like explanatory text, it shows only with its whole card in search results.
+function Panel:Sub(text)
+	local w = acquire(self, "sub", function(p) local w = CreateFrame("Frame", nil, p); w:SetSize(ROW_W, 20); w.text = fs(w); w.text:SetPoint("TOPLEFT", 2, -6); return w end)
+	w.text:SetText(text); w.text:SetTextColor(Skins:Color("heading"))
+	w.label = text
+	w:SetHeight(22)
+	self.y = self.y + 22
 end
 
 -- A command list: each command in a fixed-width gold column, its description
@@ -766,7 +778,7 @@ function Panel:List(items, onCheck, onMove)
 		-- Greyed out: shown, can't be ticked.
 		if it.disabled then r.box:Disable(); r.box:SetAlpha(0.5) else r.box:Enable(); r.box:SetAlpha(1) end
 		r.text:ClearAllPoints(); r.text:SetPoint("LEFT", it.checked ~= nil and 24 or 4, 0); r.text:SetPoint("RIGHT", -54, 0)
-		r.up:SetShown(i > 1); r.down:SetShown(i < #items)
+		r.up:SetShown(i > 1 and not it.noUp); r.down:SetShown(i < #items and not it.noDown)   -- (1.6.0-beta6) a row can keep its place
 		r:ClearAllPoints(); r:SetPoint("TOPLEFT", l, "TOPLEFT", 0, -(i - 1) * 26); r:SetWidth(rowW); r:Show()
 	end
 	for j = #items + 1, #l.rows do l.rows[j]:Hide() end
@@ -890,6 +902,7 @@ function Panel:CornerCards()
 	local function noteFor(id)
 		local wd = C.widgets[id]
 		if not wd then return "This mark's addon isn't loaded. Its place is kept for when it is." end
+		if id == "quest_start" then return "The quest mark always shows on an item that begins a quest you haven't accepted, first in its corner. You can move it to another corner, but not hide it." end
 		if id == C.PROTECTED then return "The stack count always shows when an item has a stack, first in its corner. Choose it in another corner's first dropdown to move it there." end
 		local t = (wd.builtin and C:BuiltinNote(id)) or "The first mark in a corner that applies to an item is the one shown."
 		if C.COLUMN_NOTE[id] then t = t .. " " .. C.COLUMN_NOTE[id] end
@@ -898,13 +911,13 @@ function Panel:CornerCards()
 	end
 	local function choices(corner, index, cur, forAdd)
 		local items, here = {}, ns.db.iconCorners[corner] or {}
-		if not forAdd and index == 1 and cur ~= C.PROTECTED then
+		if not forAdd and index == 1 and not C:IsLocked(cur) then
 			-- (1.5.0-beta11, audit F2) None empties the whole corner, backups included
 			items[#items + 1] = { text = "None", onClick = function() C:ClearCorner(corner); refresh() end }
 		end
 		for _, id in ipairs(C.order) do
 			local inHere = ns.IndexOf(here, id) ~= nil
-			local ok = not inHere and not (id == C.PROTECTED and (forAdd or index > 1))
+			local ok = not inHere and not (C:IsLocked(id) and (forAdd or index > 1))
 			if ok then
 				local from = C:CornerOf(id)
 				local text = label(id) .. (from and (" (in " .. C.LABEL[from] .. ")") or "") .. ((not from and C:IsNew(id)) and " (new)" or "")
@@ -934,7 +947,7 @@ function Panel:CornerCards()
 			local r = g.rows[i]
 			if not r then r = makeGroupRow(g); g.rows[i] = r end
 			local id = ids[i]
-			local locked = id == C.PROTECTED
+			local locked = C:IsLocked(id)
 			r.id, r.index = id, i
 			r.thenLabel:SetShown(i > 1); r.thenLabel:SetTextColor(Skins:Color("muted"))
 			local d = r.drop
@@ -980,8 +993,8 @@ function Panel:IconCorners()
 	local othersInfo = {
 		title = "Marks from other addons",
 		lines = {
-			"When an addon that marks items supports BagSmith, its marks appear here on their own, in the corner the addon suggests. You can move, reorder or hide them like BagSmith's.",
-			"If an addon's marks don't show up here, that addon doesn't support BagSmith yet.",
+			"When an addon supports BagSmith, its marks show up here in the corner it suggests. You can move, reorder or hide them like BagSmith's own.",
+			"Some addons draw their own marks on your icons instead. Those aren't listed here, can cover the marks you set above, and can only be changed in that addon's settings.",
 			"|cff999999Addon authors: see BagSmith's API notes.|r",
 		},
 		keywords = "addon addons marks mark other",
@@ -989,11 +1002,11 @@ function Panel:IconCorners()
 	local names = {}
 	for _, id in ipairs(C.order) do local wd = C.widgets[id]; if wd then names[#names + 1] = wd.label end end
 	self:Head("Icon Corners", { noIcon = true, lines = othersInfo.lines, keywords = othersInfo.keywords .. " " .. table.concat(names, " ") })
-	self:Text("Pick the mark each corner shows. Add a backup for items the first one doesn't apply to. In List view, Item Level and Stack Count show in their columns instead.")
+	self:Text("Choose what shows in each corner of your item icons, with a backup for items the first choice doesn't apply to. In List view, item level and stack count have their own columns.")
 	self:CornerCards()
 	local others = false
 	for _, id in ipairs(C.order) do local wd = C.widgets[id]; if wd and not wd.builtin then others = true end end
-	self:Text(others and "Marks from other addons are listed in the cards above." or "Other addons' marks appear here when they support BagSmith.")
+	self:Text(others and "Marks from other addons that support BagSmith are listed above." or "Other addons' marks show up here when they support BagSmith.")
 	local line = self.pools.text[self.counts.text]
 	if line and not self.filter then
 		if not line.info then line.info = ns.Why.InfoButton(line) end
@@ -1002,6 +1015,8 @@ function Panel:IconCorners()
 		line.info:Show()
 		line.othersLine = true
 	end
+	-- (1.6.0) with weight, on its own line (Shweep): marks some addons draw themselves aren't BagSmith's to order
+	self:Text("Some addons draw their own marks on your icons. Those aren't listed here, can cover the marks you set above, and can only be changed in that addon's settings.", "heading")
 	self:Button("Reset Icon Corners", function() C:Reset(); Panel:Refresh() end)
 end
 
@@ -1252,19 +1267,34 @@ end
 -- General: how BagSmith opens, which of Blizzard's windows it stands in for, and its notices.
 pages.general = function(self, db)
 	self:Head("Opening BagSmith")
-	self:Check("replaceBlizzardBags", "Open with the Bag Keybind (B)", "Turn off to use Blizzard's bags on B and open BagSmith from the minimap icon or /bs instead")
-	self:Check("minimap", "Show Minimap Button", "You can still open BagSmith from the addon list with this disabled")
-	self:Check("minimapFade", "Fade Minimap Button", "Shows the button only while the pointer is over the minimap")
+	self:Check("replaceBlizzardBags", "Open with the Bag Keybind (B)", "Turn off to keep Blizzard's bags on B. You can still open BagSmith from the minimap button or /bs.")
+	self:Check("minimap", "Show Minimap Button", "With it off, you can still open BagSmith with /bs or from the game's addon list.")
+	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
+	-- (1.6.0) where auction prices come from, for the AH Price column and the Loot and Disenchant Helpers (on General:
+	-- they matter to the helpers as much as the column, Shweep)
+	self:Head("Auction Prices")
+	local using = ns.AH:SourceName()
+	local installed = {}
+	for _, k in ipairs(ns.AH.ORDER) do if ns.AH:Installed(k) then installed[#installed + 1] = ns.AH.SOURCES[k].name end end
+	local now = using and ("Now using %s."):format(using) or "Neither Auctionator nor Blackthornes Tradeskills is installed."
+	if using and #installed < 2 and db.priceSource ~= "auto" and ns.AH.SOURCES[db.priceSource] and not ns.AH:Installed(db.priceSource) then
+		now = ("%s isn't installed, so BagSmith uses %s."):format(ns.AH.SOURCES[db.priceSource].name, using)
+	end
+	self:Seg("priceSource", "Price Source", { { "auto", "Automatic" }, { "auctionator", "Auctionator" }, { "blackthornes", "Blackthornes" } },
+		"Which addon BagSmith gets auction prices from. Automatic uses the one you have, or Auctionator if you have both. " .. now)
+	-- (1.6.0) tips on BagSmith's own controls
+	self:Head("Tips")
+	self:Check("helpTips", "Show Help Tips", "Explains BagSmith's buttons, columns and marks when you point at them. Item tooltips always show.")
 	self:Head("Blizzard's Interface")
 	if ns.Bank and ns.Bank.supported then
-		self:Check("replaceBank", "Replace the Bank Window", "Shows your bank in a BagSmith window when you visit a banker")
+		self:Check("replaceBank", "Replace the Bank Window", "Opens your bank in a BagSmith window instead of Blizzard's.")
 	else
-		self:Text("Bank window replacement is unavailable on this client; the bank opens in Blizzard's window alongside BagSmith's Bank sheet.")
+		self:Text("This game version can't replace the bank window. Your bank opens in Blizzard's window, and you can still see it on BagSmith's Bank tab.")
 	end
-	self:Check("hideBlizzBagBar", "Hide Blizzard's Bag Bar", "Hides the game's own row of bag buttons. The bag strip in BagSmith (the button left of the counts in the footer) does the same job.")
+	self:Check("hideBlizzBagBar", "Hide Blizzard's Bag Bar", "Hides the game's row of bag buttons. BagSmith's bag strip, the button beside your slot count, does the same job.")
 	self:Head("Notices")
-	self:Check("quiet", "Hide the Login Message")
-	self:Check("whatsNew", "Show What's New After Updates", "After a notable update, a short card shows what's new the first time you open your bags. The What's New button in this window shows it any time.")
+	self:Check("quiet", "Hide the Login Message", "Stops BagSmith's hello in chat when you log in.")
+	self:Check("whatsNew", "Show What's New After Updates", "After a big update, shows what's new the first time you open your bags. The What's New button shows it any time.")
 end
 
 pages.look = function(self, db)
@@ -1283,8 +1313,8 @@ pages.look = function(self, db)
 	self:Step("rowHeight", "Row Height (List View)", 2, "%d")
 	self:Check("dense", "Compact Rows", "Shorter rows in List view")
 	self:Head("Layout")
-	self:Check("splitView", "Split View (Icons View)", "In Icons view, sections sit side by side in two columns, filling left to right, top to bottom. Needs Sections By Section or By Bag; a narrow window shows one column.")
-	self:Check("emptySlots", "Show Empty Slots", "Your free bag spaces as blank squares in Icons view. Hidden in By Section, where a free space belongs to no section.")
+	self:Check("splitView", "Split View (Icons View)", "Shows sections side by side in two columns. Works with By Section or By Bag when the window is wide enough.")
+	self:Check("emptySlots", "Show Empty Slots", "Shows your free bag spaces as empty squares in Icons view. Not shown in By Section.")
 end
 
 -- Item Icons (1.5.0): everything about an item's picture, in either view, and what's drawn on it (marks).
@@ -1299,34 +1329,34 @@ pages.icons = function(self, db)
 		},
 		keywords = "cooldown cooldowns timer timers countdown",
 	})
-	self:Check("dimJunk", "Dim Junk", "Grey items and items you mark as junk are greyed out")
+	self:Check("dimJunk", "Dim Junk", "Greys out junk so the rest of your items stand out.")
 	self:Head("Marks")
-	self:Check("newdot", "Green Dot on New Items", "The dot clears when you hover over the item")
+	self:Check("newdot", "Green Dot on New Items", "Marks new items with a green dot until you point at them.")
 	if db.newdot then
 		self:Indented(function()
-			self:Check("newdotClearRecent", "Clear Recent Also Clears Green Dots")
+			self:Check("newdotClearRecent", "Clear Recent Also Clears Green Dots", "Clearing your Recent Items also removes the green dots.")
 		end)
 	end
-	self:Check("iconItemLevel", "Item Level (ilvl)", "Icons view only: the item level on weapon and armor, in its own color so it reads apart from the stack count. Its corner is set under Icon Corners.")
+	self:Check("iconItemLevel", "Item Level (ilvl)", "Shows the item level on weapons and armor in Icons view. Choose its corner under Icon Corners.")
 	self:Indented(function() self:Color("iconItemLevelColor", "Item Level Color", "The color of the item level") end)
 	self:IconCorners()
 end
 
 pages.automation = function(self, db)
 	self:Head("Auto Travel Mode")
-	self:Text("Travel Mode is a compact, on-the-go view: the signpost beside the close button hides the toolbar and filters so you can focus on adventuring, and you can switch back to your full inventory tools anytime. These settings switch it off for you when it's time to manage your bags, and back on afterwards.")
+	self:Text("Travel Mode is a compact view for adventuring. The signpost by the close button turns it on and off. These settings turn it off when you need your full bags, and back on afterwards.")
 	self:Check("travelLeaveBank", "Leave Travel Mode at the Bank", "Turns it back on when you close the bank.")
 	self:Check("travelLeaveAH", "Leave Travel Mode at the Auction House", "Turns it back on when you close the auction house.")
 	self:Check("travelLeaveVendor", "Leave Travel Mode at Vendors", "Turns it back on when you close the vendor.")
 	self:Check("travelLeaveTaxi", "Leave Travel Mode During Flight Paths", "Turns it back on when you land.")
 	self:Check("travelLeaveTrade", "Leave Travel Mode When Trading", "Turns it back on when the trade is finished or canceled.")
 	self:Head("Bag Cleanup")
-	self:Check("cleanOnOpen", "Clean Up Bags When Opened", "Runs Blizzard's Clean Up Bags each time you open your bags (not in combat or at the bank)")
+	self:Check("cleanOnOpen", "Clean Up Bags When Opened", "Tidies your bags with Blizzard's Clean Up each time you open them, except in combat or at the bank.")
 	self:Head("Vendors")
-	self:Check("autoSellJunk", "Sell Junk Automatically at Vendors", "Sells grey and junk-marked items when you open a vendor, one at a time (the last 12 can be bought back). If the game wants a click for this, BagSmith says so. Blizzard's Sell All Junk button always sells every grey item, favorites and hidden sections included; BagSmith can't change that. BagSmith's own junk selling follows the same rule, and also sells junk-marked items.")
+	self:Check("autoSellJunk", "Sell Junk Automatically at Vendors", "Sells your grey and junk-marked items when you visit a vendor. You can buy back the last 12. Like Blizzard's own Sell All Junk, it includes grey favorites.")
 	self:Head("Prompts")
-	self:Text("Some actions bring up a yes/no box (equipping bind-on-equip gear, using an item that binds, replacing an enchant). BagSmith can click Yes for you on the kinds you choose. Hold Shift to keep a box open. The enchant box from a profession window is always left for you.")
-	self:Check("autoConfirm", "Auto-Confirm Prompts From BagSmith Actions", "Only a box that follows one of these BagSmith actions, within a few seconds. Every confirmation is announced in chat.")
+	self:Text("Some actions ask yes or no first, like equipping gear that binds or replacing an enchant. BagSmith can answer Yes for you on the kinds you choose. Hold Shift to answer yourself.")
+	self:Check("autoConfirm", "Auto-Confirm Prompts From BagSmith Actions", "Answers Yes only right after you do one of these in BagSmith. Each one is noted in chat.")
 	self:Indented(function()
 		for _, src in ipairs(ns.Prompts and ns.Prompts.SOURCES or {}) do self:Check(src.key, src.label) end
 		local keys = {}
@@ -1336,34 +1366,35 @@ pages.automation = function(self, db)
 				keys[#keys + 1] = { "custom", "Custom: " .. (bound and ns.KeyBinds:Pretty(bound) or "no key set") }
 			else keys[#keys + 1] = { k[1], k[2] } end
 		end
-		self:Seg("autoConfirmKey", "Confirm", keys, "Always: the box is confirmed on its own (hold Shift to keep one open). Shift or Ctrl: only while that key is held when the box appears. Custom: only while the key you bind here is held; with no key set, nothing is confirmed.")
+		self:Seg("autoConfirmKey", "Confirm", keys, "Choose when BagSmith answers: always, or only while you hold Shift, Ctrl or a key you pick.")
 		if db.autoConfirmKey == "custom" then self:Indented(function() self:Binding("BAGSMITH_CONFIRMKEY", "Custom Confirm Key") end) end
-		self:Check("autoConfirmEverywhere", "Also Outside BagSmith", "The same kinds of box wherever they come from, with the same key rule")
+		self:Check("autoConfirmEverywhere", "Also Outside BagSmith", "Answers the same questions when they come from outside BagSmith too.")
 		self:Indented(function()
 			for _, g in ipairs(ns.Prompts and ns.Prompts.GROUPS or {}) do self:Check(g.key, g.label) end
 		end)
 	end)
 	self:Head("Clear Soul Shards")
-	self:Step("shardKeep", "Soul Shards to Keep", 1, "%d", "|cff8788eeWarlock|r only. Clear Soul Shards always leaves you at least this many. Shards in a soul bag count toward it and are never destroyed.")
+	self:Step("shardKeep", "Soul Shards to Keep", 1, "%d", "|cff8788eeWarlock|r only. Clear Soul Shards always leaves you this many. Shards in a soul bag count and are never destroyed.")
 end
 
 pages.loothelper = function(self, db)
 	self:Head("Loot Helper")
-	self:Text("When loot won't fit, the Loot Helper appears beside the loot window with ways to free space, then finishes the looting.")
+	self:Text("When your bags are too full for your loot, the Loot Helper shows ways to make room, then picks up the rest.")
 	self:Check("makeRoom", "Show Loot Helper When Loot Won't Fit")
 	self:Seg("makeRoomValue", "Rank Suggestions By", { { "ah", "AH Price" }, { "vendor", "Vendor Price" } },
-		"AH Price uses Auctionator's prices when it has them, and the vendor price otherwise. Both are shown either way.")
+		"Which price decides what's suggested first. Without an AH price, the vendor price is used.")
 	-- (1.5.1-beta2) whether destroying asks first
-	self:Check("makeRoomAsk", "Ask Before Destroying", "When off, Destroy removes the chosen item at once, with no confirmation. Junk always goes in one click.")
+	-- (1.6.0-beta4) the plainer help lines no longer say "confirm": search still finds these by it
+	self:Check("makeRoomAsk", "Ask Before Destroying", "Asks before destroying anything. Junk always goes in one click.", { keywords = "confirm confirmation" })
 	self:Indented(function()
-		self:Check("makeRoomAskRare", "Always Ask for Rare or Better", "Like the game, blue and epic items still ask for confirmation before they're destroyed.",
-			db.makeRoomAsk and { disabled = true, checked = true } or nil)
+		self:Check("makeRoomAskRare", "Always Ask for Rare or Better", "Blue and purple items always ask first, as they do in the game.",
+			{ disabled = db.makeRoomAsk and true or nil, checked = db.makeRoomAsk and true or nil, keywords = "destroy destroyed destroying confirm confirmation" })
 	end)
 	-- The Loot Exclusion List: one line here, the list in its own window.
 	self:Text("Favorites, gear-set items, quest items and Pawn upgrades are never suggested for destroying.")
 	self:Head("Loot Exclusion List")
-	self:Text("Loot the Loot Helper won't ask you to make room for. This list only affects the Loot Helper.")
-	self:Text("Favorites are never destroyed by the Loot Helper or offered by the Disenchant Helper; junk selling still includes them.")
+	self:Text("Items the Loot Helper won't make room for. This list only affects the Loot Helper.")
+	self:Text("The helpers never destroy or disenchant favorites, but junk selling still sells grey favorites.")
 	local never = ns.MakeRoom and ns.MakeRoom:NeverList() or {}
 	if #never > 0 then
 		self:Text(("Loot Exclusion List: %d %s"):format(#never, #never == 1 and "item" or "items"))
@@ -1378,13 +1409,17 @@ end
 
 pages.dehelper = function(self, db)
 	self:Head("Disenchant Helper")
-	self:Text("A window that lists the gear in your bags worth considering, with vendor, AH and materials values and a recommendation, then walks you through it one click per item. It never disenchants on its own.")
-	self:Text("Estimates start from the game's typical disenchant results. BagSmith records what each of your disenchants actually produces, and once a kind of item (its quality and level bracket, armor or weapon) has twenty of your disenchants behind it, that kind's estimates come from your results instead, so the helper gets more accurate the more you use it. Results are kept per character and per kind, so a new enchanter starts from the typical results again.")
-	self:Check("deEnabled", "Disenchant Helper", "Adds its button beside the Gear Sets shield; /bs de and the Disenchant Next Item keybinding work too")
+	self:Text("Lists the gear in your bags worth disenchanting, with what each is worth, and takes you through it one click at a time. It never disenchants on its own.")
+	self:Text("Estimates start from typical disenchant results. After 20 disenchants of the same kind of item, BagSmith uses your own results instead. Each character keeps its own.")
+	self:Check("deEnabled", "Disenchant Helper", "Adds the Disenchant Helper button by the Gear Sets shield. /bs de and its keybinding open it too.")
 	self:Indented(function()
-		self:Step("deMargin", "Disenchant Must Beat Selling By", 0.05, "%d%%", "Materials have to be worth this much more than the best of vendor and AH price before Disenchant is recommended")
-		self:Check("deIncludeEpics", "Include Epics", "Off keeps epics out of the helper entirely")
-		self:Check("deSkipRefundable", "Skip Refundable and Tradeable Items", "Items you could still return to a vendor, or hand to a group member from a recent roll, stay out")
+		self:Step("deMargin", "Disenchant Must Beat Selling By", 0.05, "%d%%", "Disenchanting is only recommended when the materials are worth this much more than selling.")
+		-- (1.6.0-beta8, Shweep) the AH has to earn it; and leveling Enchanting
+		self:Step("deAhMargin", "Selling at the AH Must Beat the Vendor By", 0.05, "%d%%", "Selling at the AH is only recommended when, after the auction house's 5% cut, it pays this much more than the vendor.")
+		self:Seg("deLeveling", "Leveling Enchanting", { { "auto", "Automatic" }, { "always", "Always" }, { "never", "Never" } },
+			"While you're leveling, materials count at full value and disenchanting wins even when it's worth up to 10% less than selling. Automatic does this until your Enchanting reaches its current cap.")
+		self:Check("deIncludeEpics", "Include Epics", "Lets the helper list epic items too.")
+		self:Check("deSkipRefundable", "Skip Refundable and Tradeable Items", "Leaves out items you could still return or trade to your group.")
 		self:Button("Open Disenchant Helper", function() if ns.Disenchant then ns.Disenchant:Show() end end)
 		self:Text("Favorites and gear-set items are always left out. The DE Exclusion List only affects this helper.")
 		local never = ns.Disenchant and ns.Disenchant:NeverList() or {}
@@ -1406,7 +1441,7 @@ pages.dehelper = function(self, db)
 		end)
 	end
 	self:Head("Opt-in")
-	self:Text("When a character with Enchanting opens the bags, BagSmith offers the helper once: Add Now, Ask Later, or Don't Ask Again.")
+	self:Text("Characters with Enchanting are offered the helper once, the first time they open their bags.")
 	if db.deEnabled then
 		self:Text("This character has already opted in.")
 	elseif ns.cdb and ns.cdb.deOfferDeclined then
@@ -1419,7 +1454,7 @@ end
 
 pages.keys = function(self, db)
 	self:Head("Keybindings")
-	self:Text("Click Set Key, then press the key you want (with Shift, Ctrl or Alt if you like). Esc cancels. These are the same bindings as in the game's Keybindings, under BagSmith.")
+	self:Text("Click Set Key and press a key. Shift, Ctrl and Alt combinations work, and Esc cancels. These are also in the game's Keybindings under BagSmith.")
 	for _, b in ipairs(ns.KeyBinds and ns.KeyBinds.LIST or {}) do self:Binding(b[1], b[2]) end
 	self:Head("Item Menu")
 	self:Text("Alt+Left-click an item opens BagSmith's item menu (Move to Section, Favorite, Mark as Junk, Track as Currency).")
@@ -1443,10 +1478,21 @@ pages.window = function(self, db)
 	else
 		self:Step("fixW", "Width", 20, "%d"); self:Step("fixH", "Height", 20, "%d")
 	end
-	self:Head("Combat")
-	self:Check("combatFade", "Fade Windows During Combat", "Windows turn see-through while you fight")
-	self:Step("combatAlpha", "Opacity in Combat", 0.05, "%d%%")
-	self:Check("combatLock", "Ignore Clicks While Faded", "Clicks pass through faded windows, so you can't click something by accident mid-fight")
+	-- (1.6.0) one Opacity card, in three parts (Shweep): what's always see-through, what dims while moving, what dims in
+	-- combat. Background Opacity alone touches only the frame; moving and combat fade whole windows.
+	self:Head("Opacity")
+	self:Sub("Always")
+	self:Step("bgOpacity", "Background Opacity", 0.05, "%d%%", "How see-through the bag windows' frame and background are. Your items and text stay solid.")
+	self:Indented(function()
+		self:Check("bgWhole", "Whole Window", "Fade your items, text and buttons too. Moving and combat never make it brighter than this.")
+	end)
+	self:Sub("While Moving")
+	self:Check("fadeMoving", "Fade While Moving", "Dims the bag windows while your character is moving.")
+	self:Indented(function() self:Step("movingAlpha", "Opacity While Moving", 0.05, "%d%%") end)
+	self:Sub("In Combat")
+	self:Check("combatFade", "Fade in Combat", "Dims every BagSmith window during combat, including the helpers.")
+	self:Indented(function() self:Step("combatAlpha", "Opacity in Combat", 0.05, "%d%%") end)
+	self:Check("combatLock", "Ignore Clicks While Faded", "In combat, clicks pass through faded windows, so you can't use an item by accident.")
 	self:Head("Bag Windows")
 	self:Seg("__openWindows", "When the Main Window Opens",
 		{ { "main", "Open Main Window Only" }, { "all", "Auto-Open All Bags" }, { "reagent", "Auto-Open Reagent Bag" } },
@@ -1455,7 +1501,7 @@ pages.window = function(self, db)
 	self:Step("bagScale", "Bag Window Scale", 0.05, "%d%%", "On top of Scale in Style. 100% matches the main window.")
 	self:Step("bagMaxH", "Bag Window Max Height", 20, "%d", "Taller bags scroll.")
 	self:Head("Currency Drawer")
-	self:Seg("side", "Opens to the", { { "left", "Left" }, { "right", "Right" } }, "Switches sides on its own if there isn't room")
+	self:Seg("side", "Opens to the", { { "left", "Left" }, { "right", "Right" } }, "Switches sides when there isn't room.")
 end
 
 pages.sections = function(self, db)
@@ -1464,14 +1510,14 @@ pages.sections = function(self, db)
 	self:Seg("grp", "Open with Sections", { { "none", "None" }, { "type", "By Section" }, { "bag", "By Bag" } })
 	self:Check("remember", "Remember Which Sections Are Collapsed")
 	self:Head("Which Section an Item Goes To")
-	self:Text("An item in one of your gear sets goes to that set's section (while Show Gear Sets as Sections is on). Otherwise an item marked as junk always goes to Junk. Otherwise a favorite goes to Favorites (while that section is on). Otherwise it goes to the section you moved it to, or else its usual section by type.")
+	self:Text("An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, or its usual section.")
 	self:Head("Keys & Reagent Bag")
 	self:Check("keys", "Keys in Their Own Section (All and By Bag)", "By Section always gives keys their own section.")
 	self:Seg("reagent", "Reagent Bag (Sections: All)", { { "inline", "Mixed In" }, { "lane", "Own Section" } },
 		"By Section sorts reagent-bag items by type; By Bag shows each bag as a section.")
 	-- (1.5.0-beta9) Split Consumables
 	self:Head("Consumables")
-	self:Check("splitCons", "Split Consumables by Type", "Consumables becomes sections of their own: Food, Drink, Potions and more. Untick a type to keep it in Consumables.")
+	self:Check("splitCons", "Split Consumables by Type", "Splits Consumables into Food, Drink, Potions and more. Untick a type to keep it in Consumables.")
 	if db.splitCons then
 		self:Indented(function()
 			for _, k in ipairs(ns.CONS_KINDS) do
@@ -1517,7 +1563,7 @@ pages.sections = function(self, db)
 		nil, function(id, delta) local i = ns.IndexOf(db.laneOrder, id); if ns.Move(db.laneOrder, i, i + delta) then ns:Fire("SETTINGS_CHANGED", "laneOrder") end end)
 	-- Pinned sections (1.4.0): one row per item section, with its pin.
 	self:Head("Pinned Sections")
-	self:Text("A pinned section shows at the top, after Recent. In All view its items get their own section there instead of the main list. By Bag ignores pins. You can also right-click a section's title.")
+	self:Text("Pinned sections stay at the top, just under Recent. You can also pin one by right-clicking its title. By Bag ignores pins.")
 	for _, id in ipairs(db.laneOrder) do
 		if ns.Sections:Pinnable(id) and (not id:match("^c%d+$") or ns.Sections:IsCustom(id)) then self:PinRow(id) end
 	end
@@ -1525,7 +1571,7 @@ pages.sections = function(self, db)
 	local GS = ns.GearSets
 	-- Show at Vendor / Show at AH, for every section.
 	self:Head("Vendors & Auction House")
-	self:Text("Every section shows at vendors and the auction house unless you hide it here (or right-click its title). Hidden items come back as soon as you close the vendor or auction house, and a note at the end of the list offers to show them during the visit. Hiding a section only hides it from view: Blizzard's Sell All Junk button always sells every grey item, favorites and hidden sections included; BagSmith can't change that. BagSmith's own junk selling follows the same rule, and also sells junk-marked items.")
+	self:Text("Hide sections while you're at a vendor or the auction house. They come back when you leave. Hiding doesn't stop Blizzard's Sell All Junk button from selling them.")
 	self:VisibilityHeader()
 	for _, id in ipairs(db.laneOrder) do
 		if id == "~gs" then
@@ -1541,7 +1587,7 @@ end
 pages.dynamic = function(self, db)
 	self:Head("Dynamic Sections")
 	self:Text("Sections that fill themselves: what you just picked up, what you starred, and your gear sets.")
-	self:Check("recentSection", "Recent Items", "What you picked up since logging in, newest first. Shown at the top by default; move it in Section Order (Sections). The items also stay in their usual section. Clear Recent in its header empties the list.")
+	self:Check("recentSection", "Recent Items", "What you've picked up since logging in, newest first. The items stay in their usual sections too, and Clear Recent empties the list.")
 	if db.recentSection then
 		self:Indented(function()
 			self:Seg("recentWindow", "Recent Items From", { { "session", "Since Login" }, { "1h", "Last Hour" }, { "15m", "Last 15 Min" } },
@@ -1549,15 +1595,15 @@ pages.dynamic = function(self, db)
 			self:Seg("recentMax", "Recent Items Shown", { { 0, "All" }, { 8, "8" }, { 16, "16" }, { 32, "32" } })
 		end)
 	end
-	self:Check("favSection", "Favorites", "Items you star (the Favorite column, or its keybinding) move to this section at the top, like pinned mail. Move it in Section Order (Sections). Off: they stay in their usual sections. Favorites aren't protected from junk selling: Blizzard's Sell All Junk button always sells every grey item, favorites and hidden sections included; BagSmith can't change that. BagSmith's own junk selling follows the same rule, and also sells junk-marked items.")
+	self:Check("favSection", "Favorites", "Starred items get their own section at the top. Grey favorites can still be sold as junk.")
 	-- The game's own equipment sets, shown as sections.
 	self:Head("Gear Sets")
 	local GS = ns.GearSets
 	if not (GS and GS:Available()) then
 		self:Text("This game client doesn't have equipment sets.")
 	else
-		self:Text("Your gear sets are the game's own equipment sets, the same ones as the Equipment Manager in your character window. Each has its own section in your bags, holding the set's items that are in your bags, with an Equip button. A set you're wearing shows its title marked Worn. Items in a set can't be marked as junk, are never sold by BagSmith and are never offered by the Loot Helper.")
-		self:Check("gearSetSections", "Show Gear Sets as Sections", "Off: set items stay in their usual sections (still protected).")
+		self:Text("Each of your equipment sets gets its own section, with an Equip button. Items in a set can't be marked as junk and are never suggested for selling or destroying.")
+		self:Check("gearSetSections", "Show Gear Sets as Sections", "When off, set items stay in their usual sections and are still kept safe.")
 		self:Button("New Gear Set...", function() GS:PromptNew() end)
 		local sets = GS:Rebuild()
 		if #sets == 0 then
@@ -1572,9 +1618,9 @@ end
 -- Your own sections, and moving items between sections.
 pages.custom = function(self, db)
 	self:Head("Custom Sections")
-	self:Text("Make your own sections. Drag an item onto a section's title (with Sections set to By Section), Alt+Left-click it, or use the Move to Section keybinding. Moves apply to every copy of the item and belong to this profile.")
+	self:Text("Make your own sections. Drag an item onto a section's title, or Alt+Left-click it, to move it there. Every copy of the item moves with it.")
 	self:Button("New Section...", function() ns.Sections:PromptNew() end)
-	self:Check("showEmptySections", "Show Empty Custom Sections", "Your sections show even when empty, ready to drag items onto. Each can opt out below. Empty ones hide while you search or filter.")
+	self:Check("showEmptySections", "Show Empty Custom Sections", "Shows your sections even when they're empty, so you can drag items onto them.")
 	local customs = ns.Sections:Customs()
 	if #customs == 0 then
 		self:Text("No sections yet. New Section... makes one.")
@@ -1587,7 +1633,7 @@ end
 
 pages.columns = function(self, db)
 	self:Head("Columns")
-	self:Check("itemMenuButton", "Item Menu Button", "Three dots at the left of each list row open the item menu (the same as Alt+Left-click): Move to Section, Favorite, Mark as Junk, Track as Currency. List view only.")
+	self:Check("itemMenuButton", "Item Menu Button", "Adds three dots to each List view row that open the item menu, like Alt+Left-click.")
 	self:Text("Choose and order each window's columns in Bag Columns and Bank Columns.")
 end
 -- Each window's columns: one list, ticked to show, arrows to reorder.
@@ -1601,10 +1647,10 @@ local function columnsPage(self, db, bank)
 	for _, id in ipairs(order) do
 		if id == "n" then colItems[#colItems + 1] = { id = "n", label = "Item", checked = true, disabled = true, tip = "Item is always shown. You can still move it, like the other columns." }
 		elseif id == "ah" then
-			-- AH Price: always listed, greyed out until Auctionator is installed.
+			-- AH Price: always listed, greyed out until a price addon is installed (1.6.0: Auctionator or Blackthornes Tradeskills).
 			local ok = ns.AH:Available()
 			colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil, disabled = not ok,
-				tip = ok and "Prices from Auctionator's last auction house scan. Shows the stack's value, or \"-\" when an item hasn't been scanned." or "Install Auctionator to enable this column. It shows prices from Auctionator's last auction house scan." }
+				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Price Source is in General.") or ns.AH.INSTALL_HINT }
 		else colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil } end
 	end
 	self:List(colItems,
@@ -1615,6 +1661,43 @@ local function columnsPage(self, db, bank)
 		end,
 		function(id, delta) local i = ns.IndexOf(order, id); if ns.Move(order, i, i + delta) then ns:Fire("SETTINGS_CHANGED", orderKey) end end)
 	self:Button(bank and "Reset Bank Column Widths" or "Reset Bags Column Widths", function() db[widthsKey] = {}; ns:Fire("SETTINGS_CHANGED", widthsKey) end)
+	-- (1.6.0-beta6, Shweep) Narrow Windows: which shown columns a narrow window may set aside, and which goes first. The
+	-- ticked ones, in their order, come first; the rest (never set aside: they shrink) follow in the columns' order.
+	local asideKey = bank and "bankColAside" or "colAside"
+	local aside = db[asideKey]
+	self:Head("Narrow Windows")
+	self:Text("When the window is too narrow for every column, the ticked ones are set aside first, top to bottom. The rest shrink to fit.")
+	self:Text("Item and Qty are always shown.")   -- (1.6.0-beta8, Shweep)
+	-- (1.6.0-beta7, the beta6 audit's R3; Shweep's wording) when the kept columns make the window's narrowest width wider
+	local need, base = ns.View.MinWidthFor(bank)
+	if need > base then self:Text(("With these columns kept, the %s window can't be narrower than %d pixels."):format(bank and "bank" or "bags", need)) end
+	local shown = {}
+	for _, id in ipairs(order) do if id ~= "n" and id ~= "c" and ns.IndexOf(cols, id) and (id ~= "ah" or ns.AH:Available()) then shown[#shown + 1] = id end end
+	local ticked = {}
+	for _, id in ipairs(aside) do if ns.IndexOf(shown, id) then ticked[#ticked + 1] = id end end
+	local asideItems = {}
+	for i, id in ipairs(ticked) do asideItems[#asideItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = true, noUp = i == 1, noDown = i == #ticked } end
+	for _, id in ipairs(shown) do
+		if not ns.IndexOf(ticked, id) then asideItems[#asideItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = false, noUp = true, noDown = true } end
+	end
+	if #asideItems > 0 then
+		self:List(asideItems,
+			function(id, on)
+				local i = ns.IndexOf(aside, id)
+				if on and not i then table.insert(aside, id) elseif not on and i then table.remove(aside, i) end
+				ns:Fire("SETTINGS_CHANGED", asideKey)
+			end,
+			function(id, delta)
+				-- among the ticked columns shown here (the list may also hold columns that are turned off above)
+				local vis = {}
+				for _, x in ipairs(aside) do if ns.IndexOf(shown, x) then vis[#vis + 1] = x end end
+				local i = ns.IndexOf(vis, id); local j = i and i + delta
+				if not (j and vis[j]) then return end
+				local a, b = ns.IndexOf(aside, vis[i]), ns.IndexOf(aside, vis[j])
+				aside[a], aside[b] = aside[b], aside[a]
+				ns:Fire("SETTINGS_CHANGED", asideKey)
+			end)
+	end
 end
 pages.bagcols = function(self, db) columnsPage(self, db, false) end
 pages.bankcols = function(self, db) columnsPage(self, db, true) end
@@ -1622,7 +1705,7 @@ pages.bankcols = function(self, db) columnsPage(self, db, true) end
 
 pages.sheets = function(self, db)
 	self:Head("Sheets")
-	self:Check("sheetViews", "Sheets Remember Their View", "Each sheet tab keeps its own Sections, Sort, View, Merge Stacks and collapsed sections. The All tab uses the window's settings.")
+	self:Check("sheetViews", "Sheets Remember Their View", "Each tab keeps its own view, sort and sections. The All tab uses the window's.")
 	self:Text("Choose and order each window's tabs in Bag Sheets and Bank Sheets.")
 end
 -- Each window's tabs and saved sheets: one list, like Columns.
@@ -1658,7 +1741,7 @@ pages.sorting = function(self, db)
 	self:Head("Sorting")
 	self:Seg("sort", "Open Sorted By", { { "quality", "Rarity" }, { "name", "A-Z" }, { "ilvl", "iLvl" }, { "newest", "New" }, { "oldest", "Old" }, { "off", "Off" } },
 		"Off keeps items in bag order, where they sit in your bags.")
-	self:Text("Click any column header to sort by it; click again to flip the direction.")
+	self:Text("Click a column header to sort by it. Click again to reverse the order.")
 	self:Head("Filters")
 	self:Check("mergeStacks", "Merge Stacks", "Shows each item once, with its total count")
 	self:Check("hideJunk", "Hide Junk on the All Sheet", "Junk stays on its own sheet")
@@ -1929,7 +2012,7 @@ pages.plugins = function(self, db)
 		self:FeaturedCard({ title = "BagSmith Gamepad: coming soon", text = "Browse your bags from a gamepad or controller: friendly and easy to use, just like with a keyboard and mouse. It's in alpha testing now; when it reaches beta we'll be looking for testers. Interested? Join the Discord." })
 	end
 	self:Head("Build a plugin")
-	self:Text("Want to build on BagSmith? The developer documentation and a starter example ship with the source, in the docs/plugins folder. Plugins work through a small public API (reading the open bags, showing item tooltips, lifecycle events and their own settings), never by using, moving or selling items, and like any addon they run alongside BagSmith rather than in a sandbox. We'd love to see what you come up with.")
+	self:Text("Want to build on BagSmith? The guide and a starter example are in the docs/plugins folder of the source.")
 end
 -- A plugin's options page, drawn by the plugin's registered render function through a small bridge of core
 -- rows. Never rendered by search (it is not a sidebar page), so options callbacks never run from enumeration.
@@ -2080,9 +2163,10 @@ end
 -- What each kind of row is searched by.
 local SEARCHED = {
 	Text = function() return nil end,   -- explanations show only with their whole card
+	Sub = function() return nil end,    -- (1.6.0) sub-headings likewise
 	CornerCards = function() return nil end,
 	Command = function(cmd, desc) return cmd, desc end,
-	Check = function(_, label, help) return label, help end,
+	Check = function(_, label, help, opts) return label, help, type(opts) == "table" and opts.keywords or nil end,   -- (1.6.0) opts.keywords: searched, not shown
 	Seg = function(_, label, options, help)
 		local t = {}
 		for _, o in ipairs(type(options) == "table" and options or {}) do t[#t + 1] = o[2] end

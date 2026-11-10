@@ -16,9 +16,9 @@ local ADDON, ns = ...
 	  tables. Every cast's actual loot is recorded locally per bracket, and once
 	  a bracket has enough of your own results (CALIBRATE_AT), those take over
 	  for that bracket; the window says which it is using.
-	- Prices come from the Auctionator data BagSmith already keeps (Core/AH.lua):
+	- Prices come from the price addon BagSmith already reads (Core/AH.lua: Auctionator or, 1.6.0, Blackthornes Tradeskills):
 	  the item's own AH price on the "sell it" side, the materials' prices on the
-	  "disenchant it" side. No Auctionator: dashes and the install note, and no
+	  "disenchant it" side. No price addon: dashes and the install note, and no
 	  recommendation (vendor against vendor is rarely interesting). A material
 	  with no price yet: "no price yet", naming it, with the scan hint.
 	- Eligibility: bags only; weapons and armor; uncommon and rare, epics only by
@@ -256,14 +256,59 @@ end
 
 -- The recommendation for an entry: "de", "ah" (the AH is the better sale), "vendor", "unknown" (a material's
 -- price is missing), "call" (no Auctionator: nothing to compare against).
+-- (1.6.0-beta8, Shweep) Compared on what you'd pocket: the faction auction house keeps 5% of a sale, so AH prices, the
+-- item's and its materials', count 95% (BagSmith counts the faction house's cut only). Selling at the AH is recommended
+-- only when that beats the vendor by Selling at the AH Must Beat the Vendor By (20%), for the listing, the deposit and
+-- the wait. While leveling Enchanting (DE:Leveling), the materials are worth their full price (you'd use them, or have
+-- to buy them) and (1.6.0-beta10, Shweep) disenchanting wins even when they're worth up to 10% less than the best sale
+-- (DE.LEVELING_LEEWAY): a little gold for not buying the materials and not waiting on a sale.
+-- (1.6.0-beta9, the beta8 audit's B8 R1) Compared exactly: values in hundredths of copper (the cut as a whole percent),
+-- margins in whole percents, so a tie is a tie and counts as enough ("at least"). In floating point 24c after the cut
+-- (22.8) and 19c plus 20% (22.8) could straddle each other. The game's own rounding of a sale to whole copper isn't
+-- modeled: the comparison is the stated 95%.
+-- (1.6.0-beta10, the beta9 audit) Prices are taken to whole hundredths of a copper first (B9 A1: a price addon could
+-- quote 8.8c; Shweep's choice), exact for any amount the game can hold. A margin off the Settings steps (only an import
+-- can save one) rounds half up to a whole percent (B9 R2: 14.5% is 15%). Nothing shown changes, and no price is rounded
+-- anywhere else.
+-- (1.6.0-beta11, the beta10 audit's B10 A1 and A2; Shweep: decimal half up) Both round from the number as written, to
+-- 14 significant digits (as Lua writes it), so a decimal half always rounds up: 8200.005c is 8200.01c, 14.5% is 15%,
+-- and 14.4999999995% is 14%. Multiplying first can land a decimal half just below it in floating point (8200.005 x 100
+-- is 820000.49999...), which rounded down; beta10's tiny allowance for margins rounded a value just below a half up. A
+-- number Lua writes with an exponent (far beyond any price or margin, or below 0.0001) is rounded the plain way.
+DE.AH_CUT = 0.05
+DE.LEVELING_LEEWAY = 10   -- whole percent
+local function decimalHundredths(v)
+	local int, frac = ("%.14g"):format(v):match("^(%d+)%.?(%d*)$")
+	if not int then return math.floor(v * 100 + 0.5) end
+	frac = frac .. "000"
+	local n = tonumber(int .. frac:sub(1, 2))
+	if tonumber(frac:sub(3, 3)) >= 5 then n = n + 1 end
+	return n
+end
+DE.DecimalHundredths = decimalHundredths
+local function wholePct(x, default)
+	x = tonumber(x)
+	if x == nil or x ~= x then x = default end
+	return decimalHundredths(x)
+end
+local function hundredths(v)
+	v = tonumber(v)
+	if v == nil or v ~= v then return 0 end
+	return decimalHundredths(v)
+end
 function DE:Verdict(entry)
-	local margin = (ns.db and tonumber(ns.db.deMargin)) or 0.10
+	local db = ns.db or {}
 	if not (ns.AH and ns.AH:Available()) then return "call" end
 	if entry.mats == nil then return "unknown" end
-	local vendor, ah = entry.vendor or 0, entry.ah or 0
-	local best = math.max(vendor, ah)
-	if entry.mats >= best * (1 + margin) and entry.mats > 0 then return "de" end
-	if ah > vendor then return "ah" end
+	local keep = 100 - wholePct(DE.AH_CUT, 0.05)          -- 95
+	local leveling = self:Leveling()
+	local margin = leveling and -DE.LEVELING_LEEWAY or wholePct(db.deMargin, 0.10)
+	local vendor, ahNet = hundredths(entry.vendor) * 100, (entry.bound and 0 or hundredths(entry.ah)) * keep   -- (bound: no AH sale)
+	local mats = hundredths(entry.mats) * (leveling and 100 or keep)
+	local best = math.max(vendor, ahNet)
+	if mats > 0 and mats * 100 >= best * (100 + margin) then return "de" end
+	local ahMargin = wholePct(db.deAhMargin, 0.20)
+	if ahNet > vendor and ahNet * 100 >= vendor * (100 + ahMargin) then return "ah" end
 	return "vendor"
 end
 DE.VERDICT_TEXT = { de = "Disenchant", ah = "Sell at AH", vendor = "Vendor", sell = "Sell", unknown = "No price yet", call = "Your call" }
@@ -419,6 +464,31 @@ function DE:Skill()
 	end
 	return nil
 end
+-- (1.6.0-beta8, Shweep) Leveling Enchanting: Automatic (the default) while Enchanting is below its current rank's cap
+-- (75, 150, 225, 300: the game's own maximum when it says, else the next of those above your skill; exactly at one counts
+-- as at the cap), Always, or Never. Returns whether it applies, then the skill and the cap when known.
+DE.RANK_CAPS = { 75, 150, 225, 300 }
+function DE:SkillInfo()
+	if type(GetNumSkillLines) ~= "function" or type(GetSkillLineInfo) ~= "function" then return nil end
+	local ok, n = pcall(GetNumSkillLines)
+	if not ok then return nil end
+	local names = professionNames()
+	for i = 1, (n or 0) do
+		local ok2, name, header, _, rank, _, _, maxRank = pcall(GetSkillLineInfo, i)
+		if ok2 and not header and name and names[name] then return tonumber(rank), tonumber(maxRank) end
+	end
+	return nil
+end
+function DE:Leveling()
+	local mode = ns.db and ns.db.deLeveling or "auto"
+	local rank, cap = self:SkillInfo()
+	if not cap and rank then
+		for _, c in ipairs(self.RANK_CAPS) do if c >= rank then cap = c; break end end
+	end
+	if mode == "always" then return true, rank, cap end
+	if mode == "never" or not rank or not cap then return false, rank, cap end
+	return rank < cap, rank, cap
+end
 -- Returns whether the item can still be returned to a vendor, and a second value that is true when the
 -- client could not say (a thrown call); a client without the API answers "no, known".
 local function refundable(rec)
@@ -525,7 +595,9 @@ function DE:Entries()
 			if ok then
 				local e = { rec = rec, bag = rec.bag, slot = rec.slot, itemID = rec.itemID, name = rec.name, link = rec.link, quality = rec.quality, ilvl = rec.ilvl }
 				e.vendor = (rec.sellPrice or 0) * (rec.count or 1)
-				if ns.AH and ns.AH:Available() then e.ah = ns.AH:Price(rec) end
+				-- (1.6.0-beta11, Shweep) a soulbound item can't be sold at the AH: no AH price, so only Disenchant or Vendor
+				e.bound = rec.isBound and true or nil
+				if ns.AH and ns.AH:Available() and not e.bound then e.ah = ns.AH:Price(rec) end
 				local mats, why, missing, basis, n = self:MatsValue(rec)
 				e.mats, e.matsWhy, e.missing, e.basis, e.n = mats, why, missing, basis, n
 				e.verdict = self:Verdict(e)
@@ -720,12 +792,12 @@ function DE:Frame()
 	-- (1.5.7, C3) moving or sizing a protected window is blocked in combat, whatever the combat lock: both do nothing then
 	-- (this script also serves the catcher and Classic's title band)
 	f:SetScript("OnDragStart", function(self) if InCombatLockdown() then return end; self.bsMoving = true; DE.ToScreen(self); self:StartMoving() end)
+	-- (1.6.0-beta6, the beta5 audit's F4) a move or resize begun before combat and released during it finishes when combat
+	-- ends (stopping a protected window's move is blocked in combat); DE:FinishGesture does it, and saves where it ended
 	f:SetScript("OnDragStop", function(self)
 		if not self.bsMoving then return end
-		self.bsMoving = nil
-		self:StopMovingOrSizing()
-		local point, _, rel, x, yy = self:GetPoint(1)
-		if point then ns.db.dePos = { point, "UIParent", rel or point, math.floor(x + 0.5), math.floor(yy + 0.5) } end
+		if InCombatLockdown() then ns:Safely("de:gesture", function() DE:FinishGesture() end); return end
+		DE:FinishGesture()
 	end)
 	-- resizable, the size remembered
 	if f.SetResizable then f:SetResizable(true) end
@@ -733,7 +805,11 @@ function DE:Frame()
 	f.grip = CreateFrame("Button", nil, f); f.grip:SetSize(16, 16); f.grip:SetPoint("BOTTOMRIGHT", -4, 4)
 	f.grip.tex = f.grip:CreateTexture(nil, "OVERLAY"); f.grip.tex:SetAllPoints(); f.grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
 	f.grip:SetScript("OnMouseDown", function() if InCombatLockdown() then return end; f.bsSizing = true; DE.ToScreen(f); if f.StartSizing then f:StartSizing("BOTTOMRIGHT") end end)
-	f.grip:SetScript("OnMouseUp", function() if not f.bsSizing then return end; f.bsSizing = nil; f:StopMovingOrSizing(); ns.db.deSize = { math.floor(f:GetWidth() + 0.5), math.floor(f:GetHeight() + 0.5) }; DE:Layout(); DE:Paint() end)
+	f.grip:SetScript("OnMouseUp", function()
+		if not f.bsSizing then return end
+		if InCombatLockdown() then ns:Safely("de:gesture", function() DE:FinishGesture() end); return end
+		DE:FinishGesture()
+	end)
 	f:SetScript("OnSizeChanged", function() if f:IsShown() then DE:Layout() end end)
 	f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); f.title:SetPoint("TOPLEFT", 12, -12); f.title:SetText("Disenchant Helper")
 	f.sub = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.sub:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -3)
@@ -808,7 +884,10 @@ function DE:Frame()
 	f.footer = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.footer:SetPoint("BOTTOMLEFT", 12, 13); f.footer:SetPoint("BOTTOMRIGHT", -12, 13); f.footer:SetJustifyH("CENTER")
 	f.footer:SetText("Mats are DE estimates that improve as you disenchant."); f.footer:SetWordWrap(false)
 	f.classicSpec = ns.Classic.DialogSpec(f, { hide = { f.closeX }, close = function() DE:Close() end, restore = function() ns.Skins:ApplyBackdrop(f); local s = ns.Skins:Current(); f:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1) end })
-	ns.Skins:Register(f, function(fr)
+	-- (1.6.0-beta7, the beta6 audit's R2) a skin, accent or profile change in combat: the window is protected (its secure
+	-- button's parent chain), and dressing it (Classic:Dress) resizes it, which is blocked then, open or closed. The whole
+	-- skin waits and is applied once when combat ends, from the skin, accent and profile in force then (DE:SkinNow).
+	local function skin(fr)
 		ns.Skins:ApplyBackdrop(fr); local s = ns.Skins:Current(); fr:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1)
 		fr.title:SetTextColor(unpack(s.heading)); fr.sub:SetTextColor(unpack(s.muted)); fr.status:SetTextColor(unpack(s.muted)); fr.footer:SetTextColor(unpack(s.muted))
 		fr.empty.head:SetTextColor(unpack(s.heading)); fr.empty.line:SetTextColor(unpack(s.muted))
@@ -818,6 +897,12 @@ function DE:Frame()
 		for _, h in ipairs(fr.heads) do h:SetTextColor(unpack(s.heading)) end
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
 		if ns.Classic.DressScrollBar then ns.Classic:DressScrollBar(fr.scroll, ns.Classic.IsOn()) end
+	end
+	DE.skinHelper = skin
+	ns.Skins:Register(f, function(fr)
+		if InCombatLockdown() then DE.skinPending = true; return end
+		DE.skinPending = nil
+		skin(fr)
 	end)
 	f:SetScript("OnHide", function()
 		DE:Arm(nil)
@@ -844,6 +929,26 @@ function DE:Frame()
 	self.frame = f
 	self:Layout()
 	return f
+end
+-- (1.6.0-beta6, F4) Ends a move or resize: stops it, saves the spot or size, lays the window out again. Out of combat only
+-- (callers defer it with ns:Safely); combat starting mid-gesture finishes it at once when the game still allows it, else
+-- when combat ends.
+function DE:FinishGesture()
+	local f = self.frame
+	if not f or InCombatLockdown() then return end
+	local moved, sized = f.bsMoving, f.bsSizing
+	if not (moved or sized) then return end
+	f.bsMoving, f.bsSizing = nil, nil
+	f:StopMovingOrSizing()
+	if moved then
+		local point, _, rel, x, yy = f:GetPoint(1)
+		if point then ns.db.dePos = { point, "UIParent", rel or point, math.floor(x + 0.5), math.floor(yy + 0.5) } end
+	end
+	if sized then
+		ns.db.deSize = { math.floor(f:GetWidth() + 0.5), math.floor(f:GetHeight() + 0.5) }
+		self:Layout()
+		if f:IsShown() and not f.bsSoftClosed then self:Paint() end
+	end
 end
 -- Places the headers under the button row and sizes the columns to the window.
 function DE:Layout()
@@ -901,9 +1006,10 @@ local function qcolor(q)
 	return 1, 1, 1
 end
 -- The wording for a missing price: one message everywhere.
-DE.NO_AUCTIONATOR = "Install Auctionator to enable this column. It shows prices from Auctionator's last auction house scan."
+-- (1.6.0) either price addon (Core/AH.lua); the name stays for anything that reads it
+DE.NO_AUCTIONATOR = "Install Auctionator or Blackthornes Tradeskills to enable this column. It shows prices from your auction house scans."
 function DE.NoPriceTip(what)
-	return ("Auctionator has no price for %s yet. Open the Auction House and run an Auctionator scan, or search for it there, and BagSmith will pick the price up."):format(what or "this item")
+	return ns.AH:NoPriceText(what or "this item")   -- (1.6.0) the source in use, with its own way to scan
 end
 function DE:RowTip(r)
 	local e = r.entry
@@ -914,7 +1020,7 @@ function DE:RowTip(r)
 	ns.TipLine(GameTooltip, " ")
 	if not (ns.AH and ns.AH:Available()) then ns.TipLine(GameTooltip, self.NO_AUCTIONATOR, 0.8, 0.8, 0.8, true)
 	elseif e.matsWhy == "no-price" then ns.TipLine(GameTooltip, self.NoPriceTip(self.MatName(e.missing)), 0.8, 0.8, 0.8, true)
-	elseif e.ah == nil then ns.TipLine(GameTooltip, self.NoPriceTip(e.name), 0.8, 0.8, 0.8, true) end
+	elseif e.ah == nil and not e.bound then ns.TipLine(GameTooltip, self.NoPriceTip(e.name), 0.8, 0.8, 0.8, true) end   -- (no scan hint for a soulbound item)
 	local lines, head = self:LikelyLines(e.rec)
 	if lines then
 		ns.TipLine(GameTooltip, ("Likely results (%s):"):format(head), 1, 0.82, 0)
@@ -924,6 +1030,8 @@ function DE:RowTip(r)
 end
 
 function DE:Select(entry)
+	-- (1.6.0-beta6, the beta5 audit's F2; Shweep) in combat the helper doesn't change: a row click does nothing
+	if InCombatLockdown() then return end
 	self:Arm(entry)
 	self:Paint()
 end
@@ -947,6 +1055,7 @@ end
 function DE:ValueText(v, kind, e)
 	if kind == "ah" then
 		if not (ns.AH and ns.AH:Available()) then return "-" end
+		if e and e.bound then return "Soulbound" end   -- (1.6.0-beta11, Shweep's word)
 		return v and self.Money(v) or "no price yet"
 	elseif kind == "mats" then
 		if not (ns.AH and ns.AH:Available()) then return "-" end
@@ -1018,6 +1127,10 @@ function DE:EmptyWords()
 	return "Nothing to disenchant.", "Your bags hold no weapons or armor worth considering right now."
 end
 function DE:Paint()
+	-- (1.6.0-beta6, the beta5 audit's F2) every repaint, from any caller (a row click, materials arriving by chat, a
+	-- resize), waits for combat's end: the item panel is the secure button's parent and showing or hiding it is blocked
+	-- then. What arrived is still counted (DE:Tally); the list repaints from a fresh look when combat ends.
+	if InCombatLockdown() then self.refreshPending = true; return end
 	local f = self:Frame()
 	local entries = self.entries or {}
 	local cur = self.current
@@ -1064,6 +1177,7 @@ function DE:Paint()
 		f.cur.name:SetText(cur.name or ""); f.cur.name:SetTextColor(qcolor(cur.quality))
 		f.cur.values:SetText(("Vendor %s   AH %s   Mats %s"):format(self:ValueText(cur.vendor, "vendor"), self:ValueText(cur.ah, "ah", cur), self:ValueText(cur.mats, "mats", cur)))
 		local vt = self.VERDICT_TEXT[cur.verdict] or ""
+		if cur.verdict == "de" and self:Leveling() then vt = vt .. " (for leveling)" end   -- (1.6.0-beta8)
 		if cur.basis then vt = vt .. (cur.basis == "yours" and ("  (from %d of your results)"):format(cur.n or 0) or "  (DE estimate)") end
 		if cur.verdict == "unknown" and cur.missing then vt = ("No price yet for %s"):format(self.MatName(cur.missing)) end
 		f.cur.verdict:SetText(vt)
@@ -1110,9 +1224,17 @@ function DE:Paint()
 	end
 	local notes = {}
 	if empty then f.status:SetText(""); f.status:Hide(); return end
-	if not ahOn then notes[#notes + 1] = "AH prices need Auctionator; without it the helper compares against vendor prices only and makes no recommendation." end
+	if not ahOn then notes[#notes + 1] = "AH prices need Auctionator or Blackthornes Tradeskills; without one the helper compares against vendor prices only and makes no recommendation." end
 	if GetCVar and (GetCVar("autoLootDefault") == "0" or GetCVar("autoLootDefault") == nil) then notes[#notes + 1] = "Auto Loot is off: after each cast, take the materials from the loot window before the next item is ready." end
 	if self.done and self.done > 0 then notes[#notes + 1] = ("%d disenchanted this session."):format(self.done) end
+	-- (1.6.0-beta8) while leveling: how far to the next rank, and what that changes
+	do
+		local leveling, rank, cap = self:Leveling()
+		if leveling and ahOn then
+			notes[#notes + 1] = (rank and cap and rank < cap) and ("Leveling Enchanting (%d of %d): disenchanting is favored."):format(rank, cap)
+				or "Leveling Enchanting: disenchanting is favored."   -- (1.6.0-beta10, Shweep's wording)
+		end
+	end
 	f.status:SetText(table.concat(notes, "  "))
 	f.status:SetShown(#notes > 0)
 end
@@ -1124,6 +1246,9 @@ function DE:Refresh()
 	if InCombatLockdown() then self.refreshPending = true; return end
 	self.refreshPending = nil
 	local f = self:Frame()
+	-- (1.6.0-beta6, the beta5 audit's F3) armed only while the helper is really open: shown, not closed-in-combat, turned
+	-- on. A refresh queued before a close (combat's end runs both) leaves a closed helper disarmed.
+	if not self:IsOpen() then self:Arm(nil); return end
 	self.entries = self:Entries()
 	-- the current item: keep it if it is still there, else the first
 	local keep
@@ -1171,6 +1296,17 @@ function DE:Show()
 	self.skipped = self.skipped or {}
 	f:Show()
 	self:Refresh()
+end
+-- (1.6.0-beta7, R2) a skin change held during combat, applied now
+function DE:SkinNow()
+	if not (self.skinPending and self.frame and self.skinHelper) or InCombatLockdown() then return end
+	self.skinPending = nil
+	self.skinHelper(self.frame)
+end
+-- (1.6.0-beta6) open as far as the player can tell: shown, not closed in combat, and the helper turned on
+function DE:IsOpen()
+	local f = self.frame
+	return f ~= nil and f:IsShown() and not f.bsSoftClosed and ns.db ~= nil and ns.db.deEnabled == true
 end
 function DE:Toggle() if self.frame and self.frame:IsShown() and not self.frame.bsSoftClosed then self:Close() else self:Show() end end
 
@@ -1267,6 +1403,14 @@ ns:OnSignal("ADDON_READY", function()
 		if DE.frame and DE.frame:IsShown() then DE:Refresh() end
 	end)
 	-- combat over: re-arm from a fresh look (the state driver only disarms) (1.4.0-beta6: also when something was armed)
+	-- (1.6.0-beta6, F4) combat starting mid-move or mid-resize: finished now while the game still allows it, else at its end
+	ns:On("PLAYER_REGEN_DISABLED", function()
+		local f = DE.frame
+		if f and (f.bsMoving or f.bsSizing) then
+			if InCombatLockdown() then ns:Safely("de:gesture", function() DE:FinishGesture() end) else DE:FinishGesture() end
+		end
+	end)
+	ns:On("PLAYER_REGEN_ENABLED", function() DE:SkinNow() end)   -- (1.6.0-beta7, R2) before the refresh below
 	ns:On("PLAYER_REGEN_ENABLED", function() if DE.refreshPending or DE.armPending ~= nil or DE.current ~= nil or (DE.frame and DE.frame:IsShown()) then DE:Refresh() end end)
 end)
 -- (1.5.7, C1) Turned off, by its setting or by switching to a profile where it's off (that signal has no key): the
@@ -1279,9 +1423,14 @@ function DE:Reconcile()
 	-- second one
 	if self.button then self:Arm(nil) end
 end
+-- (1.6.0-beta6, the beta5 audit's F1) the source of auction prices changed (the setting, or a price addon loading): an open
+-- helper repaints its values and recommendations from it (in combat, when combat ends)
+ns:OnSignal("PRICE_SOURCE_CHANGED", function()
+	if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
+end)
 ns:OnSignal("SETTINGS_CHANGED", function(key)
 	if key == nil or key == "deEnabled" then DE:Reconcile() end
-	if (key == nil or key == "deMargin" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
+	if (key == nil or key == "deMargin" or key == "deAhMargin" or key == "deLeveling" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
 	if (key == nil or key == "deEnabled") and ns.Window and ns.Window.main and ns.Window.main.RefreshToolbar then ns.Window.main:RefreshToolbar() end
 end)
 

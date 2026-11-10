@@ -302,6 +302,12 @@ end
 function ns.TooltipsOK()
 	return not (InCombatLockdown() and ns.db and ns.db.combatFade)
 end
+-- (1.6.0) Tooltips that explain BagSmith's own controls (buttons, the toolbar, column headers, the star, wallet and pouch
+-- cells, the item menu's dots, section headers' numbers): off with Show Help Tips. Item, bag and currency tooltips, the
+-- (i) icons and the Settings window's help always show (they use TooltipsOK).
+function ns.HelpTipsOK()
+	return ns.TooltipsOK() and not (ns.db and ns.db.helpTips == false)
+end
 
 ------------------------------------------------------------------------
 -- Small utilities

@@ -135,7 +135,8 @@
 	C:NextCorner("itemtree_mark")
 	check(C:CornerOf("itemtree_mark") == "bottom_right", "Move sends it to the next corner clockwise")
 	C:Reset()
-	check(n.db.iconCorners.top_left[1] == "broken_mark" and n.db.iconCorners.top_right[1] == "itemtree_mark" and n.db.iconCorners.bottom_left[1] == "late_mark" and n.db.iconCorners.bottom_left[2] == "pawn", "Reset puts BagSmith's marks back and other addons' widgets where they asked")
+	-- (1.6.0, by design) the locked Quest Starter mark is restored first in the top left
+	check(n.db.iconCorners.top_left[1] == "quest_start" and n.db.iconCorners.top_left[2] == "broken_mark" and n.db.iconCorners.top_right[1] == "itemtree_mark" and n.db.iconCorners.bottom_left[1] == "late_mark" and n.db.iconCorners.bottom_left[2] == "pawn", "Reset puts BagSmith's marks back and other addons' widgets where they asked")
 	check(n:Set("iconCorners", { top_left = { "junk", "junk", "bad id", 7 }, top_right = "x" }) and #n.db.iconCorners.top_left == 1 and #n.db.iconCorners.top_right == 0 and n.db.iconCorners.bottom_left, "bad saved corners are repaired (duplicates, bad ids, missing corners)")
 	n:Set("iconCorners", { top_left = { "junk" }, top_right = { "item_level", "ghost_mark" }, bottom_left = { "pawn", "equipment_set" }, bottom_right = { "quantity" } })
 
@@ -156,17 +157,20 @@
 	local menu
 	local realMenu = n.ShowMenu
 	n.ShowMenu = function(items) menu = items end
+	-- (1.6.0) the lists were set directly above, so the top left holds only the junk coin until this change, which also
+	-- puts the locked Quest Starter back first (checked below)
 	local tl = rows("top_left")[1]
 	tl.drop:GetScript("OnClick")(tl.drop)
 	local shield
 	for _, it in ipairs(menu or {}) do if it.text == "Gear Set Shield (in Bottom Left)" then shield = it end end
 	check(menu and menu[1].text == "None" and shield and menu[#menu].text == "Cancel", "a dropdown lists None, every mark (saying where it is now), and Cancel")
 	shield.onClick()
-	check(n.db.iconCorners.top_left[1] == "equipment_set" and not n.Corners:CornerOf("junk") and n.Corners:CornerOf("equipment_set") == "top_left", "choosing it moves it here, and the mark it replaced is no longer shown")
-	-- None empties a corner
-	tl = rows("top_left")[1]
+	check(n.db.iconCorners.top_left[2] == "equipment_set" and not n.Corners:CornerOf("junk") and n.Corners:CornerOf("equipment_set") == "top_left", "choosing it moves it here, and the mark it replaced is no longer shown")
+	-- None empties a corner (1.6.0, by design: the top right; the top left's first slot is the locked Quest Starter, which
+	-- offers no None, like the stack count's corner)
+	tl = rows("top_right")[1]
 	tl.drop:GetScript("OnClick")(tl.drop); menu[1].onClick()
-	check(#n.db.iconCorners.top_left == 0 and rows("top_left")[1].drop.label.text == "None", "None empties the corner")
+	check(#n.db.iconCorners.top_right == 0 and rows("top_right")[1].drop.label.text == "None", "None empties the corner")
 	-- + adds a backup, x removes it
 	local bl = rows("bottom_left")
 	bl[#bl].add:GetScript("OnClick")(bl[#bl].add)
