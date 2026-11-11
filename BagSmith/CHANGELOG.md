@@ -1,3 +1,12 @@
+## 1.6.3
+
+Fixed:
+- Split Consumables: an item you move to Food, Drink or another of its sections now stays there after a reload, and
+  those sections keep their place in Section Order and their hiding at a vendor or the auction house. A reload undid
+  moves made before this fix, so make them once more.
+- Split Consumables: while it's off, or that type is unticked, an item you moved to one of its sections shows in
+  Consumables, and goes back to its section when you turn it on again.
+
 ## 1.6.2
 
 Changed:

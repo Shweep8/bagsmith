@@ -208,6 +208,10 @@ for k in pairs(COL_SET) do ORDER_SET[k] = true end
 for _, c in ipairs(ns.CATS) do if c ~= "Keys" then LANE_SET[c] = true end end
 LANE_SET["~ky"], LANE_SET["~rb"], LANE_SET["~recent"], LANE_SET["~fav"] = true, true, true, true
 LANE_SET["~gs"] = true   -- every gear set takes this one place in Section Order
+-- (1.6.3-beta1, Shweep: an item moved to Food went back after a /reload) Split Consumables' sections (1.5.0-beta9) are
+-- built-in sections too: the check at load now keeps moves to them, their place in Section Order and their vendor and
+-- AH hiding (it dropped all three, so every reload undid them; profile sharing runs the same check).
+for _, k in ipairs(ns.CONS_KINDS) do LANE_SET[ns.CONS_ID[k]] = true end
 
 -- One rule for sheet names, used by Save Sheet, rename, import and load: some
 -- text, and not a built-in tab's name. (No length or count limit, so a sheet

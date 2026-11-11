@@ -88,7 +88,12 @@ end
 function S:Moves() return (ns.db and ns.db.sectionMoves) or {} end
 function S:MovedTo(itemID)
 	local to = itemID and self:Moves()[itemID]
-	if to and self:CanTake(to) then return to end
+	if not (to and self:CanTake(to)) then return nil end
+	-- (1.6.3-beta1, Shweep's choice) an item moved to a Split Consumables section that isn't in use (the split off, or
+	-- that type unticked) shows in Consumables meanwhile, and goes back to its section when it's in use again: the
+	-- move is kept. (Before, a lone section appeared for it.)
+	if ns.PARENT_CAT[to] and not self:ConsSplitActive(to) then return ns.PARENT_CAT[to] end
+	return to
 end
 -- An item's own category. Live records carry it. Older saved records (from
 -- 0.14.0-beta1 and before) don't, and their saved category may have come from
