@@ -132,6 +132,18 @@ local function hoverWash(b, existing, target)
 end
 ns.HoverWash = hoverWash
 
+-- (1.7.0-beta11) a secondary button's Classic art, grayed: every texture of Blizzard's button desaturated (or put back)
+local SECONDARY_ART = { "GetNormalTexture", "GetPushedTexture", "GetHighlightTexture", "GetDisabledTexture" }
+local function grayArt(art, on)
+	on = on and true or false
+	if (art.bsGrayed or false) == on then return end
+	art.bsGrayed = on
+	local function d(t)
+		if t and t.SetDesaturated and (not t.GetObjectType or t:GetObjectType() == "Texture") then pcall(t.SetDesaturated, t, on) end
+	end
+	if art.GetRegions then for _, r in ipairs({ art:GetRegions() }) do d(r) end end
+	for _, get in ipairs(SECONDARY_ART) do if art[get] then local ok, t = pcall(art[get], art); if ok then d(t) end end end
+end
 local function textButton(parent, text, width, onClick, template, name)
 	-- 1.2.0: a template lets a secure action button wear the same look (its click is the game's, not ours)
 	local b = CreateFrame("Button", name, parent, template and (template .. ", BackdropTemplate") or "BackdropTemplate")
@@ -164,14 +176,26 @@ local function textButton(parent, text, width, onClick, template, name)
 			else
 				-- Blizzard button: pressed while active, gold text when active.
 				self.classic:SetButtonState(on and "PUSHED" or "NORMAL", on and true or false)
-				if on then self.label:SetTextColor(1, 0.82, 0) else self.label:SetTextColor(0.95, 0.9, 0.8) end
+				-- (1.7.0-beta11) a secondary button: the same art, grayed, with light gray text
+				grayArt(self.classic, self.secondary)
+				if self.secondary then self.label:SetTextColor(0.85, 0.85, 0.85)
+				elseif on then self.label:SetTextColor(1, 0.82, 0) else self.label:SetTextColor(0.95, 0.9, 0.8) end
 			end
 			return
 		end
 		-- Hover lifts the button a step; a selected one keeps its accent border
 		-- and only brightens, so hover never looks like selection.
 		local hov = self.hover and modernSkin()
-		if on then
+		if self.secondary then
+			-- (1.7.0-beta11) a secondary choice beside the main one: plain gray, a step lighter on hover, never accented
+			if hov then
+				self:SetBackdropColor(0.30, 0.30, 0.30, 1); self:SetBackdropBorderColor(0.50, 0.50, 0.50, 1)
+				self.label:SetTextColor(0.92, 0.92, 0.92)
+			else
+				self:SetBackdropColor(0.24, 0.24, 0.24, 1); self:SetBackdropBorderColor(0.40, 0.40, 0.40, 1)
+				self.label:SetTextColor(0.80, 0.80, 0.80)
+			end
+		elseif on then
 			local ar, ag, ab = Skins:Accent()
 			if hov then self:SetBackdropColor(0.29, 0.28, 0.24, 1) else self:SetBackdropColor(0.23, 0.22, 0.19, 1) end
 			self:SetBackdropBorderColor(ar, ag, ab, hov and 1 or 0.9)
@@ -215,6 +239,11 @@ local function textButton(parent, text, width, onClick, template, name)
 				if ns.Classic and ns.Classic.FitTabArt then ns.Classic.FitTabArt(self) end
 			end
 		end
+		self:SetActive(self.active)
+	end
+	-- (1.7.0-beta11) a secondary button (Protect beside the Loot Helper's Destroy): gray in both skins
+	function b:SetSecondary(on)
+		self.secondary = on and true or nil
 		self:SetActive(self.active)
 	end
 	b:SetActive(false)
@@ -367,8 +396,13 @@ function View:Build()
 	drag:SetHeight(PAD + TITLE_H + 6)
 	drag:EnableMouse(true)
 	drag:RegisterForDrag("LeftButton")
-	drag:SetScript("OnDragStart", function() f:StartMoving() end)
-	drag:SetScript("OnDragStop", function() f:StopMovingOrSizing(); self:SavePosition(); ns:RepositionPanels() end)
+	-- (1.7.0-beta2) Lock Windows: no moving (nor resizing, the grip below) while it's on
+	drag:SetScript("OnDragStart", function() if ns:WindowsLocked() then return end; self.dragMoving = true; f:StartMoving() end)
+	drag:SetScript("OnDragStop", function()
+		if ns:WindowsLocked() and not self.dragMoving then return end   -- (locked: it never started, so no spot to save)
+		self.dragMoving = nil
+		f:StopMovingOrSizing(); self:SavePosition(); ns:RepositionPanels()
+	end)
 	self.dragArea = drag
 
 	local title = CreateFrame("Frame", nil, f)
@@ -830,8 +864,12 @@ function View:Build()
 	grip.tex = grip:CreateTexture(nil, "ARTWORK")
 	grip.tex:SetAllPoints()
 	grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-	grip:SetScript("OnMouseDown", function() self.sizing = true; f:StartSizing("BOTTOMRIGHT") end)
+	grip:SetScript("OnMouseDown", function()
+		if ns:WindowsLocked() then self.lockedPress = true; return end   -- (1.7.0-beta2) Lock Windows
+		self.sizing = true; f:StartSizing("BOTTOMRIGHT")
+	end)
 	grip:SetScript("OnMouseUp", function()
+		if self.lockedPress then self.lockedPress = nil; return end
 		f:StopMovingOrSizing()
 		self.sizing = false
 		-- Dragging never changes the size mode: in Fit to Items it sets the
@@ -863,6 +901,9 @@ function View:Build()
 	f:SetScript("OnShow", function()
 		if ns.ready then PlaySound(SOUNDKIT.IG_BACKPACK_OPEN) end
 		if InCombatLockdown() then ns:ApplyCombatFade(true) end
+		-- (1.7.0-beta14, Shweep) the game's Show on Backpack picks, pinned before the window draws, so they're in the
+		-- footer on the first frame
+		if self.kind == "main" and ns.Currency and ns.Currency.SyncBlizzardPicks then ns:Guard("Currency picks", ns.Currency.SyncBlizzardPicks, ns.Currency) end
 		-- The main window brings its companions (bag windows)
 		-- back with it; the others just refresh themselves.
 		if self.kind == "main" then ns:RefreshViews(true) else self:Refresh(true) end
@@ -1175,7 +1216,7 @@ function View:ApplySize()
 			self.positioned = true
 		end
 	end
-	self.grip:SetShown(self.big)
+	self.grip:SetShown(self.big and not ns:WindowsLocked())   -- (1.7.0-beta2) no grip while Lock Windows is on
 	self:ApplyMinWidth()   -- (1.6.0-beta7, R3) never narrower than the kept columns need
 end
 
@@ -1774,6 +1815,18 @@ function View:ToggleAllLanes()
 	end
 	ns:RefreshViews(true)
 end
+
+-- (1.7.0-beta2) Lock Windows (Settings > Window): the bags, bank and bag windows and both helpers can't be moved or
+-- resized. Their drag and resize handlers check it; the resize grips hide while it's on.
+function ns:WindowsLocked() return (ns.db and ns.db.lockWindows) and true or false end
+function ns:ApplyWindowLock()
+	local locked = ns:WindowsLocked()
+	for _, v in pairs(ns.views or {}) do if v.grip then v.grip:SetShown((v.big and not locked) and true or false) end end
+	-- the Disenchant Helper is a protected window (its secure button): its grip changes outside combat
+	local de = ns.Disenchant and ns.Disenchant.frame
+	if de and de.grip then ns:Safely("lockWindows:de", function() de.grip:SetShown(not ns:WindowsLocked()) end) end
+end
+ns:OnSignal("SETTINGS_CHANGED", function(key) if key == nil or key == "lockWindows" then ns:ApplyWindowLock() end end)
 
 -- A Clean Up rearranges the bags on purpose, for some seconds: the windows don't hold their layout under the pointer
 -- meanwhile, and lay out once more when it's done (1.4.1).

@@ -101,7 +101,11 @@
 	if n.menuFrame then n.menuFrame:Hide() end
 	-- the settings rows
 	SP = n.SettingsPanel; SP:Show(); SP:ShowPage("sections")
-	local rows = {}; for _, w in ipairs(SP.pools.pin) do if w:IsShown() then rows[w.id] = w end end
+	-- (1.7.0-beta4, by design) the pins are a column of the one Section Order table
+	local rows = {}
+	for _, l in ipairs(SP.pools.list) do if l:IsShown() then for _, r in ipairs(l.rows) do
+		if r:IsShown() and r.cols and r.cols.pin and r.cols.pin:IsShown() then rows[r.id] = { box = r.cols.pin } end
+	end end end
 	check(rows.TradeGoods and rows.TradeGoods.box:GetChecked() and rows.Consumables and not rows.Consumables.box:GetChecked() and not rows["~recent"], "Sections settings list every item section with its pin")
 	rows.Consumables.box:SetChecked(true); rows.Consumables.box:GetScript("OnClick")(rows.Consumables.box); M.runTimers()
 	check(S:Pinned("Consumables"), "ticking a row pins that section")

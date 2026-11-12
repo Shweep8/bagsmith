@@ -16,11 +16,21 @@ ns.CAT_LABEL = { Gear = "Gear", Consumables = "Consumables", Reagents = "Reagent
 -- of Consumables for the Consumables tab and category filters (ns.PARENT_CAT).
 ns.CONS_KINDS = { "Food", "Drink", "Potion", "Elixir", "Flask", "Scroll", "Bandage", "Enhance", "Other" }
 ns.CONS_LABEL = { Food = "Food", Drink = "Drink", Potion = "Potions", Elixir = "Elixirs", Flask = "Flasks", Scroll = "Scrolls",
-	Bandage = "Bandages", Enhance = "Item Enhancements", Other = "Other Consumables" }
+	Bandage = "Bandages", Enhance = "Item Enhancements", Other = "Consumables: Other" }   -- (1.7.0-beta10, Shweep: was "Other Consumables", to match Gear: Other)
 ns.CONS_ID, ns.PARENT_CAT = {}, {}
 for _, k in ipairs(ns.CONS_KINDS) do
 	local id = "Cons" .. k
 	ns.CONS_ID[k] = id; ns.CAT_LABEL[id] = ns.CONS_LABEL[k]; ns.PARENT_CAT[id] = "Consumables"
+end
+-- (1.7.0-beta6, Shweep) Split Gear by Binding: Gear splits by the Bind column's facts. Bound to you (bind on pickup, or
+-- bound since: a BoE you equipped) goes to Gear: Soulbound; bind on equip, not yet bound, to Gear: BoE; binds when used,
+-- or doesn't bind, stays in Gear. Each counts as part of Gear for the Gear tab and category filters (ns.PARENT_CAT).
+ns.GEAR_KINDS = { "Soulbound", "BoE" }
+ns.GEAR_LABEL = { Soulbound = "Gear: Soulbound", BoE = "Gear: BoE" }
+ns.GEAR_ID = {}
+for _, k in ipairs(ns.GEAR_KINDS) do
+	local id = "Gear" .. k
+	ns.GEAR_ID[k] = id; ns.CAT_LABEL[id] = ns.GEAR_LABEL[k]; ns.PARENT_CAT[id] = "Gear"
 end
 ns.COLS = { { "c", "Qty" }, { "il", "iLvl" }, { "rq", "Req lvl" }, { "t", "Type" }, { "sl", "Slot" }, { "bd", "Bind" }, { "v", "Vendor" }, { "w", "Where" }, { "age", "Age" }, { "ah", "AH Price" }, { "fv", "Favorite" }, { "cc", "Currency" }, { "jk", "Junk" } }
 ns.COL_LABEL = {}
@@ -49,6 +59,7 @@ local DEFAULTS = {
 	reagent = "lane",          -- inline (Mixed In) | lane (Own Section)
 	keys = true, emptySlots = true,
 	splitView = false,         -- icon view with sections: sections side by side in two columns (Sections page)
+	splitViewRecentWide = false,   -- (1.7.0-beta2) Split View: Recent spans both columns instead of pairing
 	recentSection = true,      -- a Recent section pinned at the top of the bags window (Sections page)
 	recentWindow = "session",  -- session | 1h | 15m
 	recentMax = 0,             -- how many recent items (0 = all)
@@ -94,6 +105,7 @@ local DEFAULTS = {
 	hideJunk = false, minimap = true, animations = true,
 	combatFade = true, combatAlpha = 0.15,   -- fade every BagSmith window during combat
 	combatLock = true,                       -- and ignore clicks while faded
+	lockWindows = false,                     -- (1.7.0-beta2) BagSmith's windows can't be moved or resized
 	bgOpacity = 1,                           -- (1.6.0) the bag windows' frame and backdrop (items and text stay crisp)
 	bgWhole = false,                         -- (1.6.0) Whole Window: the bag windows' items, text and buttons follow it too
 	fadeMoving = false, movingAlpha = 0.5,   -- (1.6.0) the bag windows fade while the character moves (back on hover)
@@ -134,6 +146,7 @@ local DEFAULTS = {
 	jkCol = true,              -- the Junk column has been added to this profile's columns once (0.13)
 	bankColWidths = {},
 	pinnedSections = {},       -- section id -> true: shown at the top, after Recent (1.4.0)
+	pinnedHighlight = false, pinnedHighlightAlpha = 0.15,   -- (1.7.0-beta2) an accent background behind pinned sections
 	-- Icon corners (1.5.0): each corner's widgets in priority order; corners the player has arranged; widgets from
 	-- other addons already placed once (one removed stays removed)
 	iconCorners = { top_left = { "junk" }, top_right = { "item_level" }, bottom_left = { "pawn", "equipment_set" }, bottom_right = { "quantity" } },
@@ -142,6 +155,8 @@ local DEFAULTS = {
 	iconCornersSeen = {},
 	splitCons = false,         -- (1.5.0-beta9) Split Consumables by Type
 	splitConsTypes = {},       -- kind -> false to keep that type in Consumables (missing means split)      -- (1.5.0-beta8) other addons' marks the player has done something with (no longer "new")
+	splitGear = false,         -- (1.7.0-beta6) Split Gear by Binding
+	splitGearTypes = {},       -- (1.7.0-beta6) Soulbound/BoE -> false to keep it in Gear (missing means split)
 	laneOrder = { "~recent", "~fav", "Gear", "Consumables", "Reagents", "TradeGoods", "Recipes", "Quest", "Tokens", "Other", "Junk", "~ky", "~rb", "~gs" },
 	tabOrder = { "All", "Gear", "Consumables", "TradeGoods", "Quest", "Junk", "GearSets", "Bank" },
 	hiddenTabs = {},
@@ -163,8 +178,9 @@ local DEFAULTS = {
 	minimapAngle = 220,
 	minimapFade = false,   -- show the minimap button only while the pointer is over the minimap
 }
-local CHAR_DEFAULTS = { version = 1, firstSeen = {}, seen = {}, seenSlots = {}, recentSince = 0, recentSticky = {}, junkMarks = {}, makeRoomNever = {},
-	deNever = {}, deResults = {}, deResultsVersion = 0, deOfferDeclined = false }   -- the Disenchant Helper's per-character data (1.2.0): the never list, learned results and their schema version, the declined offer   -- recentSince: start of the Recent section's session (0 = not set)   -- seen: guid -> count at dismissal; seenSlots: "bag:slot" -> "itemID:count"
+local CHAR_DEFAULTS = { version = 1, firstSeen = {}, seen = {}, seenSlots = {}, recentSince = 0, recentSticky = {}, junkMarks = {}, makeRoomNever = {}, makeRoomProtect = {}, professionMats = {},
+	deNever = {}, deResults = {}, deResultsVersion = 0, deOfferDeclined = false,
+	blizzPicksSeen = {} }   -- (1.7.0-beta14) currency ID -> true: the game's Show on Backpack picks already pinned once   -- the Disenchant Helper's per-character data (1.2.0): the never list, learned results and their schema version, the declined offer   -- recentSince: start of the Recent section's session (0 = not set)   -- seen: guid -> count at dismissal; seenSlots: "bag:slot" -> "itemID:count"
 
 local function clamp(v, lo, hi) if v < lo then return lo elseif v > hi then return hi end return v end
 local function oneOf(...) local set = {}; for i = 1, select("#", ...) do set[select(i, ...)] = true end
@@ -212,6 +228,7 @@ LANE_SET["~gs"] = true   -- every gear set takes this one place in Section Order
 -- built-in sections too: the check at load now keeps moves to them, their place in Section Order and their vendor and
 -- AH hiding (it dropped all three, so every reload undid them; profile sharing runs the same check).
 for _, k in ipairs(ns.CONS_KINDS) do LANE_SET[ns.CONS_ID[k]] = true end
+for _, k in ipairs(ns.GEAR_KINDS) do LANE_SET[ns.GEAR_ID[k]] = true end   -- (1.7.0-beta6) from the start (the 1.6.3 lesson)
 
 -- One rule for sheet names, used by Save Sheet, rename, import and load: some
 -- text, and not a built-in tab's name. (No length or count limit, so a sheet
@@ -256,6 +273,21 @@ local function deResultsValidator(v)
 end
 local validators = {
 	deNever = deNeverValidator, deResults = deResultsValidator,
+	makeRoomProtect = deNeverValidator,
+	blizzPicksSeen = deNeverValidator,   -- (1.7.0-beta14) currency ID -> true   -- (1.7.0-beta1) the Loot Helper's Protected Items: item ID -> true, like the DE list
+	-- (1.7.0-beta3) the materials each profession's recipes use: profession name -> item ID -> true
+	professionMats = function(v)
+		if type(v) ~= "table" then return nil end
+		local out = {}
+		for prof, set in pairs(v) do
+			if type(prof) == "string" and type(set) == "table" then
+				local ids = {}
+				for id, on in pairs(set) do if type(id) == "number" and on == true then ids[id] = true end end
+				out[prof] = ids
+			end
+		end
+		return out
+	end,
 	deResultsVersion = function(v) return finite(v) and v or nil end,
 	deOfferDeclined = function(v) return v == true or false end,
 	bankSheets = sheetsValidator,
@@ -294,7 +326,7 @@ local validators = {
 	end,
 	sort = oneOf("quality", "name", "newest", "oldest", "ilvl", "off"), sizeMode = oneOf("auto", "fixed"),
 	bankGrp = oneOf("none", "type", "bag"), bankSort = oneOf("quality", "name", "newest", "oldest", "ilvl", "off"), bankView = oneOf("list", "icons"),
-	combatAlpha = num(0.05, 1), bgOpacity = num(0, 1), movingAlpha = num(0.05, 1), scale = num(0.5, 1.5), bagCols = num(4, 12, true), bagScale = num(0.5, 1.5), bagMaxH = num(200, 800, true), shardKeep = num(0, 40, true), maxW = num(440, 1400, true), maxH = num(300, 1200, true),
+	combatAlpha = num(0.05, 1), bgOpacity = num(0, 1), pinnedHighlightAlpha = num(0.05, 0.5), movingAlpha = num(0.05, 1), scale = num(0.5, 1.5), bagCols = num(4, 12, true), bagScale = num(0.5, 1.5), bagMaxH = num(200, 800, true), shardKeep = num(0, 40, true), maxW = num(440, 1400, true), maxH = num(300, 1200, true),
 	fixW = num(440, 1400, true), bankW = num(500, 1400, true), bankH = num(300, 1200, true), fixH = num(300, 1200, true), iconSize = num(24, 48, true), rowHeight = num(20, 32, true),
 	minimapAngle = num(0, 360), point = pointV, bankPoint = pointV, settingsPoint = pointV,
 	makeRoomPos = function(v) if v == false then return false end return pointV(v) end,
@@ -334,6 +366,11 @@ local validators = {
 		if type(v) ~= "table" then return nil end
 		local out = {}
 		for k, on in pairs(v) do if ns.CONS_ID[k] and type(on) == "boolean" then out[k] = on end end
+		return out
+	end, splitGearTypes = function(v)   -- (1.7.0-beta6)
+		if type(v) ~= "table" then return nil end
+		local out = {}
+		for k, on in pairs(v) do if ns.GEAR_ID[k] and type(on) == "boolean" then out[k] = on end end
 		return out
 	end, iconCornersSeen = function(v)
 		if type(v) ~= "table" then return nil end

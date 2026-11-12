@@ -1,0 +1,93 @@
+-- 1.7.0: the 1.7.0-beta14 audit's own probe (drop/tidy_phase_faults.lua), its checks unchanged, kept in the suite. Evidence and the
+-- report: docs/plugins/audit-1.7.0-beta14/.
+-- Independent fault probes for new beta12 TidyStacks. Realistic cursor state:
+-- split immediately removes units from the bag, ClearCursor restores them.
+local function boot(mode)
+ package.loaded.mock=nil
+ local M=require('mock')
+ for b=1,5 do M.sizes[b]=0 end
+ M.sizes[0]=4
+ for s,c in ipairs({20,19,11}) do M.put(0,s,{id=2589,name='Linen Cloth',q=1,count=c,stack=20,class=7,subclass=5,price=1}) end
+ BagSmithCharDB={version=1,firstSeen={}}
+ BagSmithDB={version=2,chars={},cache={},profiles={Default={}}}
+ MailFrame=CreateFrame('Frame'); SendMailFrame=CreateFrame('Frame'); TradeFrame=CreateFrame('Frame'); TradeFrame:Hide()
+ local mail={}
+ GetSendMailItem=function(i) local a=mail[i]; if a then return 'Linen Cloth',2589,nil,a end end
+ GetSendMailItemLink=function(i) if mail[i] then return 'item:2589:0' end end
+ local n=M.loadAddon('BagSmith'); M.fire('ADDON_LOADED','BagSmith'); M.fire('PLAYER_ENTERING_WORLD'); M.runTimers(); M.runTimers()
+ local D=n.Drop
+ local st={held=nil,calls=0,splits=0,places=0,attached=0,clears=0}
+ ClearCursor=function()
+  st.clears=st.clears+1
+  if st.held then local h=st.held; local src=M.bags[0][h.slot]; src.count=src.count+h.n; src.locked=nil end
+  st.held=nil; M.cursorItem=nil
+ end
+ C_Container.SplitContainerItem=function(b,s,amount)
+  st.splits=st.splits+1
+  if mode=='split_throw' then error('ADDON_ACTION_BLOCKED SplitContainerItem') end
+  if mode=='split_noop' then return end
+  local src=M.bags[b][s]; st.held={slot=s,n=amount}; src.count=src.count-amount; src.locked=true; M.cursorItem=2589
+  if mode=='split_throw_after' then error('synthetic error after split effect') end
+ end
+ C_Container.PickupContainerItem=function(b,s)
+  st.places=st.places+1
+  if mode=='place_throw' then error('ADDON_ACTION_BLOCKED PickupContainerItem') end
+  if mode=='place_noop' then return end
+  local h=st.held; local src=M.bags[b][h.slot]; local dst=M.bags[b][s]
+  dst.count=dst.count+h.n; src.locked=nil; st.held=nil; M.cursorItem=nil
+  if mode=='place_throw_after' then error('synthetic error after place effect') end
+  if mode=='cancel_after_place' then D:BumpSession('mail') end
+  if mode=='user_cursor_after_place' then C_Timer.After(0,function() M.cursorItem=2835 end) end
+  if mode=='count_changed_after_place' then dst.count=dst.count-1; src.count=src.count+1 end
+ end
+ C_Container.UseContainerItem=function(b,s)
+  st.attached=st.attached+1; mail[#mail+1]=M.bags[b][s].count; M.bags[b][s].locked=true
+ end
+ local originalTidy=D.TidyStacks
+ st.completed=0
+ D.TidyStacks=function(self,id,name,slots,guard,done)
+  return originalTidy(self,id,name,slots,guard,function(failed) st.completed=st.completed+1; done(failed) end)
+ end
+ if mode=='maxstack_throw' then
+  local original=D.TidyStacks
+  D.TidyStacks=function(self,...)
+   C_Item.GetItemMaxStackSizeByID=function() return nil end
+   C_Item.GetItemInfo=function() error('synthetic stack-size fallback read error') end
+   return original(self,...)
+  end
+ end
+ if mode=='continuation_throw' then
+  local original=D.FreeSlots; local reads=0
+  D.FreeSlots=function(self,...)
+   reads=reads+1
+   if reads==2 then error('synthetic destination slot-count read error') end
+   return original(self,...)
+  end
+ end
+ D:NoteTradeBaseline({itemID=2589,name='Linen Cloth'})
+ mail[1]=20; M.bags[0][1].locked=true
+ D:MoveRest({itemID=2589,name='Linen Cloth',where='mail',first={bag=0,slot=1},members={{bag=0,slot=1},{bag=0,slot=2},{bag=0,slot=3}}})
+ local ok,err=pcall(function() for i=1,30 do M.runTimers() end end)
+ local active=D.active~=nil
+ print(mode..': ok='..tostring(ok)..', active='..tostring(active)..', cursor='..tostring(M.cursorItem)..', attached='..st.attached..', error='..tostring(err))
+ if mode=='split_noop' or mode=='place_noop' then
+  check(ok and not active and not st.held and st.attached==2,'silent refusal recovers and followers continue')
+ elseif mode=='success' then
+  check(ok and not active and not st.held and st.attached==2 and mail[2]==20 and mail[3]==10,'success control')
+ elseif mode=='maxstack_throw' or mode=='continuation_throw' then
+  check(ok and not active and st.attached==0 and M.cursorItem==nil,'FIXED beta14: boundary error caught, job cleared, no followup attach')
+ else
+  check(ok and not active and not st.held and M.cursorItem==nil,'FIXED: move error restores cursor and ends job')
+  check(st.attached==0,'FIXED: no later attachments after move exception')
+  check(st.completed==1,'FIXED: callback exactly once')
+  check(M.bags[0][2].count+M.bags[0][3].count==30,'FIXED: units conserved')
+  mode='success'; mail={}
+  for _,it in pairs(M.bags[0]) do it.locked=nil end
+  D:NoteTradeBaseline({itemID=2589,name='Linen Cloth'})
+  mail[1]=20; M.bags[0][1].locked=true
+  D:MoveRest({itemID=2589,name='Linen Cloth',where='mail',first={bag=0,slot=1},members={{bag=0,slot=1},{bag=0,slot=2},{bag=0,slot=3}}})
+  for tick=1,30 do M.runTimers() end
+  check(D.active==nil and st.attached==2 and st.completed==2,'FIXED: new gesture retries successfully, one callback for new job')
+ end
+end
+for _,mode in ipairs({'success','split_noop','place_noop','split_throw','place_throw','split_throw_after','place_throw_after','maxstack_throw','continuation_throw'}) do boot(mode) end

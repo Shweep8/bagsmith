@@ -704,7 +704,21 @@ end
 ------------------------------------------------------------------------
 -- Events
 ------------------------------------------------------------------------
-local function rescan() ns.rescanPending = true; ns:NextFrame("scan", function() ns:Scan() end) end
+-- (1.7.0-beta2, a player's report: heavy lag on opening the bags with Clean Up Bags When Opened on) Blizzard's Clean Up
+-- moves items one at a time for some seconds, and each move used to scan and redraw every window, every frame. While
+-- a Clean Up runs (ns.cleanupUntil, View.lua), the bags are scanned at most every CLEANUP_STEP seconds, the last change
+-- included (each scan reads the bags as they are then); the windows lay out once more when it ends (NoteCleanup).
+ns.CLEANUP_STEP = 0.25
+local function rescan()
+	ns.rescanPending = true
+	if ns.cleanupUntil and GetTime() < ns.cleanupUntil then
+		if ns.cleanupScanQueued then return end
+		ns.cleanupScanQueued = true
+		C_Timer.After(ns.CLEANUP_STEP, function() ns.cleanupScanQueued = nil; ns:Scan() end)
+		return
+	end
+	ns:NextFrame("scan", function() ns:Scan() end)
+end
 
 function ns:UpdateLock(bag, slot)
 	if not bag or not slot then return end

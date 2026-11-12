@@ -140,7 +140,10 @@ function M.fs()
 	local s = M.tex()
 	s.SetText = function(self, t) self.text = t end
 	s.GetText = function(self) return self.text end
-	s.SetJustifyH, s.SetWordWrap, s.SetFontObject, s.SetNonSpaceWrap, s.SetJustifyV = noop, noop, noop, noop, noop
+	s.SetWordWrap, s.SetFontObject, s.SetNonSpaceWrap, s.SetJustifyV = noop, noop, noop, noop
+	-- 1.7.0-beta11: the justification is recorded (a fontstring given a width centers its text unless set to LEFT)
+	function s:SetJustifyH(j) self.justifyH = j end
+	function s:GetJustifyH() return self.justifyH or "CENTER" end
 	s.SetTextColor = function(self, r, g, b, a) self.textColor = { r, g, b, a or 1 } end
 	s.GetTextColor = function(self) local c = self.textColor; if c then return c[1], c[2], c[3], c[4] end return 1, 1, 1, 1 end
 	s.SetWidth = function(self, w) self.width = w end
@@ -310,7 +313,7 @@ _G.C_Container = {
 		local it = M.bags[bag] and M.bags[bag][slot]
 		if not it then return nil end
 		return { itemID = it.id, hyperlink = "|cff00ff00|Hitem:" .. it.id .. "|h[" .. it.name .. "]|h|r", iconFileID = 1,
-			quality = it.q, stackCount = it.count or 1, isLocked = it.locked or false, isBound = false, hasNoValue = (it.price or 0) == 0 }
+			quality = it.q, stackCount = it.count or 1, isLocked = it.locked or false, isBound = it.bound or false, hasNoValue = (it.price or 0) == 0 }
 	end,
 	ContainerIDToInventoryID = function(bag) return 19 + bag end,
 	SortBags = noop,
@@ -405,7 +408,9 @@ _G.C_CurrencyInfo = {
 		return c and { name = c.name, isHeader = false, quantity = c.quantity, iconFileID = c.icon, quality = c.quality, currencyID = c.id }
 	end,
 	ExpandCurrencyList = noop,
-	GetBackpackCurrencyInfo = function(i) return i == 1 and { currencyTypesID = 1901 } or nil end,
+	-- (1.7.0-beta14, by design) the game's Show on Backpack picks: none unless a test sets M.backpackPicks (BagSmith now
+	-- pins new picks when the bags open, so a pick in every test would pin a currency in every test)
+	GetBackpackCurrencyInfo = function(i) local id = M.backpackPicks and M.backpackPicks[i]; return id and { currencyTypesID = id } or nil end,
 }
 _G.C_Container.SortBankBags = noop
 M.sizes[-1] = 48

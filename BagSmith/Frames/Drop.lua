@@ -249,6 +249,10 @@ function Drop:FreeSlots(where)
 	return nil
 end
 Drop.WHERE_NAME = { bank = "the bank", mail = "the mail", trade = "the trade window" }
+-- Where a placed stack stays in its bag slot, locked, until the mail is sent or the trade is done (1.2.0 for the
+-- trade; 1.7.0-beta11 for the mail, which this client treats the same way): a stack counts as placed only when it is
+-- locked in its slot and the window holds one more of that very item than before.
+Drop.HOLDS = { mail = true, trade = true }
 -- How many of an item the trade window holds right now (by link, or by name where links are unavailable).
 function Drop:InTrade(itemID, name)
 	local max = (MAX_TRADE_ITEMS or 7) - 1
@@ -261,11 +265,33 @@ function Drop:InTrade(itemID, name)
 	end
 	return n
 end
--- Taken on mouse-down, before the game places the clicked stack: the trade's count of that item. The
--- clicked stack counts as placed only when the count has grown past this baseline.
+-- How many of an item the mail being written holds as attachments (1.7.0-beta11): by link, by the item ID the game
+-- gives with the name, or by name where neither is available.
+function Drop:InMail(itemID, name)
+	local max = ATTACHMENTS_MAX_SEND or 12
+	local n = 0
+	for i = 1, max do
+		local slotName, slotID = nil, nil
+		if GetSendMailItem then slotName, slotID = GetSendMailItem(i) end
+		local link = GetSendMailItemLink and GetSendMailItemLink(i)
+		local id = (link and tonumber(link:match("item:(%d+)"))) or (type(slotID) == "number" and slotID) or nil
+		if slotName and (id == itemID or (not id and slotName == name)) then n = n + 1 end
+	end
+	return n
+end
+-- The count of that item in a window that holds stacks (mail, trade); nil for anywhere else.
+function Drop:InWindow(where, itemID, name)
+	if where == "trade" then return self:InTrade(itemID, name) end
+	if where == "mail" then return self:InMail(itemID, name) end
+	return nil
+end
+-- Taken on mouse-down, before the game places the clicked stack: the trade's (1.7.0-beta11: or the mail's) count of
+-- that item. The clicked stack counts as placed only when the count has grown past this baseline. (The name is
+-- the 1.2.0 one; it serves the mail too.)
 function Drop:NoteTradeBaseline(rec)
-	if self:Where() ~= "trade" or not (rec and rec.itemID) then self.tradeBaseline = nil; return end
-	self.tradeBaseline = { itemID = rec.itemID, count = self:InTrade(rec.itemID, rec.name), at = GetTime() }
+	local where = self:Where()
+	if not (self.HOLDS[where] and rec and rec.itemID) then self.tradeBaseline = nil; return end
+	self.tradeBaseline = { itemID = rec.itemID, where = where, count = self:InWindow(where, rec.itemID, rec.name), at = GetTime() }
 end
 -- Each mail form or trade window is its own session: a job started in one never continues into another.
 Drop.session = { mail = 0, trade = 0 }
@@ -273,7 +299,29 @@ function Drop:BumpSession(where)
 	self.session[where] = (self.session[where] or 0) + 1
 	if self.active and self.active.where == where then self:CancelMoves(("%s closed."):format(self.WHERE_NAME[where])) end
 end
+-- (1.7.0-beta12) While the mailbox's send form or a trade window is open, a merged row stands on its fullest stack
+-- (mergeStacks, Frames/ViewList.lua); the bags redraw when that starts or stops.
+function Drop:StandsOnFullest() return self.HOLDS[self:Where()] == true end
+function Drop:CheckFullest()
+	local on = self:StandsOnFullest()
+	if on == (self.fullestOn or false) then return end
+	self.fullestOn = on
+	if ns.RefreshViews then ns:RefreshViews(true, "merged rows: fullest stack " .. (on and "on" or "off")) end
+end
+local function checkSoon() C_Timer.After(0, function() Drop:CheckFullest() end) end
+-- The send form is a tab of the mailbox: it shows and hides without an event of its own, so its OnShow and OnHide are
+-- hooked. (1.7.0-beta13, the beta12 audit's A2) Hooked once, whenever the frame first exists: when BagSmith is ready,
+-- or at the first MAIL_SHOW that finds it (a client that builds the mailbox late).
+function Drop:HookSendForm()
+	if self.sendFormHooked or not (SendMailFrame and SendMailFrame.HookScript) then return end
+	self.sendFormHooked = SendMailFrame
+	SendMailFrame:HookScript("OnShow", checkSoon)
+	SendMailFrame:HookScript("OnHide", checkSoon)
+end
 ns:OnSignal("ADDON_READY", function()
+	Drop:HookSendForm()
+	ns:On("MAIL_SHOW", function() Drop:HookSendForm() end)
+	for _, ev in ipairs({ "MAIL_SHOW", "MAIL_CLOSED", "TRADE_SHOW", "TRADE_CLOSED", "TRADE_REQUEST_CANCEL" }) do ns:On(ev, checkSoon) end
 	ns:On("MAIL_SHOW", function() Drop:BumpSession("mail") end)
 	ns:On("MAIL_CLOSED", function() Drop:BumpSession("mail") end)
 	ns:On("MAIL_SEND_SUCCESS", function() Drop:BumpSession("mail") end)
@@ -281,7 +329,18 @@ ns:OnSignal("ADDON_READY", function()
 	ns:On("TRADE_CLOSED", function() Drop:BumpSession("trade") end)
 	ns:On("TRADE_REQUEST_CANCEL", function() Drop:BumpSession("trade") end)
 end)
+-- (1.7.0-beta14, the beta13 audit's R2) A move job is protected as a whole: its setup here, and every step it schedules
+-- (`later` below) run under ns:Guard (an error is said once and kept for /bs errors). An error ends the job: nothing
+-- more moves, Drop.active is cleared, and chat says the rest stayed.
+local MOVE_LABEL = "Moving stacks"
 function Drop:MoveRest(job)
+	local before = self.active
+	if not ns:Guard(MOVE_LABEL, self.MoveRestJob, self, job) then
+		-- (an error in the setup: a job it had started is over)
+		if self.active and self.active ~= before then self.active = nil end
+	end
+end
+function Drop:MoveRestJob(job)
 	job = job or {}
 	local where = job.where or "bank"
 	if not (job.itemID and job.members) or InCombatLockdown() then return end
@@ -298,19 +357,22 @@ function Drop:MoveRest(job)
 		if not (m.bag == first.bag and m.slot == first.slot) then todo[#todo + 1] = { bag = m.bag, slot = m.slot } end
 	end
 	if #todo == 0 then return end
-	-- a mail or a trade holds only so many: the stacks that will not fit are left, and said so
+	-- a mail or a trade holds only so many: the stacks that will not fit are left, and said so. (1.7.0-beta12) Their
+	-- partial stacks are topped up first (Drop:TidyStacks), so the count of stacks is known only after that: the trim
+	-- waits until then; a window with no slot left at all says so now.
 	local left = 0
 	local free = self:FreeSlots(where)
 	if free then
-		if free < #todo then left = #todo - free; for i = #todo, free + 1, -1 do todo[i] = nil end end
-		if #todo == 0 then ns:Print("%s has no free slots for the rest of %s.", (self.WHERE_NAME[where]:gsub("^%l", string.upper)), job.name or "that item"); return end
+		if free <= 0 then ns:Print("%s has no free slots for the rest of %s.", (self.WHERE_NAME[where]:gsub("^%l", string.upper)), job.name or "that item"); return end
+		if not self.HOLDS[where] and free < #todo then left = #todo - free; for i = #todo, free + 1, -1 do todo[i] = nil end end
 	end
 	self.moveToken = (self.moveToken or 0) + 1
 	local token = self.moveToken
-	-- The trade's pre-click count is this job's evidence from here on: taken now and consumed, so a later
-	-- mouse-down (another click while this job runs) cannot rewrite it (1.3.0).
+	-- The trade's (or the mail's) pre-click count is this job's evidence from here on: taken now and consumed, so a
+	-- later mouse-down (another click while this job runs) cannot rewrite it (1.3.0).
+	local holds = self.HOLDS[where] == true
 	local base = nil
-	if where == "trade" then base = self.tradeBaseline; self.tradeBaseline = nil end
+	if holds then base = self.tradeBaseline; self.tradeBaseline = nil end
 	local name = job.name or "that item"
 	local total, moved, why = #todo + 1, 0, nil
 	local session = self.session[where]   -- (nil for the bank)
@@ -320,17 +382,32 @@ function Drop:MoveRest(job)
 		if moved < total then ns:Print("Moved %d of %d stacks of %s; %s", moved, total, name, why or "the rest stayed.")
 		elseif left > 0 then ns:Print("Moved %d stacks of %s; %d more would not fit in %s.", moved, name, left, self.WHERE_NAME[where]) end
 	end
+	-- (1.7.0-beta14, R2) every scheduled step of this job, protected: an error ends this job (if it's still the current
+	-- one), once
+	local ended = false
+	local function protect(fn)
+		return function(...)
+			if ns:Guard(MOVE_LABEL, fn, ...) then return end
+			if ended or token ~= self.moveToken then return end
+			ended = true
+			why = "the rest stayed (something went wrong while moving the stacks; see /bs errors)."
+			finish()
+		end
+	end
+	local function later(delay, fn) C_Timer.After(delay, protect(fn)) end
 	local function live(it) return C_Container.GetContainerItemInfo(it.bag, it.slot) end
 	local function here(info) return info and info.itemID == job.itemID end
-	-- a stack "went" when it left its slot (bank, mail), or when the trade window took it: it stays, locked, and the
-	-- window now holds one more of that very item (a lock alone, or any occupied slot, proves nothing)
-	local inTradeBefore
-	local function inTrade() return self:InTrade(job.itemID, job.name) end
-	-- in a trade a stack that is no longer in its slot is ambiguous (placed stacks stay put): not a success
+	-- a stack "went" when it left its slot (bank), or when the trade window or the mail took it: it stays, locked, and
+	-- the window now holds one more of that very item (a lock alone, or any occupied slot, proves nothing)
+	local heldBefore
+	local function held() return self:InWindow(where, job.itemID, job.name) end
+	-- in a trade a stack that is no longer in its slot is ambiguous (placed stacks stay put): not a success; at the
+	-- mail one that left its slot counts only when the mail now holds one more of the item (1.7.0-beta11)
 	local function went(after)
-		if where == "trade" then
-			if not here(after) then return false end
-			return after.isLocked == true and inTradeBefore ~= nil and inTrade() > inTradeBefore
+		if holds then
+			local grew = heldBefore ~= nil and held() > heldBefore
+			if not here(after) then return where == "mail" and grew end
+			return after.isLocked == true and grew
 		end
 		return not here(after)
 	end
@@ -347,9 +424,9 @@ function Drop:MoveRest(job)
 	local function settle(it, fn, n)
 		n = n or 0
 		local info = live(it)
-		-- a locked stack is the game still working on it (bank, mail); in a trade a locked stack is one the window took
-		if where ~= "trade" and here(info) and info.isLocked and n < Drop.LOCK_TRIES then
-			C_Timer.After(Drop.MOVE_STEP, function() if token == self.moveToken then settle(it, fn, n + 1) end end)
+		-- a locked stack is the game still working on it (bank); in a trade or a mail a locked stack is one the window took
+		if not holds and here(info) and info.isLocked and n < Drop.LOCK_TRIES then
+			later(Drop.MOVE_STEP, function() if token == self.moveToken then settle(it, fn, n + 1) end end)
 			return
 		end
 		fn(info)
@@ -365,19 +442,19 @@ function Drop:MoveRest(job)
 		settle(it, function(info)
 			if token ~= self.moveToken then return end
 			if not ok() then return finish() end
-			if not here(info) then total = total - 1; return C_Timer.After(0, step) end   -- gone already: not ours to count
+			if not here(info) then total = total - 1; return later(0, step) end   -- gone already: not ours to count
 			if info.isLocked then
-				if where == "trade" then total = total - 1; return C_Timer.After(0, step) end   -- already in the trade window
+				if holds then total = total - 1; return later(0, step) end   -- already in the trade window or the mail
 				why = "the rest stayed (a stack stayed locked)."; return finish()
 			end
-			if where == "trade" then inTradeBefore = inTrade() end
+			if holds then heldBefore = held() end
 			pcall(C_Container.UseContainerItem, it.bag, it.slot)
-			C_Timer.After(Drop.MOVE_STEP, function()
+			later(Drop.MOVE_STEP, function()
 				if token ~= self.moveToken then return end
 				settle(it, function(after)
 					if token ~= self.moveToken then return end
 					if not went(after) then
-						why = (where == "trade" and not here(after) and "the rest stayed (a stack could not be found after its click).")
+						why = (holds and not here(after) and "the rest stayed (a stack could not be found after its click).")
 							or (after and after.isLocked and "the rest stayed (a stack stayed locked).")
 							or (where == "mail" and "the rest stayed (the mail may be full, or the game wants a click for each).")
 							or (where == "trade" and "the rest stayed (the trade window may be full, or the game wants a click for each).")
@@ -386,39 +463,171 @@ function Drop:MoveRest(job)
 						return finish()
 					end
 					moved = moved + 1
-					C_Timer.After(0, step)
+					later(0, step)
 				end)
 			end)
 		end)
 	end
 	if first.confirmed then
 		moved = 1
-		C_Timer.After(Drop.MOVE_STEP, step)
+		later(Drop.MOVE_STEP, step)
 	else
-		C_Timer.After(Drop.MOVE_STEP, function()
+		later(Drop.MOVE_STEP, function()
 			if token ~= self.moveToken then return end
 			settle(first, function(info)
 				if token ~= self.moveToken then return end
-				-- in a trade the clicked stack counts as placed only when it is locked in its slot and the window holds that
-				-- very item (a lock alone, or some other item in the window, is not proof); a clicked stack that cannot be
-				-- found is ambiguous, and ambiguity ends the job
+				-- in a trade (1.7.0-beta11: and at the mail) the clicked stack counts as placed only when it is locked in its
+				-- slot and the window holds one more of that very item than at mouse-down (a lock alone, or some other item
+				-- in the window, is not proof); a clicked stack that cannot be found is ambiguous in a trade, and ambiguity
+				-- ends the job; at the mail one that left its slot counts only when the mail's count grew
 				local placed
-				if where == "trade" then
-					if not (info and here(info)) then why = "nothing moved (the clicked stack could not be found)."; return finish() end
-					-- the trade's count of this item before the click, from mouse-down; without it nothing can be told
-					if not (base and base.itemID == job.itemID and (GetTime() - (base.at or 0)) < 10) then why = "nothing moved (the clicked stack's placement could not be confirmed)."; return finish() end
-					placed = info.isLocked == true and inTrade() > base.count
+				if holds then
+					if not (info and here(info)) and where == "trade" then why = "nothing moved (the clicked stack could not be found)."; return finish() end
+					-- the window's count of this item before the click, from mouse-down; without it nothing can be told
+					if not (base and base.itemID == job.itemID and (base.where or "trade") == where and (GetTime() - (base.at or 0)) < 10) then why = "nothing moved (the clicked stack's placement could not be confirmed)."; return finish() end
+					local grew = (held() or 0) > (base.count or 0)
+					if info and here(info) then placed = info.isLocked == true and grew else placed = grew end
 				else placed = went(info) end
 				if not placed then
-					why = (info and info.isLocked) and "nothing moved (the stack stayed locked)."
+					why = (info and here(info) and info.isLocked) and "nothing moved (the stack stayed locked)."
+						or (holds and ("nothing moved (%s may be full)."):format(self.WHERE_NAME[where]))
 						or (job.fromBank and "nothing moved (your bags may be full)." or "nothing moved (your bank may be full).")
 					return finish()
 				end
 				moved = 1
-				step()
+				if not holds then return step() end
+				-- (1.7.0-beta12) a mail or a trade: top up the partial stacks still in the bags, then send full stacks first
+				-- and the leftover last, as many as the window has room for
+				self:TidyStacks(job.itemID, name, todo, ok, protect(function(failed)
+					if token ~= self.moveToken then return end
+					-- (1.7.0-beta13, A1) an error while tidying ends the job: nothing else moves
+					if failed then why = "the rest stayed (something went wrong while topping up the stacks; see /bs errors)."; return finish() end
+					-- (1.7.0-beta14, R1) the job's guard before reading the bags again: a job that's over reads nothing
+					if not ok() then return finish() end
+					local rest = {}
+					for idx, it in ipairs(todo) do
+						local now = live(it)
+						if here(now) and not now.isLocked then rest[#rest + 1] = { bag = it.bag, slot = it.slot, n = now.stackCount or 1, idx = idx } end
+					end
+					table.sort(rest, function(a, b) if a.n ~= b.n then return a.n > b.n end return a.idx < b.idx end)
+					for k = #todo, 1, -1 do todo[k] = nil end
+					for k, it in ipairs(rest) do todo[k] = { bag = it.bag, slot = it.slot } end
+					local room = self:FreeSlots(where)
+					if room and room < #todo then left = #todo - math.max(0, room); for k = #todo, math.max(0, room) + 1, -1 do todo[k] = nil end end
+					total = #todo + 1
+					step()
+				end))
 			end)
 		end)
 	end
+end
+-- (1.7.0-beta12) Before the rest of a merged row follows into a mail or a trade, its partial stacks still in the bags
+-- are topped up: the fullest partial stack takes what fits from the smallest, one move at a time, each checked before
+-- the next, until at most one partial stack is left. So a window gets full stacks and uses as few slots as it can.
+-- Only stacks in the bags that aren't locked are touched (a locked one is in the window already, or the game is busy
+-- with it). guard() is the job's check before any action (the window still open, no combat, nothing on the cursor);
+-- a move the game refuses, or one that doesn't come out as expected, ends the tidy, said in chat; the stacks then go
+-- as they are. done(failed) is called once, after the tidy, outside its error protection.
+-- (1.7.0-beta13, the beta12 audit's A1) Each step runs protected (ns:Guard: an error is said once and kept for
+-- /bs errors). An error ends the tidy with failed = true, so the job ends too and no other item moves; this move's
+-- item is taken off the cursor (it goes back where it was), anything else on the cursor is left alone.
+-- (1.7.0-beta14, the beta13 audit's R1 and R2) The tidy owns the cursor only from its own pick-up or split until the
+-- place (or the put-back): only then is anything cleared, so a stack the player picks up meanwhile, even of the same
+-- item, is never touched. Each confirmation checks the job's guard before it reads the bags (a player holding
+-- something, a closed window or a cancel ends the tidy without a read). The stack size is read inside the protection.
+Drop.TIDY_MOVES = 12   -- at most this many moves in one tidy (a merged row rarely has more partial stacks)
+local TIDY_LABEL = "Mail and trade: topping up stacks"
+function Drop:TidyStacks(itemID, name, slots, guard, done)
+	local max   -- (1.7.0-beta14, R2) read on the first step, inside the protection
+	local moves, over, holding = 0, false, false
+	local function finish(failed)
+		if over then return end
+		over = true
+		done(failed and true or false)
+	end
+	local function ours()
+		local kind, cid = GetCursorInfo()
+		return kind == "item" and cid == itemID
+	end
+	-- (1.7.0-beta14, R1) only while this tidy holds the cursor, and only its own item
+	local function putBack()
+		if holding and ours() then pcall(ClearCursor) end
+		holding = false
+	end
+	local function fail() pcall(putBack); finish(true) end
+	local function refused()
+		putBack()
+		ns:Print("Couldn't top up the stacks of %s; the rest go as they are.", name or "that item")
+	end
+	local function live(it)
+		local info = C_Container.GetContainerItemInfo(it.bag, it.slot)
+		if info and info.itemID == itemID then return info end
+	end
+	-- the fullest partial stack and the smallest, and how much moves between them; nil when there's nothing to tidy
+	local function nextMove()
+		if max == nil then max = maxStack(itemID) or 1 end
+		if not (max and max > 1) then return nil end
+		local partial = {}
+		for i, it in ipairs(slots) do
+			local info = live(it)
+			if info and not info.isLocked and (info.stackCount or 1) < max then
+				partial[#partial + 1] = { bag = it.bag, slot = it.slot, count = info.stackCount or 1, idx = i }
+			end
+		end
+		if #partial < 2 then return nil end
+		table.sort(partial, function(a, b) if a.count ~= b.count then return a.count > b.count end return a.idx < b.idx end)
+		local dst, src = partial[1], partial[#partial]
+		return dst, src, math.min(max - dst.count, src.count)
+	end
+	local move, check
+	-- the game confirms a move with both stacks unlocked at their new counts
+	check = function(dst, src, wantDst, wantSrc, n)
+		if over then return end
+		local outcome
+		if not ns:Guard(TIDY_LABEL, function()
+			-- (1.7.0-beta14, R1) the job's guard first: no bag read for a job that's over or a cursor the player holds
+			if not guard() then outcome = "end"; return end
+			local d, sInfo = live(dst), live(src)
+			local busy = (d and d.isLocked) or (sInfo and sInfo.isLocked)
+			if busy and n < Drop.LOCK_TRIES then outcome = "wait"; return end
+			local okDst = d and not d.isLocked and (d.stackCount or 1) == wantDst
+			local okSrc = (wantSrc == 0 and not sInfo) or (sInfo and not sInfo.isLocked and (sInfo.stackCount or 1) == wantSrc)
+			if okDst and okSrc then outcome = "next"
+			-- (the job ended meanwhile: the window closed, combat, a cancel: its own message says so)
+			elseif not guard() then outcome = "end"
+			else refused(); outcome = "end" end
+		end) then return fail() end
+		if outcome == "wait" then return C_Timer.After(Drop.MOVE_STEP, function() check(dst, src, wantDst, wantSrc, n + 1) end) end
+		if outcome == "next" then return C_Timer.After(0, move) end
+		finish(false)
+	end
+	move = function()
+		if over then return end
+		local outcome, dst, src, wantDst, wantSrc
+		if not ns:Guard(TIDY_LABEL, function()
+			-- (1.7.0-beta14, R1) the job's guard before any bag read
+			if not guard() then outcome = "end"; return end
+			local amount
+			dst, src, amount = nextMove()
+			if not dst or amount < 1 or moves >= Drop.TIDY_MOVES then outcome = "end"; return end
+			local whole = amount >= src.count
+			if not whole and not C_Container.SplitContainerItem then outcome = "end"; return end
+			-- (holding from here: an error in the pick-up itself may have left this item on the cursor)
+			holding = true
+			if whole then C_Container.PickupContainerItem(src.bag, src.slot)
+			else C_Container.SplitContainerItem(src.bag, src.slot, amount) end
+			if not ours() then refused(); outcome = "end"; return end
+			C_Container.PickupContainerItem(dst.bag, dst.slot)
+			if CursorHasItem and CursorHasItem() then refused(); outcome = "end"; return end
+			holding = false   -- placed: the cursor is the player's again
+			moves = moves + 1
+			wantDst, wantSrc = dst.count + amount, src.count - amount
+			outcome = "check"
+		end) then return fail() end
+		if outcome == "check" then return C_Timer.After(Drop.MOVE_STEP, function() check(dst, src, wantDst, wantSrc, 0) end) end
+		finish(false)
+	end
+	move()
 end
 -- The bank closing or combat starting cancels a running job (it reports what moved).
 function Drop:CancelMoves(reason)

@@ -21,6 +21,8 @@ Why.LABEL = {
 	skill = "Needs more Enchanting skill",
 	deExcluded = "On your DE Exclusion List",
 	lootExcluded = "On your Loot Exclusion List",
+	protected = "Protected by you",   -- (1.7.0-beta1) the Loot Helper's Protect
+	questneed = "Needed for a quest",   -- (1.7.0-beta3) a quest objective asks for it
 	unknown = "Couldn't be checked right now",
 }
 -- singular and plural for the empty card's sentence
@@ -36,9 +38,11 @@ Why.NOUN = {
 	skill = { "item above your Enchanting skill", "items above your Enchanting skill" },
 	deExcluded = { "item on your DE Exclusion List", "items on your DE Exclusion List" },
 	lootExcluded = { "item on your Loot Exclusion List", "items on your Loot Exclusion List" },
+	protected = { "item you protected", "items you protected" },
+	questneed = { "item a quest needs", "items quests need" },
 	unknown = { "item that couldn't be checked", "items that couldn't be checked" },
 }
-Why.ORDER = { "favorite", "gearset", "quest", "pawn", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
+Why.ORDER = { "favorite", "protected", "gearset", "quest", "questneed", "pawn", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
 Why.SHOWN_NAMES = 3
 
 function Why:New() return { total = 0, by = {} } end

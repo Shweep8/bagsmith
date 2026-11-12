@@ -430,7 +430,12 @@ local function place(b, id, w, widget, corner, mode, px)
 	local sx, sy = SIGN[corner][1], SIGN[corner][2]
 	widget:ClearAllPoints()
 	if w.builtin and CAPPED[id] and widget.SetSize and widget.GetWidth then
-		local cap = math.floor((px or iconPx(b)) / 2)   -- half the icon: inside its quarter
+		local icon = px or iconPx(b)
+		-- (1.7.0-beta1, Shweep: smaller in Recent than anywhere else) the Quest Starter mark is sized here, at every
+		-- placement, from the icon it sits on, as the preview sizes it. It used to keep the size it was made at (the icon's
+		-- width at that moment) and the cap below only ever shrank it, so a copy made while its icon was small stayed small.
+		if id == "quest_start" then local s = math.max(10, math.floor(icon * 0.45 + 0.5)); widget:SetSize(s, s) end
+		local cap = math.floor(icon / 2)   -- half the icon: inside its quarter
 		if cap > 0 and (widget:GetWidth() or 0) > cap then widget:SetSize(cap, cap) end
 	end
 	if w.builtin then

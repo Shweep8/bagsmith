@@ -38,7 +38,7 @@ Spreadsheet-style bags for World of Warcraft: Forever.
 - Bank: at a banker a dedicated Bank window opens beside your bags, replacing Blizzard's, with a bank bag
   section to view, place, swap and buy bank bags. Away from the bank, the Bank sheet is a saved copy.
 - Currency drawer: wallet currencies plus token items counted from bags and bank; pin the ones
-  you want in the footer, as many as fit. Import Blizzard's backpack picks with one click.
+  you want in the footer, as many as fit. Currencies you tick Show on Backpack in the game are pinned for you.
 - Character picker: browse any character's cached bags, bank, gold and currencies, read only.
   Reopening the bags always returns to your own character.
 - Two skins: Modern, and Classic, a mimic of Forever's own bag frames built from Blizzard's art.

@@ -791,7 +791,8 @@ function DE:Frame()
 	-- a frame anchored to another frame leaps when moved or sized: it is put on the screen first, at its own spot
 	-- (1.5.7, C3) moving or sizing a protected window is blocked in combat, whatever the combat lock: both do nothing then
 	-- (this script also serves the catcher and Classic's title band)
-	f:SetScript("OnDragStart", function(self) if InCombatLockdown() then return end; self.bsMoving = true; DE.ToScreen(self); self:StartMoving() end)
+	-- (1.7.0-beta2) nor while Lock Windows is on
+	f:SetScript("OnDragStart", function(self) if InCombatLockdown() or ns:WindowsLocked() then return end; self.bsMoving = true; DE.ToScreen(self); self:StartMoving() end)
 	-- (1.6.0-beta6, the beta5 audit's F4) a move or resize begun before combat and released during it finishes when combat
 	-- ends (stopping a protected window's move is blocked in combat); DE:FinishGesture does it, and saves where it ended
 	f:SetScript("OnDragStop", function(self)
@@ -804,12 +805,13 @@ function DE:Frame()
 	if f.SetResizeBounds then f:SetResizeBounds(self.MIN_W, self.MIN_H) elseif f.SetMinResize then f:SetMinResize(self.MIN_W, self.MIN_H) end
 	f.grip = CreateFrame("Button", nil, f); f.grip:SetSize(16, 16); f.grip:SetPoint("BOTTOMRIGHT", -4, 4)
 	f.grip.tex = f.grip:CreateTexture(nil, "OVERLAY"); f.grip.tex:SetAllPoints(); f.grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-	f.grip:SetScript("OnMouseDown", function() if InCombatLockdown() then return end; f.bsSizing = true; DE.ToScreen(f); if f.StartSizing then f:StartSizing("BOTTOMRIGHT") end end)
+	f.grip:SetScript("OnMouseDown", function() if InCombatLockdown() or ns:WindowsLocked() then return end; f.bsSizing = true; DE.ToScreen(f); if f.StartSizing then f:StartSizing("BOTTOMRIGHT") end end)
 	f.grip:SetScript("OnMouseUp", function()
 		if not f.bsSizing then return end
 		if InCombatLockdown() then ns:Safely("de:gesture", function() DE:FinishGesture() end); return end
 		DE:FinishGesture()
 	end)
+	f.grip:SetShown(not ns:WindowsLocked())   -- (1.7.0-beta2) no grip while Lock Windows is on
 	f:SetScript("OnSizeChanged", function() if f:IsShown() then DE:Layout() end end)
 	f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); f.title:SetPoint("TOPLEFT", 12, -12); f.title:SetText("Disenchant Helper")
 	f.sub = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.sub:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -3)

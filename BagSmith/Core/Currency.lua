@@ -240,29 +240,65 @@ function Currency:MoveFavorite(key, delta)
 	if i and ns.Move(ns.db.fav, i, i + delta) then ns:Fire("SETTINGS_CHANGED", "fav") end
 end
 
--- Import Blizzard's "show on backpack" picks.
-function Currency:ImportBlizzard()
-	local added = 0
+-- The currencies ticked "Show on Backpack" in the game's currency tab, by ID (this character's; empty when the game
+-- hasn't answered yet).
+function Currency:BlizzardPicks()
+	local ids = {}
 	if C_CurrencyInfo and C_CurrencyInfo.GetBackpackCurrencyInfo then
 		for i = 1, 20 do
 			local info = C_CurrencyInfo.GetBackpackCurrencyInfo(i)
 			if not info or not info.currencyTypesID then break end
-			local key = "c:" .. info.currencyTypesID
-			if not self:IsFavorite(key) then table.insert(ns.db.fav, key); added = added + 1 end
+			ids[#ids + 1] = info.currencyTypesID
 		end
 	end
+	return ids
+end
+local function pinned(self, added)
 	if added > 0 then
 		self:Invalidate()   -- (1.5.0-beta12, audit G1) before the notice, so the drawer's redraw shows the imports
 		ns:Fire("SETTINGS_CHANGED", "fav")
 	end
 	return added
 end
+-- Import Blizzard's "show on backpack" picks: all of them, including any unpinned since (the drawer's button).
+function Currency:ImportBlizzard()
+	local added = 0
+	local seen = ns.cdb and ns.cdb.blizzPicksSeen
+	for _, id in ipairs(self:BlizzardPicks()) do
+		local key = "c:" .. id
+		if seen then seen[id] = true end
+		if not self:IsFavorite(key) then table.insert(ns.db.fav, key); added = added + 1 end
+	end
+	return pinned(self, added)
+end
+-- (1.7.0-beta14, Shweep) The picks pinned without the button: when the bags open (before they draw) and when the game's
+-- currencies change, each pick this character hasn't had before is pinned, once. The seen list (per character) keeps a
+-- currency you unpin in BagSmith unpinned; nothing is ever unpinned here. The first time, every current pick is new, as
+-- pressing the button would do. When the game hasn't answered yet (no picks), nothing is marked: the next check does it.
+function Currency:SyncBlizzardPicks()
+	if not (ns.db and ns.cdb) then return 0 end
+	local seen = ns.cdb.blizzPicksSeen
+	if type(seen) ~= "table" then seen = {}; ns.cdb.blizzPicksSeen = seen end
+	local added = 0
+	for _, id in ipairs(self:BlizzardPicks()) do
+		if not seen[id] then
+			seen[id] = true
+			local key = "c:" .. id
+			if not self:IsFavorite(key) then table.insert(ns.db.fav, key); added = added + 1 end
+		end
+	end
+	return pinned(self, added)
+end
 
 ns:OnSignal("ADDON_READY", function()
 	-- (1.5.0-beta5, audit F4) capture the wallet now, while the game's data is valid; saving stays on its delay
 	ns:On("CURRENCY_DISPLAY_UPDATE", function()
 		if ns.NoteLiveWallet then ns:NoteLiveWallet() else Currency:Invalidate() end
-		ns:NextFrame("currency", function() ns:ScheduleCacheSave(); ns:Fire("CURRENCY_CHANGED") end)
+		ns:NextFrame("currency", function()
+			-- (1.7.0-beta14) a pick made in the game's currency tab, or the game's answer arriving after login
+			ns:Guard("Currency picks", Currency.SyncBlizzardPicks, Currency)
+			ns:ScheduleCacheSave(); ns:Fire("CURRENCY_CHANGED")
+		end)
 	end)
 	ns:OnSignal("ITEMS_CHANGED", function() Currency:Invalidate() end)
 	-- A profile change (or its tracked items changing): the list is rebuilt from that profile.

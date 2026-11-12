@@ -67,7 +67,8 @@
 	-- the last check applies the same rule
 	local o = MR:Offer(recOf(n, 2512, 1), false)
 	local ok, why = MR:StillOk(o)
-	check(ok == false and why == "worth", "and an offer for the arrows made anyway is refused at the moment of destroying (" .. tostring(why) .. ")")
+	-- (1.7.0-beta10, by design) judged against the ring it's making room for, the quiver's slot doesn't help at all
+	check(ok == false and (why == "worth" or why == "nohelp"), "and an offer for the arrows made anyway is refused at the moment of destroying (" .. tostring(why) .. ")")
 	-- a valuable compatible item still qualifies the arrows
 	loot = { { id = 9710, name = "Shiny Ring", q = 2 }, { id = 2515, name = "Jagged Arrow", q = 1 } }
 	waiting = MR:Waiting()

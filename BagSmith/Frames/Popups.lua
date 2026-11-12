@@ -568,7 +568,8 @@ function Popups:FillCategory(f)
 			f.catPool[i] = c
 		end
 		c.key = key
-		c.label:SetText((ns.Sections and ns.Sections:Label(key)) or ns.CAT_LABEL[key] or key)
+		-- (1.7.0-beta10) a built-in category by its own name: Gear here covers all gear, split or not (not "Gear: Other")
+		c.label:SetText(ns.CAT_LABEL[key] or (ns.Sections and ns.Sections:Label(key)) or key)
 		local w = 26 + c.label:GetStringWidth() + 14
 		if x + w > FPAD + usable then x = FPAD; y = y - ROWH end
 		c:ClearAllPoints(); c:SetPoint("TOPLEFT", x, y + 2); c:Show()

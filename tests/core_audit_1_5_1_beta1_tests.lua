@@ -133,9 +133,11 @@
 	M.bags[0][1] = nil; n:Scan(); advance(0)
 	M.fire("LOOT_BIND_CONFIRM", 1)               -- e.g. a bind box the player leaves open
 	advance(12.1)
-	check(asked() == "1", "no clear, no error, no bag change for 12 seconds: asked once, not again and again (asked: " .. asked() .. ")")
+	-- (1.7.0-beta10, by design) the one free slot goes to the item the Loot Helper makes room for, the more valuable
+	-- Copper Ore (slot 2), not the first in the loot window; then, with two free, the stones are asked for
+	check(asked() == "2", "no clear, no error, no bag change for 12 seconds: asked once, not again and again (asked: " .. asked() .. ")")
 	M.bags[0][2] = nil; n:Scan(); advance(0)
-	check(asked() == "1,1", "once the bags change, it's asked for again (asked: " .. asked() .. ")")
+	check(asked() == "2,1", "once the bags change, asking goes on (asked: " .. asked() .. ")")
 
 	-- ---- a confirmation opened under one basis doesn't survive a change to another
 	local function confirmSetup()

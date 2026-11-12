@@ -24,6 +24,21 @@ ns.WhatsNew = WN
 -- Newest first. Only notable releases get an entry; keep a handful of short
 -- bullets that say what it is and where to turn it on.
 WN.ENTRIES = {
+	-- (1.7.0-beta6) the 1.7 card; (1.7.0-beta12) its text approved by Shweep (12 Nov)
+	-- (1.7.0-beta8, the beta7 audit's F2; Shweep's choice) the quest promise says what it can't see, as the (i) does
+	{ v = "1.7.0", heading = "BagSmith 1.7", items = {
+		-- (1.7.0-beta12, Shweep's review) nine bullets: the switch and "the list's heading" in the first, Mail and Trade,
+		-- Gear: Other and Consumables: Other, the header coin and Clean Up; the body scrolls when it's taller than the card
+		"|cfffac775A Smarter Loot Helper:|r when your bags are full, the Loot Helper shows what it's making room for and every way to do it: free ways first, then what you'd miss least. Click another waiting item to make room for it instead. It keeps things you craft with a little longer and never offers what you still need for a quest, unless its heading is collapsed in your quest log. Hover the (i) beside the list's heading to see how it decides.",
+		"|cfffac775Protect:|r the Loot Helper keeps suggesting something you'd rather keep? Choose it and click Protect, beside Destroy, and it won't suggest it again. Settings > Loot Helper lists what you've protected.",
+		"|cfffac775Mail and Trade:|r right-click a merged stack at the mailbox and all of its stacks now attach, not just the one you clicked. BagSmith also tops up partial stacks as it goes, so the mail or trade window gets full stacks and uses fewer slots.",
+		"|cfffac775Split Gear by Binding:|r keep the gear you can still trade apart from what's bound to you. Turn on Split Gear by Binding in Settings > Sections and Gear becomes Gear: Soulbound and Gear: BoE, with the rest in Gear: Other. Split Consumables' leftover section is now Consumables: Other to match.",
+		"|cfffac775Lock Windows:|r stop your bags, bank and helpers from being moved or resized by accident. Turn it on in Settings > Windows.",
+		"|cfffac775Pinned Sections Stand Out:|r Highlight Pinned Sections puts a light background in your accent color behind them (Settings > Sections). In Split View, Recent can span the whole window too: Full-Width Recent, in Settings > Style.",
+		"|cfffac775Simpler Section Settings:|r Settings > Sections has one table now, where you move, pin and hide each section, instead of three long lists.",
+		"|cfffac775Section Values at Any Width:|r when a section header is too narrow for its values (V and AH), as in Split View, it shows a small coin instead. Hover or click it to see them.",
+		"|cfffac775Smoother Clean Up:|r Clean Up Bags no longer makes your game stutter while it sorts, even with Clean Up Bags When Opened on.",
+	} },
 	{ v = "1.6.0", heading = "BagSmith 1.6", items = {
 		"|cfffac775Blackthornes Tradeskills Prices:|r BagSmith can now take auction prices from Blackthornes Tradeskills as well as Auctionator. It uses whichever you have; with both, pick one in Settings > General > Price Source.",
 		"|cfffac775Quest Starters:|r an item that begins a quest now wears a yellow \"!\" in the top left of its icon until you accept the quest. You can move it to another corner in Settings > Item Icons.",
@@ -175,9 +190,13 @@ local function create()
 	-- A line under the title saying what the card is.
 	f.intro = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	f.intro:SetJustifyH("LEFT"); f.intro:SetWordWrap(true)
-	-- The body (version headings and bullets) scrolls inside the card only if
-	-- the card would be taller than the screen (a big UI scale or font).
-	f.body = CreateFrame("ScrollFrame", nil, f)
+	-- The body (version headings and bullets) scrolls inside the card when the
+	-- open release is taller than the body (WN.MAX_BODY, or less on a small
+	-- screen). (1.7.0-beta12) With a scrollbar, the same kind as the Loot
+	-- Helper's list (Blizzard's, dressed for Classic; hidden when nothing
+	-- scrolls); the text narrows to make room for it.
+	f.body = CreateFrame("ScrollFrame", "BagSmithWhatsNewBody", f, "UIPanelScrollFrameTemplate")
+	f.body.scrollBarHideable = true
 	f.content = CreateFrame("Frame", nil, f.body)
 	f.content:SetSize(WIDTH, 10)
 	f.body:SetScrollChild(f.content)
@@ -318,6 +337,10 @@ end
 WN.INTRO = "Highlights from recent major updates."   -- (no count: fine while fewer than five exist)
 WN.CHANGELOG_LINE = "|cfffac775Previous Updates & Patches:|r See full changelog @ CurseForge:"
 local ITEM_GAP, INDENT, MAX_SCREEN = 6, 10, 0.85
+-- (1.7.0-beta12, Shweep) The body is at most this tall (about what the 1.6 release needs), so the card keeps the size
+-- players know; a longer release scrolls. BAR_W: the room its scrollbar takes on the right while it scrolls.
+WN.MAX_BODY = 360
+local BAR_W = 32
 -- One release's body height (heading and bullets) at this width, measured
 -- with one hidden string (so the card can be as tall as the tallest tab).
 local function measure(f, e, textW)
@@ -378,6 +401,22 @@ function WN:Fill(entries, sel)
 	-- hanging indent (wrapped lines line up with the text, not the dash), a
 	-- stripe behind every other bullet and a light line between bullets.
 	local e = entries[sel]
+	-- (1.7.0-beta12) The body's height first: as tall as the tallest release, at most WN.MAX_BODY, and never more than
+	-- the screen allows (MAX_SCREEN, with the footer). A release taller than that scrolls, laid out narrower beside its
+	-- scrollbar; one that fits uses the full width and shows no bar.
+	local tallest = 0
+	for _, other in ipairs(entries) do tallest = math.max(tallest, measure(f, other, textW)) end
+	f.more:SetWidth(textW)
+	f.more:SetText(WN.CHANGELOG_LINE)
+	local footerH = 16 + 2 + 10 + f.more:GetStringHeight() + 4 + 22 + 16 + 12 + 22 + PAD
+	local screenH = (UIParent and UIParent:GetHeight()) or 768
+	local maxBody = math.max(80, math.min(WN.MAX_BODY, math.floor(screenH * MAX_SCREEN) - top - footerH))
+	local bodyH = math.min(tallest, maxBody)
+	local scrolling = e ~= nil and measure(f, e, textW) > bodyH
+	local contentW = WIDTH - (scrolling and BAR_W or 0)
+	local fullW = textW
+	textW = contentW - PAD * 2
+	f.content:SetSize(contentW, 10)
 	local y, n, ns2, nsep = 0, 0, 0, 0
 	f.stripes = f.stripes or {}
 	local lr, lg, lb = sk.line[1], sk.line[2], sk.line[3]
@@ -426,22 +465,15 @@ function WN:Fill(entries, sel)
 	for i, d in pairs(f.dashes) do d:SetShown(i >= 2 and i <= n) end   -- sparse: only bullet positions have one
 	for _, d in ipairs(f.dividers) do d:Hide() end
 	local contentH = y + 4
-	-- A steady size: as tall as the tallest release.
-	local tallest = contentH
-	for _, other in ipairs(entries) do tallest = math.max(tallest, measure(f, other, textW)) end
-
-	-- Below the body: a stronger line, the changelog line, the address and Got It.
-	f.more:SetWidth(textW)
-	f.more:SetText(WN.CHANGELOG_LINE)
-	local footerH = 16 + 2 + 10 + f.more:GetStringHeight() + 4 + 22 + 16 + 12 + 22 + PAD
-	local screenH = (UIParent and UIParent:GetHeight()) or 768
-	local maxBody = math.max(80, math.floor(screenH * MAX_SCREEN) - top - footerH)
-	local bodyH = math.min(tallest, maxBody)
+	textW = fullW   -- (the footer below uses the card's full width)
+	-- A steady size: every release the same height (bodyH, above); the open one scrolls if it's taller.
 	f.contentH, f.bodyH = contentH, bodyH
-	f.content:SetSize(WIDTH, contentH)
-	f.body:ClearAllPoints(); f.body:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -top); f.body:SetSize(WIDTH, bodyH)
+	f.content:SetSize(contentW, contentH)
+	f.body:ClearAllPoints(); f.body:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -top); f.body:SetSize(contentW, bodyH)
 	f.body:SetVerticalScroll(0)
 	f.scrolls = contentH > bodyH
+	if ns.Classic and ns.Classic.DressScrollBar then ns.Classic:DressScrollBar(f.body, classic) end
+	if f.body.ScrollBar then f.body.ScrollBar:SetShown(f.scrolls) end
 	y = top + bodyH
 	f.footLine:ClearAllPoints(); f.footLine:SetHeight(2)
 	f.footLine:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(y + 16)); f.footLine:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(y + 16))

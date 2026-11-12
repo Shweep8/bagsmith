@@ -53,7 +53,9 @@
 	local MR = n.MakeRoom
 	local f = MR.frame
 	check(f and f:IsShown() and f.sub.text == "1 item won't fit. Make room to finish looting.", "the header says how many won't fit (beta2: without promising a slot count) (" .. tostring(f and f.sub.text) .. ")")
-	check(heads(f) == "Waiting to loot|Free a slot without losing anything|Lowest value to let go", "three sections in order: what's waiting, the lossless ways, then what to let go (" .. heads(f) .. ")")
+	-- (1.7.0-beta10, by design: Shweep's layout) what's waiting, then one list of the ways to make room for it: the lossless
+	-- ways first, then what to let go
+	check(heads(f) == "Waiting to loot|To make room for Shiny Ring", "two sections in order: what's waiting, then the ways to make room for it (" .. heads(f) .. ")")
 	local w1 = f.waitRows[1]
 	check(w1:IsShown() and w1.name.text == "Shiny Ring" and w1.value.text:find("Vendor", 1, true) and not w1.dot:IsShown() and w1.btns[1].label.text == "Skip" and w1.btns[2].label.text == "Exclude", "a waiting row: the name, the value in words, no selection dot, and its own Skip and Exclude")
 	check(w1.btns[1].tip == "Leave it in the loot window this time" and w1.btns[2].tip == "Add it to your Loot Exclusion List", "Skip and Exclude say what they do to that item")
@@ -62,14 +64,18 @@
 	check(c1.dotFill:IsShown() and c1.hl:IsShown() and f.act:IsShown() and f.act.label.text == "Combine Linen Cloth" and f.act.active == true, "the lossless way is chosen first, and the one button does it with the accent")
 	local belt
 	for _, r in ipairs(f.destroyRows) do if r:IsShown() and r.name.text == "Linen Belt" then belt = r end end
-	check(belt and #belt.btns == 0 and belt.value.text:find("Vendor", 1, true), "a destroy row shows its name and value, and no button of its own")
+	-- (1.7.0-beta1, by design) a destroy row now has one button of its own, Protect ("Don't suggest again")
+	-- (1.7.0-beta10, by design: Shweep) Protect moved beside the Destroy button; the row has its cost on the right
+	check(belt and #belt.btns == 0 and belt.value.text:find("Vendor", 1, true) and belt.cost.text ~= "", "a destroy row shows its name, its value and its cost")
 	belt:GetScript("OnClick")(belt)
 	check(belt.dotFill:IsShown() and not c1.dotFill:IsShown() and f.act.label.text == "Destroy Linen Belt" and f.act.active == false, "choosing an item to let go: the button names it, without the accent")
 	f.act:GetScript("OnClick")(f.act)
 	local c = n.Popups.confirm
 	check(c and c:IsShown() and (c.text and c.text.text or c.msg and c.msg.text or ""):find("Destroy Linen Belt", 1, true) ~= nil or (c and c:IsShown()), "destroying something that isn't junk still asks first")
 	if c and c:IsShown() then c:Hide() end
-	check(f.foot:IsShown() and f.foot.text == "Ranked by vendor price", "the footer says what the ranking follows")
+	-- (1.7.0-beta3/beta4, by design) the new ranking and Shweep's wording; the price basis is in its (i)
+	-- (1.7.0-beta10, by design: Shweep's layout) the footer says what happens next; the (i) by the list says how it decides
+	check(f.foot:IsShown() and f.foot.text == "Then Shiny Ring goes in your bags." and f.footInfo:IsShown() and f.footInfo.lines[4] == "Prices come from the vendor.", "the footer says what happens next, and the (i) says what the ranking follows")
 	check(f.strata == "DIALOG" and f.toplevel == true and f.closeX:IsShown(), "it sits above the bags window, comes forward when clicked, and has a corner X in Modern")
 	check(f.points[1][2] == UIParent and f.points[1][1] == "TOPLEFT" and f.points[1][4] == 508 and f.points[1][5] == 700, "it opens beside the loot window, anchored to the screen")
 
@@ -78,7 +84,11 @@
 	loot = { { id = 9710, name = "Shiny Ring", q = 2 }, { id = 9711, name = "Small Egg", q = 1 }, { id = 9720, name = "Gnoll Paw", q = 1 } }
 	MR:Never()[9720] = true
 	M.fire("LOOT_OPENED"); M.runTimers()
-	check(f.note:IsShown() and f.note.text == "Small Egg is worth less than anything you'd let go.", "an incoming item worth less than every offer gets a quiet note (" .. tostring(f.note.text) .. ")")
+	-- (1.7.0-beta10, by design) the note is about the loot it's making room for: none for the ring; click the egg
+	check(not f.note:IsShown(), "making room for the ring: no note (" .. tostring(f.note.text) .. ")")
+	local eggRow; for _, r in ipairs(f.waitRows) do if r:IsShown() and r.name.text == "Small Egg" then eggRow = r end end
+	eggRow:GetScript("OnClick")(eggRow)
+	check(f.note:IsShown() and f.note.text == "Small Egg is worth less than anything you'd let go.", "making room for the egg: an incoming item worth less than every offer gets a quiet note (" .. tostring(f.note.text) .. ")")
 	check(f.excl:IsShown() and f.excl.text == "1 excluded item stays in the loot window" and f.exclInfo:IsShown() and (f.exclInfo.lines[1] or ""):find("On your Loot Exclusion List (1):", 1, true) and f.exclInfo.lines[1]:find("Gnoll Paw", 1, true), "loot on the Loot Exclusion List is named in a quiet line with an info tooltip")
 	f:Hide(); MR:Never()[9720] = nil
 

@@ -80,6 +80,16 @@ local function consSection(rec)
 	return ns.CONS_ID[kind], false
 end
 
+-- (1.7.0-beta6) The section a piece of gear splits into, when Split Gear by Binding is on for its binding.
+local function gearSection(rec)
+	local db = ns.db
+	if not (db and db.splitGear) then return nil end
+	local kind
+	if rec.isBound or rec.bindType == 1 then kind = "Soulbound" elseif rec.bindType == 2 then kind = "BoE" end
+	if not kind or (db.splitGearTypes or {})[kind] == false then return nil end
+	return ns.GEAR_ID[kind]
+end
+
 -- Category results are cached per item and every detail the answer uses
 -- (quality, quest flag, class, subclass, binding, crafting reagent).
 local catCache, catCount = {}, 0
@@ -89,13 +99,14 @@ function ns:Categorize(rec)
 	-- The key holds everything the answer uses, so an item first seen before
 	-- the game supplied all its details gets a fresh answer once it has them.
 	local key = rec.itemID and (rec.itemID .. ":" .. tostring(rec.quality) .. ":" .. (rec.isQuest and 1 or 0) .. ":" .. tostring(rec.classID)
-		.. ":" .. tostring(rec.subclassID) .. ":" .. tostring(rec.bindType) .. ":" .. (rec.isCraftingReagent and 1 or 0) .. ":" .. consGen) or nil
+		.. ":" .. tostring(rec.subclassID) .. ":" .. tostring(rec.bindType) .. ":" .. (rec.isCraftingReagent and 1 or 0) .. ":" .. consGen
+		.. ":" .. (rec.isBound and 1 or 0)) or nil   -- (1.7.0-beta6) bound or not: a BoE you equip moves to Gear: Soulbound
 	if key and catCache[key] then return catCache[key] end
 	local cat
 	if rec.itemID and ns.TOKEN_IDS[rec.itemID] then cat = "Tokens"
 	elseif rec.isQuest or class == CLASS.Questitem or rec.bindType == 4 then cat = "Quest"
 	elseif class == CLASS.Key then cat = "Keys"
-	elseif class == CLASS.Weapon or class == CLASS.Armor then cat = "Gear"
+	elseif class == CLASS.Weapon or class == CLASS.Armor then cat = gearSection(rec) or "Gear"
 	elseif class == CLASS.Consumable or class == CLASS.Projectile then
 		cat = "Consumables"
 		if class == CLASS.Consumable then
@@ -150,7 +161,9 @@ end
 -- Type column text: Blizzard's subtype, except where it is unhelpful.
 function ns:TypeText(rec)
 	local sub = rec.itemSubType or rec.itemType or ""
-	if (rec.ownCat or rec.cat) == "Gear" and sub == "Miscellaneous" then return ns:SlotText(rec) ~= "" and ns:SlotText(rec) or sub end
+	-- (1.7.0-beta6) Split Gear by Binding's sections are Gear too
+	local own = rec.ownCat or rec.cat
+	if (own == "Gear" or ns.PARENT_CAT[own] == "Gear") and sub == "Miscellaneous" then return ns:SlotText(rec) ~= "" and ns:SlotText(rec) or sub end
 	if sub == "Junk" and (rec.quality or 1) > 0 then return rec.itemType or "Miscellaneous" end
 	return sub
 end

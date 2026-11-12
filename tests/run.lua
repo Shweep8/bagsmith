@@ -152,6 +152,7 @@ local list = ns.Currency:List()
 check(#list == 3, "wallet + token items: " .. #list)
 ns.Currency:ToggleFavorite("c:3402"); ns.Currency:ToggleFavorite("i:20558")
 check(#ns.Currency:Favorites() == 2, "two favorites")
+M.backpackPicks = { 1901 }   -- (1.7.0-beta14, by design: the mock's picks are empty unless a test sets them)
 check(ns.Currency:ImportBlizzard() == 1 and #ns.db.fav == 3, "import Blizzard picks")
 ns.Currency:MoveFavorite("i:20558", -1); check(ns.db.fav[1] == "i:20558", "reorder favorite")
 
@@ -3201,7 +3202,7 @@ end)()
 	for _, r in ipairs(pageRows()) do if r.label ~= "" then order[#order + 1] = r.label end end
 	local text = table.concat(order, " | ")
 	local want = { "Sections", "Open with Sections", "Remember Which Sections Are Collapsed", "Which Section an Item Goes To",
-		"Keys & Reagent Bag", "Keys in Their Own Section (All and By Bag)", "Reagent Bag (Sections: All)", "Section Order", "Vendors & Auction House" }
+		"Keys & Reagent Bag", "Keys in Their Own Section (All and By Bag)", "Reagent Bag (Sections: All)", "Move, Pin and Hide Sections" }   -- (1.7.0-beta5, by design: the card's name)   -- (1.7.0-beta4, by design: Vendors & AH are columns of Section Order)
 	local pos, ok = 0, true
 	for _, label in ipairs(want) do
 		local found
@@ -3209,7 +3210,7 @@ end)()
 		if not found then ok = false; break end
 		pos = found
 	end
-	check(ok, "Standard Sections page: Sections, the rule, Keys & Reagent Bag, Section Order, Vendors & AH, in that order: " .. text)
+	check(ok, "Standard Sections page: Sections, the rule, Keys & Reagent Bag, Move, Pin and Hide Sections, in that order: " .. text)
 	P:ShowPage("dynamic")
 	local indented = {}
 	for _, r in ipairs(pageRows()) do if r.label == "Recent Items From" or r.label == "Recent Items Shown" then indented[#indented + 1] = r.x end end
@@ -3454,12 +3455,15 @@ end)()
 	gear = header("Gear")
 	check(stacked and gear.count.text == "(2)" and gear.vAmt.text == nP.Money(800) and gear.aAmt.text == nP.Money(15000),
 		"when one header is short of room, every header stacks V: and AH:, amounts exact, the count still by the name")
+	-- (1.7.0-beta10, by design: Shweep) past stacked, every header shows a coin that holds both values (hover or click),
+	-- instead of dropping the AH total, then the vendor value
 	setTitle("Gear", 765); nP:RefreshViews(true); gear = header("Gear")
-	check(gear.sub.text == "V: " .. nP.Money(800) and not gear.aAmt:IsShown(), "tighter: the AH total goes: " .. gear.sub.text)
+	check(not gear.sub:IsShown() and not gear.aAmt:IsShown() and gear.valCoin and gear.valCoin:IsShown() and gear.valCoin.v == nP.Money(800) and gear.valCoin.ah == nP.Money(15000),
+		"tighter: a coin holds both values")
 	setTitle("Gear", 800); nP:RefreshViews(true); gear = header("Gear")
-	check(not gear.sub:IsShown() and not gear.aAmt:IsShown() and gear.count.text == "(2)", "narrowest: no values, the count stays by the name")
+	check(not gear.sub:IsShown() and not gear.aAmt:IsShown() and gear.valCoin:IsShown() and gear.count.text == "(2)", "narrowest: the coin, the count still by the name")
 	local same = true
-	for _, h in ipairs(allHeaders()) do if h.laneId ~= "~recent" and (h.sub:IsShown() or h.aAmt:IsShown()) then same = false end end
+	for _, h in ipairs(allHeaders()) do if h.laneId ~= "~recent" and (h.sub:IsShown() or h.aAmt:IsShown() or not (h.valCoin and h.valCoin:IsShown())) then same = false end end
 	check(same, "and every header in the window uses that same format")
 	clearTitles(); nP:RefreshViews(true); gear = header("Gear")
 	check(not gear.aAmt:IsShown() and gear.sub.text:find(", AH: "), "with room again, back to one line")
@@ -4450,7 +4454,7 @@ end)()
 		autoConfirm = "Prompts", autoConfirmEverywhere = "Prompts", autoConfirmEquip = "Prompts", autoConfirmUse = "Prompts", autoConfirmEnchant = "Prompts", autoConfirmRoll = "Prompts",
 		autoConfirmSrcGear = "Prompts", autoConfirmSrcItem = "Prompts", autoConfirmSrcJunk = "Prompts", autoConfirmSrcDE = "Prompts", autoConfirmKey = "Prompts",
 	})
-	grouped("loothelper", "Loot Helper | Loot Exclusion List", { makeRoom = "Loot Helper", makeRoomValue = "Loot Helper" })
+	grouped("loothelper", "Loot Helper | Loot Exclusion List | Protected Items", { makeRoom = "Loot Helper", makeRoomValue = "Loot Helper" })   -- (1.7.0-beta1, by design: Protected Items)
 	grouped("dehelper", "Disenchant Helper | Opt-in", {
 		deEnabled = "Disenchant Helper", deIncludeEpics = "Disenchant Helper", deSkipRefundable = "Disenchant Helper", ["Disenchant Must Beat Selling By"] = "Disenchant Helper",
 	})
@@ -4799,7 +4803,9 @@ end)()
 	local looted = {}
 	_G.LootSlot = function(i) looted[#looted + 1] = i end
 	local deleted = {}
-	_G.DeleteCursorItem = function() deleted[#deleted + 1] = true end
+	-- (1.7.0-beta9, by design) a delete empties the cursor, as the game's does: BagSmith now checks the cursor afterwards
+	-- (the beta8 audit's A1), and an item still held reads as a refused delete
+	_G.DeleteCursorItem = function() deleted[#deleted + 1] = true; local mm = package.loaded.mock; if mm then mm.cursorItem = nil end end
 	local function boot(class, stock)
 		package.loaded.mock = nil
 		local MR = require("mock")
@@ -4840,13 +4846,16 @@ end)()
 	check(f and f:IsShown() and f.waitRows[1]:IsShown() and f.waitRows[1].name.text == "Shiny Ring", "the panel appears with the ring waiting")
 	local combine, destroy = MRm:Suggestions(waiting)
 	check(#combine == 1 and combine[1].src.count == 5 and combine[1].dst.count == 7, "a free suggestion: combine the two Linen Cloth stacks")
+	-- (1.7.0-beta3, by design) least missed first: junk ranks by value with everything else (the spare Linen Cloth
+	-- stack, at half, comes before the 3c Fang)
 	local ordered = true
-	for i = 3, #destroy do if destroy[i].rank < destroy[i - 1].rank then ordered = false end end
-	local hasBelt = false
-	for _, d in ipairs(destroy) do if d.rec.itemID == 9702 then hasBelt = true end end
-	check(destroy[1].rec.itemID == 9701 and destroy[1].junk and ordered and hasBelt, "destroy suggestions: junk first, then the cheapest, all worth less than the ring")
+	for i = 2, #destroy do if destroy[i].order < destroy[i - 1].order then ordered = false end end
+	local hasBelt, hasFang = false, false
+	for _, d in ipairs(destroy) do if d.rec.itemID == 9702 then hasBelt = true end; if d.rec.itemID == 9701 and d.junk then hasFang = true end end
+	check(hasFang and ordered and hasBelt, "destroy suggestions: junk and the cheapest, least missed first, all worth less than the ring")
 	-- Junk: one click. Anything else: asks first.
-	local fangRow = f.destroyRows[1]
+	local fangRow
+	for _, r in ipairs(f.destroyRows) do if r:IsShown() and r.name.text == "Broken Fang" then fangRow = r end end
 	MRact(fangRow)
 	check(#deleted == 1, "a junk item is destroyed in one click")
 	local beltRow
@@ -5043,13 +5052,16 @@ end)()
 	local n, M = boot(nil)
 	M.fire("LOOT_OPENED"); M.runTimers()
 	local f = n.MakeRoom.frame
-	-- Limits: at most 6 destroy suggestions.
+	-- (1.7.0-beta3, by design) every candidate is listed; six show at once and the rest scroll
 	local shown = 0
 	for _, r in ipairs(f.destroyRows) do if r:IsShown() then shown = shown + 1 end end
-	check(shown == 6, "at most 6 destroy suggestions at once (the cheapest; the list refills as items go)")
+	local _, all = n.MakeRoom:Suggestions(n.MakeRoom:Waiting())
+	check(shown == #all and #all > 6 and math.abs(f.letGo:GetHeight() - 6 * f.destroyRows[1]:GetHeight()) < 0.5, "every destroy suggestion is listed, six at a time (the rest scroll)")
 	-- Names get the room left of the buttons; Junk moves to the value line.
-	local r = f.destroyRows[1]
-	check(r.name.width and r.name.width > 200 and not r.name.text:find("junk") and r.value.text:find("^Junk"), "names get all the width left of the buttons; Junk is shown on the value line")
+	-- (1.7.0-beta10, by design: Shweep's layout) Junk is in the cost column on the right; names get the room left of it
+	local r
+	for _, x in ipairs(f.destroyRows) do if x:IsShown() and x.cost and x.cost.text:find("^Junk") then r = r or x end end
+	check(r and r.name.width and r.name.width == r:GetWidth() - 62 - r.btnUsed - 8 and not r.name.text:find("junk") and r.cost.text:find("^Junk"), "names get all the width left of the cost column; Junk is shown there")
 	-- Item tooltips on hover.
 	local shownBag
 	GameTooltip.SetBagItem = function(_, bag, slot) shownBag = bag .. ":" .. slot end
@@ -5108,14 +5120,15 @@ end)()
 	GameTooltip.SetLootItem = function(_, slot) set.loot = slot end
 	GameTooltip.SetBagItem = function(_, bag, slot) set.bag = bag .. ":" .. slot end
 	f.waitRows[1]:GetScript("OnEnter")(f.waitRows[1])
-	local junkRow
-	for _, r in ipairs(f.destroyRows) do if r:IsShown() then junkRow = junkRow or r end end
+	local junkRow   -- (1.7.0-beta3, by design: junk no longer always first; found by name)
+	for _, r in ipairs(f.destroyRows) do if r:IsShown() and r.name.text == "Forest Mushroom Cap of the Long Name" then junkRow = r end end
 	junkRow:GetScript("OnEnter")(junkRow)
 	check(set.loot == 2 and set.bag == "0:1", "hovering a row shows that item's tooltip (loot or bag item)")
 	GameTooltip:Hide()
 	-- Junk is noted on the value line, so the name has room.
-	check(junkRow.name.text == "Forest Mushroom Cap of the Long Name" and junkRow.count.text == "3" and junkRow.value.text:find("^Junk") and junkRow.name.width > 150,
-		"the name gets the room left of the buttons; Junk is on the value line")
+	-- (1.7.0-beta10, by design: Shweep's layout) Junk is in the cost column on the right
+	check(junkRow.name.text == "Forest Mushroom Cap of the Long Name" and junkRow.count.text == "3" and junkRow.cost.text:find("^Junk") and junkRow.name.width > 150,
+		"the name gets the room left of the cost column; Junk is shown there")
 	-- The description sits just under the title.
 	check(f.sub.points[1][2] == f.title and f.sub.points[1][5] == -3, "the description sits just under the title")
 	-- Moving it: remembered (and kept through the settings checks), used next time.
@@ -6398,7 +6411,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.6%.3\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.6.3, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.7%.0\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.7.0, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -7148,7 +7161,14 @@ end)()
 	local movedText = ""
 	for _, w in ipairs(P.pools.moved or {}) do if w:IsShown() then movedText = w.text.text end end
 	P:ShowPage("sections")
-	for _, w in ipairs(P.pools.vis) do if w:IsShown() then vis[w.id] = { w.vendor:GetChecked() and true or false, w.ah:GetChecked() and true or false } end end
+	local function sectionRows(Pp)   -- (1.7.0-beta4) the one Section Order table's rows, by section id
+		local out = {}
+		for _, l in ipairs(Pp.pools.list) do if l:IsShown() then for _, r in ipairs(l.rows) do if r:IsShown() then out[r.id] = r end end end end
+		return out
+	end
+	for id, r in pairs(sectionRows(P)) do   -- (1.7.0-beta4, by design: the Vendor and AH columns of Section Order)
+		if r.cols.vendor and r.cols.vendor:IsShown() then vis[id] = { r.cols.vendor:GetChecked() and true or false, r.cols.ah:GetChecked() and true or false } end
+	end
 	local txt = {}
 	for _, w in ipairs(P.pools.text) do if w:IsShown() then txt[#txt + 1] = w.text.text end end
 	local alltxt = table.concat(txt, " ")
@@ -8653,13 +8673,22 @@ end)()
 	S:SetShown("Gear", "vendor", false)
 	local custom = S:Create("Test"); S:SetShown(custom, "vendor", false); S:SetShown(custom, "ah", false)
 	local Pn = n.SettingsPanel; Pn:Show(); Pn:ShowPage("sections")
+	-- (1.7.0-beta4, by design) Vendor and AH are columns of the Section Order table, under their headings; the boxes
+	-- show the state, so the rows carry no "hidden at" note
 	local head
-	for _, w in ipairs(Pn.pools.vishead) do if w:IsShown() then head = w end end
-	check(head and head.vendor.text == "Show at Vendor" and head.ah.text == "Show at AH", "the grid has Show at Vendor and Show at AH headings")
+	for _, w in ipairs(Pn.pools.listhead) do if w:IsShown() then head = w end end
+	local heads = {}
+	for _, t in ipairs(head and head.labels or {}) do if t:IsShown() then heads[#heads + 1] = t.text end end
+	check(table.concat(heads, "|") == "Pin|Vendor|AH", "the table has Pin, Vendor and AH headings (" .. table.concat(heads, "|") .. ")")
+	local function sectionRows(Pp)   -- (1.7.0-beta4) the one Section Order table's rows, by section id
+	local out = {}
+	for _, l in ipairs(Pp.pools.list) do if l:IsShown() then for _, r in ipairs(l.rows) do if r:IsShown() then out[r.id] = r end end end end
+	return out
+	end
 	local rows = {}
-	for _, w in ipairs(Pn.pools.vis) do if w:IsShown() then rows[w.id] = w end end
-	check(rows.Gear and rows.Gear.vendor:GetChecked() == false and rows.Gear.ah:GetChecked() == true and rows.Gear.note.text == "hidden at vendors", "Gear: Vendor unchecked, AH checked, noted as hidden at vendors")
-	check(rows[custom] and rows[custom].note.text == "hidden at both" and rows.Favorites == nil and rows["~fav"] and rows["~fav"].note.text == "", "Test: hidden at both; Favorites: shown everywhere, no note")
+	for id, r in pairs(sectionRows(Pn)) do rows[id] = { vendor = r.cols.vendor, ah = r.cols.ah } end
+	check(rows.Gear and rows.Gear.vendor:GetChecked() == false and rows.Gear.ah:GetChecked() == true, "Gear: Vendor unchecked, AH checked")
+	check(rows[custom] and rows[custom].vendor:GetChecked() == false and rows[custom].ah:GetChecked() == false and rows.Favorites == nil and rows["~fav"] and rows["~fav"].vendor:GetChecked() and rows["~fav"].ah:GetChecked(), "Test: hidden at both; Favorites: shown everywhere")
 	rows.Gear.vendor:SetChecked(true); rows.Gear.vendor:GetScript("OnClick")(rows.Gear.vendor)
 	check(S:Shown("Gear", "vendor"), "checking a box shows the section there again")
 	Pn:Hide()
@@ -9201,8 +9230,10 @@ end)()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	local GS, P = n.GearSets, n.SettingsPanel
 	P:Show(); P:ShowPage("sections")
-	local visGroup = false
-	for _, w in ipairs(P.pools.vis) do if w:IsShown() and w.id == "~gs" and w.text.text == "Gear Sets" then visGroup = true end end
+	local visGroup = false   -- (1.7.0-beta4, by design: the Section Order table's Gear Sets row has the Vendor and AH boxes)
+	for _, l in ipairs(P.pools.list) do if l:IsShown() then for _, r in ipairs(l.rows) do
+		if r:IsShown() and r.id == "~gs" and r.text.text == "Gear Sets" and r.cols and r.cols.vendor and r.cols.vendor:IsShown() then visGroup = true end
+	end end end
 	check(visGroup, "gear sets share one Show at Vendor / AH row")
 	local list
 	for _, w in ipairs(P.pools.list) do if w:IsShown() then list = list or w end end
@@ -9521,11 +9552,11 @@ end)()
 	local function laneIndex(id) for i, l in ipairs(main.laneIds or {}) do if l == id then return i end end end
 	local P = n.SettingsPanel
 	P:Show(); P:ShowPage("sections")
-	local group, perSet = false, false
-	for _, w in ipairs(P.pools.vis) do
-		if w:IsShown() and w.id == "~gs" and w.text.text == "Gear Sets" then group = true end
-		if w:IsShown() and w.id:sub(1, 4) == "~gs:" then perSet = true end
-	end
+	local group, perSet = false, false   -- (1.7.0-beta4, by design: the Section Order table's rows)
+	for _, l in ipairs(P.pools.list) do if l:IsShown() then for _, r in ipairs(l.rows) do
+		if r:IsShown() and r.id == "~gs" and r.text.text == "Gear Sets" and r.cols and r.cols.vendor and r.cols.vendor:IsShown() then group = true end
+		if r:IsShown() and tostring(r.id):sub(1, 4) == "~gs:" then perSet = true end
+	end end end
 	check(group and not perSet, "Vendors & Auction House has one Gear Sets row, not one per set")
 	P:Hide()
 	local h
@@ -9832,7 +9863,8 @@ end)()
 	local function heads() local t = {}; for _, w in ipairs(P.pools.head) do if w:IsShown() then t[#t + 1] = w.text.text end end; return table.concat(t, "|") end
 	local function shown(pool, key) for _, w in ipairs(P.pools[pool]) do if w:IsShown() and w.key == key then return w end end end
 	P:ShowPage("sections")
-	check(heads() == "Sections|Which Section an Item Goes To|Keys & Reagent Bag|Consumables|Section Order|Pinned Sections|Vendors & Auction House", "Standard Sections: " .. heads())
+	-- (1.7.0-beta4, by design) pins and vendor/AH hiding are columns of Section Order
+	check(heads() == "Sections|Which Section an Item Goes To|Keys & Reagent Bag|Consumables|Gear|Move, Pin and Hide Sections", "Standard Sections: " .. heads())   -- (1.7.0-beta5, by design: the card's name; 1.7.0-beta6: the Gear card)
 	check(shown("check", "keys") and shown("seg", "reagent") and not shown("check", "recentSection") and #P.pools.csec == 0 or not P.pools.csec[1]:IsShown(), "keys and the reagent bag are here; Recent and custom sections aren't")
 	local list
 	for _, w in ipairs(P.pools.list) do if w:IsShown() then list = w end end
@@ -10301,29 +10333,33 @@ end)()
 	local WN = n.WhatsNew
 	-- (1.6.0, by design) the 1.6 entry leads (Blackthornes prices, Quest Starters, see-through windows, fewer tips); the
 	-- older entries follow, one place down
-	local e = WN.ENTRIES[1]
+	-- (1.7.0-beta6, by design) the 1.7 entry leads now; every older entry one place down again (each check kept)
+	local e17 = WN.ENTRIES[1]
+	-- (1.7.0-beta12, by design: Shweep's review) the 1.7 card has nine bullets (its body scrolls): up to nine
+	check(e17.v == "1.7.0" and e17.heading == "BagSmith 1.7" and #e17.items >= 2 and #e17.items <= 9 and table.concat(e17.items, " "):find("Split Gear by Binding:", 1, true), "What's New leads with a 1.7 entry: Split Gear by Binding among its bullets")
+	local e = WN.ENTRIES[2]
 	local text = table.concat(e.items, " ")
 	check(e.v == "1.6.0" and e.heading == "BagSmith 1.6" and #e.items >= 2 and #e.items <= 8 and text:find("Blackthornes Tradeskills Prices:", 1, true) and text:find("Quest Starters:", 1, true), "What's New leads with a 1.6 entry: Blackthornes prices and Quest Starters among its bullets")
 	-- (1.5.1) the 1.5.1 entry: the Loot Helper's new destroy default and its two settings
-	e = WN.ENTRIES[2]
+	e = WN.ENTRIES[3]
 	text = table.concat(e.items, " ")
 	check(e.v == "1.5.1" and e.heading == "BagSmith 1.5.1" and #e.items >= 2 and #e.items <= 8 and text:find("Faster Destroying:", 1, true) and text:find("Ask Before Destroying", 1, true) and text:find("Always Ask for Rare or Better", 1, true) and not text:find("\226\128\148"), "What's New leads with a 1.5.1 entry: the destroy default and its two settings")
 	-- (1.5.0) the 1.5 entry: Icon Corners and marks from other addons
-	e = WN.ENTRIES[3]; text = table.concat(e.items, " ")
-	check(e.v == "1.5.0" and e.heading == "BagSmith 1.5" and #e.items >= 2 and #e.items <= 8 and text:find("Icon Corners:", 1, true) and text:find("Marks from Other Addons:", 1, true) and not text:find("\226\128\148"), "What's New leads with a 1.5 entry: Icon Corners, marks from other addons")
 	e = WN.ENTRIES[4]; text = table.concat(e.items, " ")
-	check(e.v == "1.4.0" and e.heading == "BagSmith 1.4" and #e.items >= 3 and #e.items <= 8 and text:find("Sort: Off:", 1, true) and text:find("Pinned Sections:", 1, true) and text:find("By Section:", 1, true), "What's New leads with a 1.4 entry: Sort Off, pinned sections, By Section")
+	check(e.v == "1.5.0" and e.heading == "BagSmith 1.5" and #e.items >= 2 and #e.items <= 8 and text:find("Icon Corners:", 1, true) and text:find("Marks from Other Addons:", 1, true) and not text:find("\226\128\148"), "What's New leads with a 1.5 entry: Icon Corners, marks from other addons")
 	e = WN.ENTRIES[5]; text = table.concat(e.items, " ")
-	check(e.v == "1.3.0" and e.heading == "BagSmith 1.3" and #e.items >= 3 and #e.items <= 8 and text:find("Loot Helper:", 1, true) and text:find("Why Things Are Left Out:", 1, true) and text:find("Exclusion Lists:", 1, true), "What's New leads with a 1.3 entry: the Loot Helper, why things are left out, the Exclusion Lists")
+	check(e.v == "1.4.0" and e.heading == "BagSmith 1.4" and #e.items >= 3 and #e.items <= 8 and text:find("Sort: Off:", 1, true) and text:find("Pinned Sections:", 1, true) and text:find("By Section:", 1, true), "What's New leads with a 1.4 entry: Sort Off, pinned sections, By Section")
 	e = WN.ENTRIES[6]; text = table.concat(e.items, " ")
-	check(e.v == "1.2.0" and e.heading == "BagSmith 1.2" and #e.items >= 3 and #e.items <= 8 and text:find("Disenchant Helper:", 1, true) and text:find("Fewer Yes/No Boxes:", 1, true) and text:find("Mail and Trade:", 1, true), "What's New leads with a 1.2 entry: the Disenchant Helper, fewer yes/no boxes, mail and trade")
+	check(e.v == "1.3.0" and e.heading == "BagSmith 1.3" and #e.items >= 3 and #e.items <= 8 and text:find("Loot Helper:", 1, true) and text:find("Why Things Are Left Out:", 1, true) and text:find("Exclusion Lists:", 1, true), "What's New leads with a 1.3 entry: the Loot Helper, why things are left out, the Exclusion Lists")
 	e = WN.ENTRIES[7]; text = table.concat(e.items, " ")
-	check(e.v == "1.1.0" and e.heading == "BagSmith 1.1" and #e.items >= 3 and #e.items <= 8 and text:find("Item Level on Icons:", 1, true) and text:find("List View:", 1, true) and text:find("Classic Style:", 1, true) and text:find("Smoother Scrolling:", 1, true) and text:find("Pawn Arrow:", 1, true), "the 1.1 entry follows: the item level feature, List view, Classic style, smoother scrolling, the Pawn arrow")
+	check(e.v == "1.2.0" and e.heading == "BagSmith 1.2" and #e.items >= 3 and #e.items <= 8 and text:find("Disenchant Helper:", 1, true) and text:find("Fewer Yes/No Boxes:", 1, true) and text:find("Mail and Trade:", 1, true), "What's New leads with a 1.2 entry: the Disenchant Helper, fewer yes/no boxes, mail and trade")
 	e = WN.ENTRIES[8]; text = table.concat(e.items, " ")
+	check(e.v == "1.1.0" and e.heading == "BagSmith 1.1" and #e.items >= 3 and #e.items <= 8 and text:find("Item Level on Icons:", 1, true) and text:find("List View:", 1, true) and text:find("Classic Style:", 1, true) and text:find("Smoother Scrolling:", 1, true) and text:find("Pawn Arrow:", 1, true), "the 1.1 entry follows: the item level feature, List view, Classic style, smoother scrolling, the Pawn arrow")
+	e = WN.ENTRIES[9]; text = table.concat(e.items, " ")
 	check(e.v == "1.0.0" and e.heading == "BagSmith 1.0" and #e.items >= 2 and #e.items <= 8, "the 1.0 entry follows")
 	check(text:find("Thank you:", 1, true) and text:find("Discord", 1, true) and text:find("Plugins:", 1, true) and text:find("Coming soon, BagSmith Gamepad Plugin:", 1, true) and text:find("alpha testing", 1, true) and text:find("testers", 1, true),
 		"it thanks the players, invites them to the Discord, introduces plugins, and announces the Gamepad companion as coming soon with testers wanted at beta")
-	local e15 = WN.ENTRIES[9]
+	local e15 = WN.ENTRIES[10]
 	local text15 = table.concat(e15.items, " ")
 	check(e15.v == "0.15.0" and e15.heading == "BagSmith 0.15" and #e15.items >= 5 and #e15.items <= 8 and text15:find("Gear Sets:", 1, true) and text15:find("Settings Search:", 1, true) and text15:find("Recent Items:", 1, true) and text15:find("Tidier Settings:", 1, true),
 		"the 0.15 entry follows, covering gear sets, Settings search, Recent Items and the reorganized Settings")
@@ -10817,7 +10853,7 @@ end)()
 ;(function()
 	-- 0.15.0 (prod): one clean 0.15.0 changelog section; the sword-and-shield replaces the helmet everywhere.
 	local log = io.open("BagSmith/CHANGELOG.md"):read("*a")
-	check(log:find("^## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.6.3 (the release in progress; 1.6.3, by design), then 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
+	check(log:find("^## 1%.7%.0\n") and log:find("\n## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.7.0 (the release in progress; 1.7.0, by design), then 1.6.3, 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
 	local section = log:match("(## 0%.15%.0\n.-)\n## ") or ""
 	local bad = false
 	for _, w in ipairs({ "colour", "favourite", "behaviour", "cancelled", "helmet", "\226\128\148" }) do if section:find(w) then bad = true end end

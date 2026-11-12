@@ -22,6 +22,8 @@ ns.Sections = S
 S.BUILTIN = { "Gear", "Consumables", "Reagents", "TradeGoods", "Recipes", "Quest", "Tokens", "Other" }
 -- (1.5.0-beta9) Split Consumables' sections are built-in sections too (listed in Section Order only while split)
 for _, k in ipairs(ns.CONS_KINDS) do S.BUILTIN[#S.BUILTIN + 1] = ns.CONS_ID[k] end
+-- (1.7.0-beta6) and Split Gear by Binding's
+for _, k in ipairs(ns.GEAR_KINDS) do S.BUILTIN[#S.BUILTIN + 1] = ns.GEAR_ID[k] end
 local BUILTIN_SET = {}
 for _, id in ipairs(S.BUILTIN) do BUILTIN_SET[id] = true end
 S.BUILTIN_SET = BUILTIN_SET
@@ -46,29 +48,55 @@ end
 function S:IsCustom(id) return type(id) == "string" and id:match("^c%d+$") ~= nil and self:Custom(id) ~= nil end
 -- Somewhere an item can be moved to.
 -- (1.5.0-beta9) Is this split consumable section in use (Split Consumables on, and its type split out)?
+-- (1.7.0-beta6) Split Gear by Binding's sections likewise (one question for both splits; the name is from 1.5.0).
 function S:ConsSplitActive(id)
 	local db = ns.db
-	if not (db and db.splitCons and ns.PARENT_CAT[id]) then return false end
-	for k, cid in pairs(ns.CONS_ID) do if cid == id then return (db.splitConsTypes or {})[k] ~= false end end
+	if not (db and ns.PARENT_CAT[id]) then return false end
+	for k, cid in pairs(ns.CONS_ID) do if cid == id then return (db.splitCons and (db.splitConsTypes or {})[k] ~= false) and true or false end end
+	for k, gid in pairs(ns.GEAR_ID) do if gid == id then return (db.splitGear and (db.splitGearTypes or {})[k] ~= false) and true or false end end
 	return false
 end
+S.SplitActive = S.ConsSplitActive
 -- The split sections join Section Order right after Consumables (once; you can move them from there).
+-- (1.7.0-beta7) True when it added any (so Settings can draw them).
 function S:EnsureConsOrder()
 	local order = ns.db and ns.db.laneOrder
-	if type(order) ~= "table" then return end
-	local have = {}
+	if type(order) ~= "table" then return false end
+	local have, added = {}, false
 	for _, id in ipairs(order) do have[id] = true end
 	local at = (ns.IndexOf(order, "Consumables") or #order) + 1
 	for _, k in ipairs(ns.CONS_KINDS) do
 		local id = ns.CONS_ID[k]
-		if not have[id] then table.insert(order, at, id); at = at + 1 end
+		if not have[id] then table.insert(order, at, id); at = at + 1; added = true end
 	end
+	return added
+end
+-- (1.7.0-beta6) Split Gear by Binding's sections join Section Order right after Gear, the same way
+function S:EnsureGearOrder()
+	local order = ns.db and ns.db.laneOrder
+	if type(order) ~= "table" then return false end
+	local have, added = {}, false
+	for _, id in ipairs(order) do have[id] = true end
+	local at = (ns.IndexOf(order, "Gear") or #order) + 1
+	for _, k in ipairs(ns.GEAR_KINDS) do
+		local id = ns.GEAR_ID[k]
+		if not have[id] then table.insert(order, at, id); at = at + 1; added = true end
+	end
+	return added
 end
 function S:CanTake(id) return BUILTIN_SET[id] or self:IsCustom(id) or false end
+-- (1.7.0-beta10, Shweep) While Split Gear by Binding splits anything out, Gear holds what's left and reads "Gear: Other",
+-- beside Gear: Soulbound and Gear: BoE. (The Gear tab and the category filter keep "Gear": they cover all of it.)
+S.GEAR_OTHER = "Gear: Other"
+function S:GearSplitOn()
+	for _, id in pairs(ns.GEAR_ID) do if self:ConsSplitActive(id) then return true end end
+	return false
+end
 function S:Label(id)
 	local c = self:Custom(id)
 	if c then return c.name end
 	if ns.GearSets and ns.GearSets.IsLane(id) then return ns.GearSets.NameOf(id) end
+	if id == "Gear" and self:GearSplitOn() then return S.GEAR_OTHER end
 	return SPECIAL_LABEL[id] or ns.CAT_LABEL[id] or id
 end
 -- Every section you can move items to, in Section Order.
@@ -105,7 +133,8 @@ end
 local FLAG_ONLY = { Quest = true, TradeGoods = true }
 function S:OwnCategory(rec)
 	-- (1.5.0-beta9) a consumable's own section follows this profile's Split Consumables (other characters' saved bags too)
-	if rec.ownCat and (rec.ownCat == "Consumables" or ns.PARENT_CAT[rec.ownCat]) and rec.classID ~= nil then return ns:Categorize(rec) end
+	-- (1.7.0-beta6) and a piece of gear's follows its Split Gear by Binding
+	if rec.ownCat and (rec.ownCat == "Consumables" or rec.ownCat == "Gear" or ns.PARENT_CAT[rec.ownCat]) and rec.classID ~= nil then return ns:Categorize(rec) end
 	if rec.ownCat then return rec.ownCat end
 	local own = ns:Categorize(rec)
 	if own == "Other" and FLAG_ONLY[rec.cat] and rec.isQuest == nil and rec.isCraftingReagent == nil then return rec.cat end
@@ -119,15 +148,22 @@ function S:Apply(rec, own)
 end
 -- Re-sort what's already scanned after a move, without a rescan.
 -- (1.5.0-beta9) Split Consumables changed: every consumable works out its own section again.
+-- (1.7.0-beta6) Split Gear by Binding changed: every piece of gear too.
+-- (1.7.0-beta7, Shweep) Settings redraws on the same change before this runs, so a split's sections, added to Section
+-- Order here the first time it's turned on, weren't in its table until the next redraw: draw it again when they're new.
 function S:ReclassifyConsumables()
 	ns:ConsSplitChanged()
-	if ns.db and ns.db.splitCons then self:EnsureConsOrder() end
+	local added = false
+	if ns.db and ns.db.splitCons and self:EnsureConsOrder() then added = true end
+	if ns.db and ns.db.splitGear and self:EnsureGearOrder() then added = true end
 	for _, list in ipairs({ ns.items or {}, ns.bankItems or {} }) do
 		for _, rec in ipairs(list) do
-			if rec.itemID and (rec.ownCat == "Consumables" or ns.PARENT_CAT[rec.ownCat]) then rec.ownCat = ns:Categorize(rec) end
+			if rec.itemID and (rec.ownCat == "Consumables" or rec.ownCat == "Gear" or ns.PARENT_CAT[rec.ownCat]) then rec.ownCat = ns:Categorize(rec) end
 		end
 	end
 	self:Reapply()
+	local P = ns.SettingsPanel
+	if added and P and P.frame and P.frame:IsShown() then P:Refresh() end
 end
 function S:Reapply()
 	for _, list in ipairs({ ns.items or {}, ns.bankItems or {} }) do
@@ -178,6 +214,7 @@ function S:NameTaken(name, except)
 	-- (1.5.0-beta9: Split Consumables' names count only while in use, so a section of your own can be called "Potions")
 	for _, id in ipairs(S.BUILTIN) do if (not ns.PARENT_CAT[id] or self:ConsSplitActive(id)) and (ns.CAT_LABEL[id] or id):lower() == low then return true end end
 	for _, l in pairs(SPECIAL_LABEL) do if l:lower() == low then return true end end
+	if self:GearSplitOn() and S.GEAR_OTHER:lower() == low then return true end   -- (1.7.0-beta10)
 	for _, c in ipairs(self:Customs()) do if c.id ~= except and c.name:lower() == low then return true end end
 	return false
 end
@@ -330,9 +367,10 @@ ns:OnSignal("ADDON_READY", function()
 	-- open that was acting on the old profile's sections.
 	-- (1.5.0-beta9) Split Consumables: on, off, a type ticked or unticked, or another profile
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
-		if key == "splitCons" or key == "splitConsTypes" or key == nil then S:ReclassifyConsumables() end
+		if key == "splitCons" or key == "splitConsTypes" or key == "splitGear" or key == "splitGearTypes" or key == nil then S:ReclassifyConsumables() end
 	end)
 	if ns.db and ns.db.splitCons then S:EnsureConsOrder(); ns:ConsSplitChanged() end
+	if ns.db and ns.db.splitGear then S:EnsureGearOrder(); ns:ConsSplitChanged() end
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
 		if key ~= nil then return end
 		-- (each one on its own: any of them may never have been opened)

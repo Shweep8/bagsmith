@@ -127,7 +127,7 @@ end)()
 		"Settings > Disenchant Helper: Leveling Enchanting's help (Shweep's wording): " .. tostring(help))
 	P:Hide()
 	-- What's New: the sixth bullet
-	local e = n.WhatsNew.ENTRIES[1]
+	local e = n.WhatsNew.ENTRIES[2]   -- (1.7.0-beta6, by design) the 1.7 card leads now
 	check(e.v == "1.6.0" and #e.items == 6 and e.items[6] == "|cfffac775Smarter Disenchant Advice:|r the Disenchant Helper counts the AH's cut and leans toward disenchanting while you level Enchanting (Settings > Disenchant Helper).",
 		"What's New: the 1.6 card's sixth bullet, Smarter Disenchant Advice")
 end)()

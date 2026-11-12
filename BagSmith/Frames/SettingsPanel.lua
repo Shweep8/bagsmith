@@ -159,7 +159,7 @@ function Panel:Create()
 	child:SetSize(1, 1)
 	scroll:SetScrollChild(child)
 	f.child, self.scroll = child, scroll
-	self.pools = { cornerCards = {}, head = {}, check = {}, seg = {}, step = {}, list = {}, text = {}, edit = {}, btn = {}, color = {}, profiles = {}, cmd = {}, bind = {}, about = {}, csec = {}, csechead = {}, moved = {}, gset = {}, ptitle = {}, vis = {}, vishead = {}, pin = {}, card = {}, sep = {}, plug = {}, pnotice = {}, feat = {}, sub = {} }   -- (1.6.0) sub: sub-headings inside a card
+	self.pools = { cornerCards = {}, head = {}, check = {}, seg = {}, step = {}, list = {}, text = {}, edit = {}, btn = {}, color = {}, profiles = {}, cmd = {}, bind = {}, about = {}, csec = {}, csechead = {}, moved = {}, gset = {}, ptitle = {}, listhead = {}, card = {}, sep = {}, plug = {}, pnotice = {}, feat = {}, sub = {} }   -- (1.6.0) sub: sub-headings inside a card
 	self.page = self.page or "general"
 	table.insert(UISpecialFrames, "BagSmithSettings")
 	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
@@ -732,9 +732,14 @@ end
 
 -- Ordered list with optional checkbox per row and up/down arrows.
 -- items: { { id=, label=, checked=bool|nil } }; onCheck(id, on); onMove(id, delta)
-function Panel:List(items, onCheck, onMove)
+-- cols (1.7.0-beta4, Shweep: one table instead of three lists): optional checkbox columns on every row, left of the
+-- arrows: { key, tip, get = function(id) -> true/false, or nil for no box on that row, set = function(id, on),
+-- keywords (searched) }. Panel:ListHeader(cols) puts their headings over them.
+local LIST_COL_W = 52
+function Panel:List(items, onCheck, onMove, cols)
 	local l = acquire(self, "list", function(p) local w = CreateFrame("Frame", nil, p); w:SetSize(ROW_W, 1); w.rows = {}; return w end)
 	l:SetWidth(rowW)
+	local ncols = cols and #cols or 0
 	for i, it in ipairs(items) do
 		local r = l.rows[i]
 		if not r then
@@ -771,19 +776,55 @@ function Panel:List(items, onCheck, onMove)
 		end
 		r.id, r.onCheck, r.onMove = it.id, onCheck, onMove
 		r.tip = it.tip
+		-- (1.7.0-beta4) the checkbox columns, made on first use, kept by key
+		r.cols = r.cols or {}
+		for key, b in pairs(r.cols) do b:Hide(); b.active = nil end
+		for ci, col in ipairs(cols or {}) do
+			local b = r.cols[col.key]
+			if not b then
+				b = CreateFrame("CheckButton", nil, r, "UICheckButtonTemplate"); b:SetSize(22, 22)
+				b:SetScript("OnClick", function(btn) if btn.col and btn.col.set then btn.col.set(btn:GetParent().id, btn:GetChecked() and true or false) end end)
+				b:SetScript("OnEnter", function(btn)
+					btn:GetParent().hover:Show()
+					if btn.col and btn.col.tip and ns.TooltipsOK() then GameTooltip:SetOwner(btn, "ANCHOR_RIGHT"); ns.TipText(GameTooltip, btn.col.tip, 1, 1, 1, 1, true); GameTooltip:Show() end
+				end)
+				b:SetScript("OnLeave", function(btn) local row = btn:GetParent(); row.hover:SetShown(row:IsMouseOver() and true or false); GameTooltip:Hide() end)
+				r.cols[col.key] = b
+			end
+			b.col = col
+			local v = col.get and col.get(it.id)
+			b:ClearAllPoints(); b:SetPoint("CENTER", r, "RIGHT", -54 - (ncols - ci) * LIST_COL_W - LIST_COL_W / 2, 0)
+			b:SetShown(v ~= nil); b.active = v ~= nil or nil   -- (a row with nothing to set here shows no box)
+			if v ~= nil then b:SetChecked(v and true or false) end
+		end
 		r.stripe:SetShown(i % 2 == 0)   -- the first row of every list is plain
 		r.text:SetText(it.label); r.text:SetTextColor(Skins:Color((it.disabled or it.dim) and "muted" or "text"))
 		r.box:SetShown(it.checked ~= nil)
 		r.box:SetChecked(it.checked and true or false)
 		-- Greyed out: shown, can't be ticked.
 		if it.disabled then r.box:Disable(); r.box:SetAlpha(0.5) else r.box:Enable(); r.box:SetAlpha(1) end
-		r.text:ClearAllPoints(); r.text:SetPoint("LEFT", it.checked ~= nil and 24 or 4, 0); r.text:SetPoint("RIGHT", -54, 0)
+		r.text:ClearAllPoints(); r.text:SetPoint("LEFT", it.checked ~= nil and 24 or 4, 0); r.text:SetPoint("RIGHT", -54 - ncols * LIST_COL_W, 0)
 		r.up:SetShown(i > 1 and not it.noUp); r.down:SetShown(i < #items and not it.noDown)   -- (1.6.0-beta6) a row can keep its place
 		r:ClearAllPoints(); r:SetPoint("TOPLEFT", l, "TOPLEFT", 0, -(i - 1) * 26); r:SetWidth(rowW); r:Show()
 	end
 	for j = #items + 1, #l.rows do l.rows[j]:Hide() end
 	l:SetHeight(math.max(1, #items * 26))
 	self.y = self.y + #items * 26 + 10
+end
+
+-- (1.7.0-beta4) The headings over a list's checkbox columns, each centered over its column.
+function Panel:ListHeader(cols)
+	local w = acquire(self, "listhead", function(p) local w = CreateFrame("Frame", nil, p); w:SetHeight(18); w.labels = {}; return w end)
+	local ncols = #cols
+	for _, t in pairs(w.labels) do t:Hide() end
+	for ci, col in ipairs(cols) do
+		local t = w.labels[ci]
+		if not t then t = fs(w); t:SetJustifyH("CENTER"); w.labels[ci] = t end
+		t:SetText(col.head); t:SetTextColor(Skins:Color("muted"))
+		t:ClearAllPoints(); t:SetPoint("CENTER", w, "RIGHT", -54 - (ncols - ci) * LIST_COL_W - LIST_COL_W / 2, 0)
+		t:Show()
+	end
+	self.y = self.y + 20
 end
 
 -- Icon Corners (1.5.0-beta10): dropdowns. At the top, two small previews side by side (your real icon at your Icon
@@ -1147,58 +1188,6 @@ function Panel:MovedRow()
 	w.manage:SetActive(false); w.reset:SetActive(false)
 	self.y = self.y + 28
 end
--- A section's Show at Vendor and Show at Auction House toggles.
--- The headings over the Show at Vendor / Show at AH checkboxes.
-function Panel:VisibilityHeader()
-	local w = acquire(self, "vishead", function(p)
-		local w = CreateFrame("Frame", nil, p); w:SetHeight(18)
-		w.vendor = fs(w); w.vendor:SetPoint("RIGHT", -80, 0); w.vendor:SetJustifyH("RIGHT"); w.vendor:SetText("Show at Vendor")
-		w.ah = fs(w); w.ah:SetPoint("RIGHT", 0, 0); w.ah:SetJustifyH("RIGHT"); w.ah:SetText("Show at AH")
-		return w
-	end)
-	w.vendor:SetTextColor(Skins:Color("muted")); w.ah:SetTextColor(Skins:Color("muted"))
-	self.y = self.y + 20
-end
--- A section's Show at Vendor and Show at AH checkboxes (checked: shown), with
--- a note after its name when it's hidden somewhere.
-function Panel:VisibilityRow(id)
-	local w = acquire(self, "vis", function(p)
-		local w = CreateFrame("Frame", nil, p); w:SetHeight(24)
-		w.text = fs(w); w.text:SetPoint("LEFT", 6, 0)
-		w.note = fs(w); w.note:SetPoint("LEFT", w.text, "RIGHT", 8, 0)
-		local function box(where, x)
-			local b = CreateFrame("CheckButton", nil, w, "UICheckButtonTemplate"); b:SetSize(24, 24)
-			b:SetPoint("RIGHT", x, 0)
-			b:SetScript("OnClick", function(btn) ns.Sections:SetShown(w.id, where, btn:GetChecked() and true or false); Panel:Refresh() end)
-			return b
-		end
-		w.vendor = box("vendor", -80)
-		w.ah = box("ah", 0)
-		return w
-	end)
-	w.id = id
-	local atVendor, atAH = ns.Sections:Shown(id, "vendor"), ns.Sections:Shown(id, "ah")
-	w.text:SetText(ns.Sections:Label(id)); w.text:SetTextColor(Skins:Color("text"))
-	local note = (not atVendor and not atAH) and "hidden at both" or (not atVendor) and "hidden at vendors" or (not atAH) and "hidden at the AH" or ""
-	w.note:SetText(note); w.note:SetTextColor(Skins:Color("muted"))
-	w.vendor:SetChecked(atVendor); w.ah:SetChecked(atAH)
-	self.y = self.y + 26
-end
-
--- A section and its pin (1.4.0).
-function Panel:PinRow(id)
-	local w = acquire(self, "pin", function(p)
-		local w = CreateFrame("Frame", nil, p); w:SetHeight(24)
-		w.text = fs(w); w.text:SetPoint("LEFT", 6, 0)
-		w.box = CreateFrame("CheckButton", nil, w, "UICheckButtonTemplate"); w.box:SetSize(24, 24); w.box:SetPoint("RIGHT", 0, 0)
-		w.box:SetScript("OnClick", function(btn) ns.Sections:SetPinned(w.id, btn:GetChecked() and true or false); Panel:Refresh() end)
-		return w
-	end)
-	w.id = id
-	w.text:SetText(ns.Sections:Label(id) or id); w.text:SetTextColor(Skins:Color("text"))
-	w.box:SetChecked(ns.Sections:Pinned(id))
-	self.y = self.y + 26
-end
 function Panel:Button(label, onClick, width)
 	local b = acquire(self, "btn", function(p) local w = ns.TextButton(p, "", 100, function(btn) btn.onClick(btn) end); w:SetHeight(22); return w end)
 	b.label:SetText(label); b.onClick = onClick
@@ -1314,6 +1303,11 @@ pages.look = function(self, db)
 	self:Check("dense", "Compact Rows", "Shorter rows in List view")
 	self:Head("Layout")
 	self:Check("splitView", "Split View (Icons View)", "Shows sections side by side in two columns. Works with By Section or By Bag when the window is wide enough.")
+	-- (1.7.0-beta2, Shweep) greyed while Split View is off
+	self:Indented(function()
+		self:Check("splitViewRecentWide", "Full-Width Recent", "Recent Items spans both columns instead of sharing a row with the next section.",
+			(not db.splitView) and { disabled = true, checked = db.splitViewRecentWide } or nil)
+	end)
 	self:Check("emptySlots", "Show Empty Slots", "Shows your free bag spaces as empty squares in Icons view. Not shown in By Section.")
 end
 
@@ -1381,8 +1375,12 @@ pages.loothelper = function(self, db)
 	self:Head("Loot Helper")
 	self:Text("When your bags are too full for your loot, the Loot Helper shows ways to make room, then picks up the rest.")
 	self:Check("makeRoom", "Show Loot Helper When Loot Won't Fit")
+	-- (1.7.0-beta4, Shweep) how the list decides, in the words its (i) uses
+	self:Sub("What Shows Up First")
+	self:Text("It makes room for the most valuable item waiting, or the one you click. Free ways come first, then what you'd miss least. Mostly it goes by price, cheapest first. Things you craft with stay further down, and if you have two stacks of something, the smaller one goes first. It learns what you craft with when you open your profession window.")
+	self:Text("Junk always shows up, even when it's worth more than what you're looting. Anything you still need for a quest is never on the list, unless its heading is collapsed in your quest log.")
 	self:Seg("makeRoomValue", "Rank Suggestions By", { { "ah", "AH Price" }, { "vendor", "Vendor Price" } },
-		"Which price decides what's suggested first. Without an AH price, the vendor price is used.")
+		"The prices it goes by. Where there's no AH price, it uses the vendor's.")
 	-- (1.5.1-beta2) whether destroying asks first
 	-- (1.6.0-beta4) the plainer help lines no longer say "confirm": search still finds these by it
 	self:Check("makeRoomAsk", "Ask Before Destroying", "Asks before destroying anything. Junk always goes in one click.", { keywords = "confirm confirmation" })
@@ -1391,7 +1389,7 @@ pages.loothelper = function(self, db)
 			{ disabled = db.makeRoomAsk and true or nil, checked = db.makeRoomAsk and true or nil, keywords = "destroy destroyed destroying confirm confirmation" })
 	end)
 	-- The Loot Exclusion List: one line here, the list in its own window.
-	self:Text("Favorites, gear-set items, quest items and Pawn upgrades are never suggested for destroying.")
+	self:Text("Favorites, gear-set items, quest items, Pawn upgrades and items you protect are never suggested for destroying.")
 	self:Head("Loot Exclusion List")
 	self:Text("Items the Loot Helper won't make room for. This list only affects the Loot Helper.")
 	self:Text("The helpers never destroy or disenchant favorites, but junk selling still sells grey favorites.")
@@ -1404,6 +1402,20 @@ pages.loothelper = function(self, db)
 		})
 	else
 		self:Text("Your Loot Exclusion List is empty. Use Exclude in the Loot Helper to add items.")
+	end
+	-- (1.7.0-beta1, Shweep) Protected Items: bag items the helper won't suggest destroying (the Protect button; beside Destroy
+	-- since 1.7.0-beta10)
+	self:Head("Protected Items")
+	self:Text("Items in your bags the Loot Helper won't suggest destroying, without making them favorites. This list only affects the Loot Helper.")
+	local prot = ns.MakeRoom and ns.MakeRoom:ProtectedList() or {}
+	if #prot > 0 then
+		self:Text(("Protected Items: %d %s"):format(#prot, #prot == 1 and "item" or "items"))
+		self:Buttons({
+			{ "Manage...", function() ns.MakeRoom:ManageProtected() end },
+			{ "Clear All", function(btn) ns.Confirm(btn, ("Let the Loot Helper suggest all %d items again?"):format(#prot), function() ns.MakeRoom:ClearProtected(); self:Refresh() end) end },
+		})
+	else
+		self:Text("Nothing is protected yet. Use Protect in the Loot Helper to add items.")
 	end
 end
 
@@ -1478,6 +1490,8 @@ pages.window = function(self, db)
 	else
 		self:Step("fixW", "Width", 20, "%d"); self:Step("fixH", "Height", 20, "%d")
 	end
+	-- (1.7.0-beta2, Shweep)
+	self:Check("lockWindows", "Lock Windows", "Your bags, bank and bag windows and the Loot and Disenchant Helpers can't be moved or resized.")
 	-- (1.6.0) one Opacity card, in three parts (Shweep): what's always see-through, what dims while moving, what dims in
 	-- combat. Background Opacity alone touches only the frame; moving and combat fade whole windows.
 	self:Head("Opacity")
@@ -1535,14 +1549,42 @@ pages.sections = function(self, db)
 			end
 		end)
 	end
-	self:Head("Section Order")
-	self:Text("Every section follows this order, dynamic and custom ones included.")
+	-- (1.7.0-beta6, Shweep) Split Gear by Binding
+	self:Head("Gear")
+	self:Check("splitGear", "Split Gear by Binding", "Splits Gear into Gear: Soulbound and Gear: BoE. Gear that binds when used, or doesn't bind, stays in Gear: Other, and so does a kind you untick.",
+		{ keywords = "bind binding bound soulbound boe bop bou equip pickup" })
+	if db.splitGear then
+		self:Indented(function()
+			local GEAR_HELP = { Soulbound = "Bind on pickup, and bind on equip once it's bound to you.", BoE = "Bind on equip, not yet bound: you can still trade it or sell it on the AH." }
+			for _, k in ipairs(ns.GEAR_KINDS) do
+				self:Check("splitGear_" .. k, ns.GEAR_LABEL[k], GEAR_HELP[k])
+				local c = self.pools.check[self.counts.check]
+				if c and c.key == "splitGear_" .. k then
+					c.box:SetChecked((db.splitGearTypes or {})[k] ~= false)
+					c.onSet = function(on)
+						local t = {}
+						for kk, v in pairs(db.splitGearTypes or {}) do t[kk] = v end
+						if on then t[k] = nil else t[k] = false end   -- (missing means split)
+						ns:Set("splitGearTypes", t)
+					end
+				end
+			end
+		end)
+	end
+	-- (1.7.0-beta4, Shweep: "extremely long scrollable lists") one table: each section once, in Section Order, with its
+	-- pin and its vendor and auction house hiding on the same row (before: three lists of every section)
+	-- (1.7.0-beta5, Shweep) named for what the card does: "Section Order" before
+	self:Head("Move, Pin and Hide Sections", { noIcon = true, keywords = "order section order sort arrange pin pinned top hide hidden show vendor vendors auction house ah" })
+	self:Text("Your sections show in this order, dynamic and custom ones included. Use the arrows to move one.")
+	self:Text("Pin keeps a section at the top, just under Recent. You can also pin one by right-clicking its title. By Bag ignores pins.")
+	self:Text("Untick Vendor or AH to hide a section while you're at a vendor or the auction house. It comes back when you leave. Hiding doesn't stop Blizzard's Sell All Junk button from selling them.")
 	-- Recent Items, Keys and Reagent Bag stay listed (so their place can be set
 	-- in advance) but are dimmed with "(off)" when inactive, and say how to turn
 	-- them on.
 	-- (1.5.0-beta9) Split Consumables' sections are listed only while in use
 	local hideSplit = {}
 	for _, k in ipairs(ns.CONS_KINDS) do local id = ns.CONS_ID[k]; if not (ns.Sections and ns.Sections:ConsSplitActive(id)) then hideSplit[id] = true end end
+	for _, k in ipairs(ns.GEAR_KINDS) do local id = ns.GEAR_ID[k]; if not (ns.Sections and ns.Sections:ConsSplitActive(id)) then hideSplit[id] = true end end   -- (1.7.0-beta6)
 	local orderItems = orderedList("laneOrder", nil, function(id) return id == "~recent" and "Recent Items" or (ns.Sections and ns.Sections:Label(id)) or ns.CAT_LABEL[id] or id end, hideSplit)
 	for _, it in ipairs(orderItems) do
 		local off
@@ -1559,27 +1601,34 @@ pages.sections = function(self, db)
 		end
 		if off then it.label, it.dim, it.tip = it.label .. " (off)", true, off end
 	end
-	self:List(orderItems,
-		nil, function(id, delta) local i = ns.IndexOf(db.laneOrder, id); if ns.Move(db.laneOrder, i, i + delta) then ns:Fire("SETTINGS_CHANGED", "laneOrder") end end)
-	-- Pinned sections (1.4.0): one row per item section, with its pin.
-	self:Head("Pinned Sections")
-	self:Text("Pinned sections stay at the top, just under Recent. You can also pin one by right-clicking its title. By Bag ignores pins.")
-	for _, id in ipairs(db.laneOrder) do
-		if ns.Sections:Pinnable(id) and (not id:match("^c%d+$") or ns.Sections:IsCustom(id)) then self:PinRow(id) end
-	end
-	if not ns.IndexOf(db.laneOrder, "Junk") then self:PinRow("Junk") end
+	-- Junk, if it isn't in the order, still gets its pin and hiding (last, where it can't be moved)
+	if not ns.IndexOf(db.laneOrder, "Junk") then orderItems[#orderItems + 1] = { id = "Junk", label = ns.Sections:Label("Junk") or "Junk", noUp = true, noDown = true } end
 	local GS = ns.GearSets
-	-- Show at Vendor / Show at AH, for every section.
-	self:Head("Vendors & Auction House")
-	self:Text("Hide sections while you're at a vendor or the auction house. They come back when you leave. Hiding doesn't stop Blizzard's Sell All Junk button from selling them.")
-	self:VisibilityHeader()
-	for _, id in ipairs(db.laneOrder) do
-		if id == "~gs" then
-			-- One row for every gear set, as in Section Order.
-			if GS and GS:Available() and GS:Showing() then self:VisibilityRow("~gs") end
-		elseif id ~= "~recent" and id ~= "~ky" and id ~= "~rb" and (not id:match("^c%d+$") or ns.Sections:IsCustom(id)) then self:VisibilityRow(id) end
+	local function custom(id) return id:match("^c%d+$") ~= nil end
+	local function hides(id)
+		if id == "~recent" or id == "~ky" or id == "~rb" then return false end
+		if id == "~gs" then return GS and GS:Available() and GS:Showing() and true or false end   -- one row for every gear set
+		return not custom(id) or ns.Sections:IsCustom(id)
 	end
-	if not ns.IndexOf(db.laneOrder, "Junk") then self:VisibilityRow("Junk") end
+	local cols = {
+		{ key = "pin", head = "Pin", tip = "Pinned: stays at the top, just under Recent.", keywords = "pin pinned top",
+			get = function(id) if ns.Sections:Pinnable(id) and (not custom(id) or ns.Sections:IsCustom(id)) then return ns.Sections:Pinned(id) end end,
+			set = function(id, on) ns.Sections:SetPinned(id, on); Panel:Refresh() end },
+		{ key = "vendor", head = "Vendor", tip = "Shown at vendors. Untick to hide it while a vendor is open.", keywords = "show hide vendor vendors",
+			get = function(id) if hides(id) then return ns.Sections:Shown(id, "vendor") end end,
+			set = function(id, on) ns.Sections:SetShown(id, "vendor", on); Panel:Refresh() end },
+		{ key = "ah", head = "AH", tip = "Shown at the auction house. Untick to hide it while the auction house is open.", keywords = "show hide auction house ah",
+			get = function(id) if hides(id) then return ns.Sections:Shown(id, "ah") end end,
+			set = function(id, on) ns.Sections:SetShown(id, "ah", on); Panel:Refresh() end },
+	}
+	self:ListHeader(cols)
+	self:List(orderItems,
+		nil, function(id, delta) local i = ns.IndexOf(db.laneOrder, id); if ns.Move(db.laneOrder, i, i + delta) then ns:Fire("SETTINGS_CHANGED", "laneOrder") end end, cols)
+	-- (1.7.0-beta2, Shweep) the pins' highlight
+	self:Check("pinnedHighlight", "Highlight Pinned Sections", "A light background in your accent color behind each pinned section.")
+	if db.pinnedHighlight then
+		self:Indented(function() self:Step("pinnedHighlightAlpha", "Highlight Opacity", 0.05, "%d%%") end)
+	end
 end
 
 
@@ -2179,17 +2228,17 @@ local SEARCHED = {
 	end,
 	Color = function(_, label, help) return label, help end,
 	Profiles = function() return "profile profiles new copy rename delete reset share import export " .. tostring(ns.profileName or "") end,
-	List = function(items)
+	List = function(items, _, _, cols)
 		local t = {}
 		for _, it in ipairs(type(items) == "table" and items or {}) do t[#t + 1] = it.label end
-		return table.concat(t, " ")
+		local k = {}
+		for _, c in ipairs(type(cols) == "table" and cols or {}) do k[#k + 1] = (c.head or "") .. " " .. (c.keywords or "") end   -- (1.7.0-beta4) its columns
+		return table.concat(t, " "), table.concat(k, " ")
 	end,
 	Binding = function(_, label) return label, "keybinding key bind" end,
 	CustomSectionRow = function(c) return c and c.name, "custom section" end,
 	GearSetRow = function(set) return set and set.name, "gear set" end,
 	MovedRow = function() return "moved items manage reset all" end,
-	VisibilityRow = function(id) return ns.Sections and ns.Sections:Label(id), "show at vendor auction house ah" end,
-	PinRow = function(id) return ns.Sections and ns.Sections:Label(id), "pin pinned top" end,   -- (1.4.0)
 	Button = function(label) return label end,
 	Edit = function(placeholder) return placeholder end,
 	About = function() return "about support version discord curseforge buy me a coffee bagsmith" end,
@@ -2203,7 +2252,7 @@ local SEARCHED = {
 -- name matches; 3, only a help line, an option or a keyword mentions it. Pages are then drawn best tier first, in menu
 -- order within a tier, each with its rows in their usual order.
 local NAMED = { Check = true, Seg = true, Step = true, Color = true, Binding = true, Button = true, Command = true, Edit = true }
-local NAMES = { List = true, VisibilityRow = true, PinRow = true, CustomSectionRow = true, GearSetRow = true, PluginRow = true, FeaturedCard = true }
+local NAMES = { List = true, CustomSectionRow = true, GearSetRow = true, PluginRow = true, FeaturedCard = true }
 local function searchTier(kind, f, ...)
 	if not matches(f.words, ...) then return nil end
 	local name = (...)
@@ -2253,7 +2302,12 @@ for name, textOf in pairs(SEARCHED) do
 				return
 			end
 			f.lastSkipped = nil
+			-- (1.7.0-beta5, the beta4 audit's F3) a column heading waiting for its rows: shown with them, dropped when
+			-- something else on the card is the first to show (its rows were filtered out)
+			local cols = f.pendingCols
+			if cols and cols.owner ~= name then f.pendingCols, cols = nil, nil end
 			self:EmitPending()
+			if cols then f.pendingCols = nil; cols.fn() end
 		end
 		return orig(self, ...)
 	end
@@ -2273,21 +2327,24 @@ Panel.Head = function(self, text, info)
 		return
 	end
 	self:CloseCard()
-	f.pendingHead, f.pendingSub, f.lastSkipped = text, nil, nil
+	f.pendingHead, f.pendingSub, f.lastSkipped, f.pendingCols = text, nil, nil, nil
 	f.pendingHeadInfo = info
 	local words = text
 	if info then words = words .. " " .. table.concat(info.lines or {}, " ") .. " " .. (info.keywords or "") end
 	f.cardAll = f.pageAll or matches(f.words, words)
 	if f.cardAll then self:EmitPending() end
 end
--- Column headings over a set of rows show only with a row under them.
-for _, name in ipairs({ "VisibilityHeader", "CustomSectionHeader" }) do
+-- Column headings over a set of rows show only with a row under them: (1.7.0-beta5, F3) their own rows, the kind they
+-- head (they used to wait as the card's next pending line, which any later match drew).
+local HEADS_ROWS = { ListHeader = "List", CustomSectionHeader = "CustomSectionRow" }
+for name, owner in pairs(HEADS_ROWS) do
 	local orig = Panel[name]
 	Panel[name] = function(self, ...)
 		local f = self.filter
 		if not f or f.cardAll then return orig(self, ...) end
+		if f.measure then return end
 		local args = { ... }
-		f.pendingSub = function() orig(self, unpack(args)) end
+		f.pendingCols = { owner = owner, fn = function() orig(self, unpack(args)) end }
 	end
 end
 local origText = Panel.Text

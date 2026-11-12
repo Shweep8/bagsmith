@@ -12,7 +12,10 @@
 	_G.C_CurrencyInfo.GetCurrencyListSize = function() return 1 end
 	_G.C_CurrencyInfo.GetCurrencyListInfo = function(i) if i == 1 then return { name = "Player vs. Player", isHeader = true, isHeaderExpanded = false } end end
 	_G.C_CurrencyInfo.GetCurrencyInfo = function(id) lookups = lookups + 1; if id == 1901 then return { name = "Honor", quantity = 150, iconFileID = 8, quality = 1 } end end
-	_G.C_CurrencyInfo.GetBackpackCurrencyInfo = function(i) return i == 1 and { currencyTypesID = 1901 } or nil end
+	-- (1.7.0-beta14, by design) the pick is made only just before the click: BagSmith now pins a new pick when the bags
+	-- open, which would pin Honor before the button could be tested
+	local picks = {}
+	_G.C_CurrencyInfo.GetBackpackCurrencyInfo = function(i) return picks[i] and { currencyTypesID = picks[i] } or nil end
 	local n = M.loadAddon("BagSmith")
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	n.Window:Show(); M.runTimers(); M.runTimers()
@@ -21,6 +24,7 @@
 	local function drawerHas(name) for _, r in ipairs(f.rows or {}) do if r:IsShown() and r.name.text == name then return r end end end
 	check(#n.Currency:List() == 0 and not drawerHas("Honor") and #n.db.fav == 0, "(control) before the import: the list is cached and empty, Honor isn't shown")
 	lookups = 0
+	picks[1] = 1901   -- (1.7.0-beta14, by design) Honor ticked Show on Backpack now
 	f.import:GetScript("OnClick")(f.import)
 	-- no timers, no other events
 	local row = drawerHas("Honor")

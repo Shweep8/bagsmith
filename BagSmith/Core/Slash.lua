@@ -161,6 +161,41 @@ local commands = {
 		end
 		if n == 0 then ns:Print("  No consumables in your bags right now.") end
 	end,
+	-- (1.7.0-beta8) what this client reports for your quest log, as the Loot Helper reads it (the beta7 audit asked
+	-- whether quests here always have an ID and always answer): each quest listed, its ID, how its objectives were read
+	-- and the items it asks for; whether the reading was complete; and which quest functions the client has
+	questlog = function()
+		local MR = ns.MakeRoom
+		if not MR then return end
+		local function has(t, k) return t and type(t[k]) == "function" and "yes" or "no" end
+		ns:Print("Quest log, as the Loot Helper reads it:")
+		ns:Print("  Functions: GetQuestLogLeaderBoard %s, C_QuestLog.GetQuestObjectives %s, C_QuestLog.GetInfo %s, C_QuestLog.IsOnQuest %s",
+			has(_G, "GetQuestLogLeaderBoard"), has(C_QuestLog, "GetQuestObjectives"), has(C_QuestLog, "GetInfo"), has(C_QuestLog, "IsOnQuest"))
+		local report = {}
+		local needs, complete, collapsed, lines = MR:QuestObjectives(report)
+		local quests = select(3, pcall(GetNumQuestLogEntries or function() end))
+		ns:Print("  %s lines, %s quests by the log's own count; %s", tostring(lines or "?"), tostring(quests or "?"),
+			collapsed and "some headings are collapsed (their quests aren't listed)" or "no heading collapsed")
+		local how = { log = "read from the quest log", C_QuestLog = "read through C_QuestLog", none = "nothing to read it with" }
+		for _, r in ipairs(report) do
+			if r.failed then ns:Print("  Line %d: couldn't be read", r.line)
+			else
+				local items = r.texts and (#r.texts > 0 and table.concat(r.texts, ", ") or "no items") or "?"
+				ns:Print("  %s (%s): %s; %s", r.title, r.questID and ("quest " .. r.questID) or "no quest ID", r.via and how[r.via] or "couldn't be read", items)
+			end
+		end
+		if #report == 0 then ns:Print("  No quests listed.") end
+		ns:Print("  Reading %s. Items kept for quests: %d.", complete and "complete" or "incomplete (the Loot Helper offers nothing until it can read your quests)", #needs)
+		if C_QuestLog and type(C_QuestLog.GetNumQuestLogEntries) == "function" and type(C_QuestLog.GetInfo) == "function" then
+			local okN, m = pcall(C_QuestLog.GetNumQuestLogEntries)
+			local count, ids = 0, 0
+			for i = 1, (okN and tonumber(m) or 0) do
+				local okI, info = pcall(C_QuestLog.GetInfo, i)
+				if okI and type(info) == "table" and not info.isHeader then count = count + 1; if MR.QuestID(info.questID) then ids = ids + 1 end end   -- (1.7.0-beta9, the beta8 audit's F1) the reader's rule
+			end
+			ns:Print("  C_QuestLog lists %d quests, %d with an ID.", count, ids)
+		end
+	end,
 	-- (1.5.0-beta4) every icon-corner mark, where it is, and anything wrong with it
 	corners = function() if ns.Corners then ns.Corners:Report() end end,
 	debug = function()
@@ -301,7 +336,7 @@ local commands = {
 		end
 	end,
 	help = function()
-		ns:Print("Commands: /bs toggle | settings | currency | check | errors | dump | sort <mode> | scale <n> | profile ... | reset | debug | corners | consumables | quiet | blizzard | skincheck | new")
+		ns:Print("Commands: /bs toggle | settings | currency | check | errors | dump | sort <mode> | scale <n> | profile ... | reset | debug | corners | consumables | questlog | quiet | blizzard | skincheck | new")
 	end,
 }
 

@@ -79,7 +79,8 @@ for _,skin in ipairs({'modern','classic'}) do
   local savedA=Auctionator;Auctionator=nil;n.AH:CheckSource();M.runTimers()
   check(R.chosen.row.name.text=='Common Trinket' and not R.selPicked,skin..' effective fallback resets pick')
   BlackthornesTS_API=nil;n.AH:CheckSource();M.runTimers()
-  check(R.chosen.row.name.text=='Common Trinket' and R.frame.foot.text=='Ranked by vendor price',skin..' no providers uses vendor ordering')
+  -- (1.7.0-beta3/beta4, by design) the footer no longer names the price basis; its (i) does
+  check(R.chosen.row.name.text=='Common Trinket' and R.frame.footInfo.lines[4]=='Prices come from the vendor.',skin..' no providers uses vendor ordering')
   Auctionator=savedA;M.fire('ADDON_LOADED','Auctionator');M.runTimers()
   check(R.chosen.row.name.text=='Sturdy Boots' and not R.selPicked,skin..' provider late load reselects cheapest')
  end

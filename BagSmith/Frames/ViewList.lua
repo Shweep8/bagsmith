@@ -67,26 +67,44 @@ end
 -- Collapse stacks of the same item into one record. The representative
 -- keeps its real bag and slot (so its secure button still works); the
 -- count is the total and "where" lists how many stacks there are.
-local function mergeStacks(list)
-	local byId, out = {}, {}
+-- (1.7.0-beta12) The representative is the first stack, except while the mailbox's send form or a trade window is open
+-- (fullest): then it's the fullest stack that isn't locked, so a right-click sends a full stack and the rest follow
+-- (Drop:MoveRest tops up the partial ones). Elsewhere the first, as before: using an item from a full stack would only
+-- leave more partial ones.
+local function mergeStacks(list, fullest)
+	local byId, out, groups = {}, {}, {}
 	for _, r in ipairs(list) do
 		local key = not r.display and ns.MergeKey(r)
-		local m = key and byId[key]
+		local g = key and byId[key]
 		if not key then
 			out[#out + 1] = r   -- display-only rows (the Gear Sets sheet) are never merged
-		elseif not m then
-			m = {}
-			for k, v in pairs(r) do m[k] = v end
-			m.stacks, m.merged = 1, true
-			m.members = { { bag = r.bag, slot = r.slot, itemID = r.itemID, count = r.count or 1 } }
-			byId[key] = m
-			out[#out + 1] = m
+		elseif not g then
+			g = { r }
+			byId[key] = g
+			groups[g] = true
+			out[#out + 1] = g
 		else
-			m.count = m.count + (r.count or 1)
-			m.stacks = m.stacks + 1
-			m.members[#m.members + 1] = { bag = r.bag, slot = r.slot, itemID = r.itemID, count = r.count or 1 }
-			if (r.firstSeen or 0) > (m.firstSeen or 0) then m.firstSeen = r.firstSeen end
-			m.isNew = m.isNew or r.isNew
+			g[#g + 1] = r
+		end
+	end
+	for i, g in ipairs(out) do
+		if groups[g] then
+			local rep = g[1]
+			if fullest then
+				for _, r in ipairs(g) do
+					if not r.isLocked and (rep.isLocked or (r.count or 1) > (rep.count or 1)) then rep = r end
+				end
+			end
+			local m = {}
+			for k, v in pairs(rep) do m[k] = v end
+			m.stacks, m.merged, m.count, m.members = #g, true, 0, {}
+			for _, r in ipairs(g) do
+				m.count = m.count + (r.count or 1)
+				m.members[#m.members + 1] = { bag = r.bag, slot = r.slot, itemID = r.itemID, count = r.count or 1 }
+				if (r.firstSeen or 0) > (m.firstSeen or 0) then m.firstSeen = r.firstSeen end
+				m.isNew = m.isNew or r.isNew
+			end
+			out[i] = m
 		end
 	end
 	for _, m in ipairs(out) do
@@ -126,7 +144,7 @@ function View:Filtered()
 		-- Merge once; the total counts distinct items, not stacks.
 		local all = {}
 		for _, r in ipairs(records) do if pred(r) then all[#all + 1] = r end end
-		shown = mergeStacks(shown)
+		shown = mergeStacks(shown, ns.Drop and ns.Drop.StandsOnFullest and ns.Drop:StandsOnFullest())
 		local seen, n = {}, 0
 		for _, r in ipairs(all) do
 			-- (items hidden at this vendor or auction house aren't counted, as unmerged)
@@ -457,7 +475,33 @@ end
 -- colons line up), the amount column as wide as the widest amount in the
 -- window so the columns line up from header to header. Only if even that won't
 -- fit does the AH total go, then the vendor value. Recent keeps its own words.
-local LABEL_GAP, EDGE = 4, 4
+-- (1.7.0-beta10, Shweep: "an icon there to hover/click to know data is there", "consistent across all headers by scaling
+-- needs") The last step is no longer nothing: every header shows a small coin instead, and hovering or clicking it
+-- shows that section's V and AH. One line, then stacked (with AH), then the coin, the same for every header.
+local LABEL_GAP, EDGE, COIN = 4, 4, 14
+local COIN_TEX = "Interface\\MoneyFrame\\UI-GoldIcon"
+local function coinTip(btn)
+	local h = btn:GetParent()
+	if not (h and ns.TooltipsOK()) then return end
+	GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+	ns.TipText(GameTooltip, h.text:GetText() or "", 1, 1, 1)
+	ns.TipLine(GameTooltip, "V: " .. tostring(btn.v or "-"), 0.9, 0.9, 0.9)
+	if btn.ah then ns.TipLine(GameTooltip, "AH: " .. btn.ah, 0.9, 0.9, 0.9) end
+	GameTooltip:Show()
+end
+local function headerCoin(h)
+	if h.valCoin then return h.valCoin end
+	local b = CreateFrame("Button", nil, h)
+	b:SetSize(COIN, COIN)
+	b.tex = b:CreateTexture(nil, "OVERLAY"); b.tex:SetAllPoints(); b.tex:SetTexture(COIN_TEX)
+	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	b:SetScript("OnEnter", coinTip)
+	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	b:SetScript("OnClick", coinTip)   -- (a click shows the same; it never collapses the section)
+	b:Hide()
+	h.valCoin = b
+	return b
+end
 local function writeHeaderValues(infos)
 	local anyAH = false
 	for _, i in ipairs(infos) do if i.ah then anyAH = true end end
@@ -465,10 +509,16 @@ local function writeHeaderValues(infos)
 	-- (a gear set's Equip button sits right after the count, so it counts too)
 	local function titleW(h) return (h.textX or 20) - 20 + h.text:GetStringWidth() + 6 + h.count:GetStringWidth() + ((h.equipSet and h.equipSet:IsShown()) and (8 + h.equipSet:GetWidth()) or 0)
 		+ ((h.wornTag and h.wornTag:IsShown()) and (10 + h.wornTag:GetStringWidth()) or 0) end
-	local function hideTable(h) h.vLabel:Hide(); h.vAmt:Hide(); h.aLabel:Hide(); h.aAmt:Hide() end
+	-- (1.7.0-beta13, the beta12 audit's F1) every format starts from a clean header: the one-line text, the stacked
+	-- table and the coin all hidden, so a header never keeps another format's pieces (a pooled header that showed the
+	-- coin kept it under stacked values, and the fit test below stops at the first header that doesn't fit)
+	local function reset(h)
+		h.sub:Hide(); h.vLabel:Hide(); h.vAmt:Hide(); h.aLabel:Hide(); h.aAmt:Hide()
+		if h.valCoin then h.valCoin:Hide() end
+	end
 	local function single(i, text)
 		local h = i.h
-		hideTable(h)
+		reset(h)
 		h.sub:ClearAllPoints(); h.sub:SetPoint("RIGHT", -EDGE, 0)
 		h.sub:SetText(text)
 		h.sub:SetShown(text ~= "")
@@ -488,7 +538,7 @@ local function writeHeaderValues(infos)
 	end
 	local function stacked(i)
 		local h = i.h
-		h.sub:Hide()
+		reset(h)
 		h.vAmt:ClearAllPoints(); h.vAmt:SetPoint("TOPRIGHT", -EDGE, -3); h.vAmt:SetText(i.v); h.vAmt:Show()
 		h.vLabel:ClearAllPoints(); h.vLabel:SetPoint("TOPRIGHT", -(EDGE + amtW + LABEL_GAP), -3); h.vLabel:SetText("V:"); h.vLabel:Show()
 		if i.ah then
@@ -499,10 +549,18 @@ local function writeHeaderValues(infos)
 		end
 		return titleW(h) + labelW + LABEL_GAP + amtW + 60 <= i.colW
 	end
+	-- (1.7.0-beta10) the coin: the values stay one hover or click away
+	local function coin(i)
+		local h = i.h
+		single(i, "")
+		local b = headerCoin(h)
+		b.v, b.ah = i.v, i.ah
+		b:ClearAllPoints(); b:SetPoint("RIGHT", -EDGE, 0); b:Show()
+		return true
+	end
 	local formats = { function(i) return single(i, "V: " .. i.v .. (i.ah and (", AH: " .. i.ah) or "")) end }
 	if anyAH then formats[#formats + 1] = stacked end
-	formats[#formats + 1] = function(i) return single(i, "V: " .. i.v) end
-	formats[#formats + 1] = function(i) return single(i, "") end
+	formats[#formats + 1] = coin
 	-- Recent: "Recent (23) [Clear Recent]   also in their sections". Everything
 	-- counts toward the fit; when it's short of room the words on the right go
 	-- first (the header's tooltip still explains the copies), then the button
@@ -1235,6 +1293,12 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 		end
 	end
 	local laneIdx, cachedIdx, linkIdx = 0, 0, 0
+	-- (1.7.0-beta2, Shweep) Highlight Pinned Sections: a background in the accent color behind each pinned section, title
+	-- and items, in its column; on the list's own canvas, under every header and button.
+	local pinIdx = 0
+	self.pinBacks = self.pinBacks or {}
+	local pinPool = self.pinBacks[host]
+	if not pinPool then pinPool = {}; self.pinBacks[host] = pinPool end
 	local collapsedSet = {}
 	for _, id in ipairs(self:CollapsedList()) do collapsedSet[id] = true end
 	self.laneIds = {}
@@ -1287,6 +1351,12 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 	local headerInfos = {}
 	local function placeLane(lane, x0, colW, y0)
 		local y = y0
+		if lane.pinnedSection and db.pinnedHighlight then
+			pinIdx = pinIdx + 1
+			local t = pinPool[pinIdx]
+			if not t then t = host:CreateTexture(nil, "BACKGROUND", nil, -8); pinPool[pinIdx] = t end
+			lane.pinBack = t
+		end
 		local open = true
 		if lane.id ~= "" then
 			laneIdx = laneIdx + 1
@@ -1508,12 +1578,24 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 				end
 			end
 		end
+		local t = lane.pinBack
+		if t then
+			lane.pinBack = nil
+			local ar, ag, ab = Skins:Accent()
+			t:SetColorTexture(ar, ag, ab, db.pinnedHighlightAlpha or 0.15)
+			t:ClearAllPoints(); t:SetPoint("TOPLEFT", host, "TOPLEFT", x0, -y0); t:SetSize(colW, math.max(1, y - y0))
+			t:Show()
+		end
 		return y
 	end
 
 	local inRow, rowTop, rowBottom = false, y, y
 	for _, lane in ipairs(lanes) do
-		if not twoCol then
+		-- (1.7.0-beta2, Shweep) Full-Width Recent: in Split View, Recent spans both columns, a row of its own
+		if twoCol and lane.recent and db.splitViewRecentWide then
+			if inRow then y = rowBottom; inRow = false end
+			y = placeLane(lane, 0, width, y)
+		elseif not twoCol then
 			if inRow then y = rowBottom; inRow = false end
 			y = placeLane(lane, 0, width, y)
 		elseif not inRow then
@@ -1527,6 +1609,7 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 		end
 	end
 	if inRow then y = rowBottom end
+	for i = pinIdx + 1, #pinPool do pinPool[i]:Hide() end
 	writeHeaderValues(headerInfos)
 	self.animate = false
 	self:HideUnused(usedSet, host)

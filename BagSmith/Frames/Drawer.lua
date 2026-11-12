@@ -53,6 +53,9 @@ function Drawer:Create()
 		Drawer:Refresh()
 	end)
 	f.import:SetHeight(22); f.import:SetPoint("BOTTOMLEFT", 12, 10)
+	-- (1.7.0-beta14) the picks are pinned on their own now; the button brings back any you've unpinned
+	f.import.tip = "Pin your Blizzard picks again"
+	f.import.tipSub = "Currencies you tick Show on Backpack in the game's currency tab are pinned for you when the bags open. This pins them all again, including any you've unpinned."
 
 	-- Add Item: track any item as a currency. Type to search items you have
 	-- (bags, bank, other characters' saved bags, ones tracked before), or

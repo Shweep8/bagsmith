@@ -142,9 +142,12 @@
 	M.fire("MAIL_SHOW"); MailFrame:Show(); SendMailFrame:Show()
 	local used = {}
 	local realUse = C_Container.UseContainerItem
-	C_Container.UseContainerItem = function(bag, slot) used[#used + 1] = bag .. ":" .. slot; mailSlots[#mailSlots + 1] = "Wool Cloth"; M.bags[bag][slot] = nil end
+	-- (1.7.0-beta11, by design) an attached stack stays in its bag slot, locked, as in a trade; the clicked stack's
+	-- placement is told from the mail's count at mouse-down
+	C_Container.UseContainerItem = function(bag, slot) used[#used + 1] = bag .. ":" .. slot; mailSlots[#mailSlots + 1] = "Wool Cloth"; M.bags[bag][slot].locked = true end
 	local rec = wool()
-	mailSlots[1] = "Wool Cloth"; M.bags[0][1] = nil
+	D:NoteTradeBaseline(rec)
+	mailSlots[1] = "Wool Cloth"; M.bags[0][1].locked = true
 	local members = {}; for _, m in ipairs(rec.members) do members[#members + 1] = { bag = m.bag, slot = m.slot, itemID = m.itemID, count = m.count } end
 	D:MoveRest({ itemID = 2592, members = members, name = "Wool Cloth", where = "mail", first = { bag = 0, slot = 1 } })
 	M.runTimers(); M.runTimers()   -- one stack follows

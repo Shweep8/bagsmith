@@ -1,3 +1,60 @@
+## 1.7.0
+
+New:
+- Lock Windows (Settings > Windows): your bags, bank and bag windows and the Loot and Disenchant Helpers can't be moved
+  or resized. Off unless you turn it on.
+- Highlight Pinned Sections (Settings > Sections): a light background in your accent color behind each pinned
+  section, with Highlight Opacity (15% to start). Off unless you turn it on.
+- Full-Width Recent (Settings > Style, under Split View): in Split View, Recent Items spans both columns instead of
+  sharing a row with the next section.
+- Loot Helper: Protect. Choose an item the Loot Helper suggests letting go and click Protect, beside Destroy ("Don't
+  suggest again"). A protected item is never suggested again, and it doesn't have to be a favorite. Settings > Loot
+  Helper lists them under Protected Items, where you can take any off. Each character keeps its own.
+- Split Gear by Binding (Settings > Sections): Gear becomes Gear: Soulbound (bind on pickup, and bind on equip once
+  it's bound to you) and Gear: BoE (bind on equip, not yet bound, so you can still trade it or sell it on the AH). Gear
+  that binds when used, or doesn't bind, stays in Gear, which reads Gear: Other while the split is on. Untick either to
+  keep it there. Your own moves and Gear Sets still come first. Off unless you turn it on.
+- /bs questlog shows what your game reports for your quest log, the way the Loot Helper reads it: each quest, the
+  items it asks for, and whether BagSmith could read it all.
+- Mail and trade: when you right-click a merged stack at the mailbox or in a trade window, BagSmith sends its fullest
+  stack and tops up the partial ones before the rest follow, so full stacks go and fewer slots are used (70 Linen Cloth
+  in stacks of 20, 20, 19 and 11 goes as 20, 20, 20 and 10).
+Changed:
+- Loot Helper: it now shows what it's making room for (the most valuable item waiting, highlighted; click another to
+  switch) and one list of every way to do it: free ways first, then items to let go, six at a time, scrolling for the
+  rest. Each way's cost is on the right, and the line under the button says what happens next. A slot you free goes to
+  that item first.
+- Loot Helper: the list is ranked by what you'll miss least, not by price alone. Materials your professions use stay
+  longer (BagSmith learns them when you open a profession window), a spare stack of something you carry more of goes
+  sooner, and anything a quest still asks you to bring is never offered, unless its heading is collapsed in your quest
+  log. If BagSmith can't read your quest log for a moment, it offers nothing until it can. Junk is still always offered,
+  whatever it's worth, but ranks by its value with everything else instead of always first. The (i) beside the list's
+  heading explains how it decides, and so does Settings > Loot Helper.
+- Loot Helper: when the item it's making room for is a quest item, the note says it's a quest item with no price,
+  instead of "no price yet".
+- Settings > Sections: Section Order is now Move, Pin and Hide Sections, one table with each section's Pin and its
+  Vendor and AH boxes on the same row, instead of three long lists of every section.
+- Section headers too narrow for their values (V and AH), as in Split View, now show a small coin instead: hover or
+  click it to see them. Every header shows them the same way.
+- Split Consumables: Other Consumables is now Consumables: Other, to match Gear: Other.
+- What's New keeps its size when a release has more to say: the text scrolls, with a scrollbar.
+- Currencies you tick Show on Backpack in the game's currency tab are pinned to the bag footer for you, as soon as the
+  bags open. Each character's picks are pinned once, so one you unpin stays unpinned, though another character sharing
+  your profile can still pin its own picks. Import Blizzard Picks brings them all back.
+- Clean Up Bags runs much lighter: while it sorts, BagSmith updates your bags a few times a second instead of every
+  frame. Before, it could lag your game for a few seconds, above all with Clean Up Bags When Opened on.
+Fixed:
+- The Quest Starter mark (the yellow "!") on an item in Recent is now the same size as in its own section, and it
+  follows Icon Size.
+- Clear Soul Shards never leaves you with fewer than Soul Shards to Keep: it counts your shards right before each one
+  goes, so a shard you just used or moved can't throw the count off.
+- Turning on Split Consumables by Type with Settings open now lists its sections in Move, Pin and Hide Sections at
+  once (Split Gear by Binding too). Before, they showed only after you reopened Settings.
+- If the game ever refuses to let BagSmith destroy an item, the Loot Helper and Clear Soul Shards now say so and put it
+  back in your bags, instead of leaving it on your cursor or counting it as gone.
+- Right-clicking a merged stack at the mailbox now attaches all of its stacks, as many as the mail has room for. Before,
+  only the stack you clicked was attached, and chat said nothing had moved.
+
 ## 1.6.3
 
 Fixed:

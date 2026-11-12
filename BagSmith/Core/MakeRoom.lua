@@ -23,7 +23,9 @@ local MR = { skipped = {}, pending = {} }
 ns.MakeRoom = MR
 
 local SHARD = 6265
-local MAX_SUGGEST = 6   -- destroy suggestions shown at once (the list refills as items go)
+local VISIBLE_ROWS = 6  -- (1.7.0-beta3) "let go" rows shown at once; the rest scroll (every candidate is listed)
+local SCROLLBAR_W = 26  -- the room the list's scrollbar takes on the right while it scrolls
+local MAT_WEIGHT, SPARE_WEIGHT = 3, 0.5   -- (1.7.0-beta3) the ranking's two weights (MR:Suggestions)
 local MAX_COMBINE = 3   -- combine suggestions shown at once
 local SETTLE = 0.6      -- s to wait after a loot slot clears if the bags don't update first (an item BagSmith can't name)
 local ARRIVE = 3.0      -- (1.5.1) s to wait for a looted item to reach the bags before judging again anyway
@@ -59,16 +61,20 @@ function MR:Never()
 	if type(ns.cdb.makeRoomNever) ~= "table" then ns.cdb.makeRoomNever = {} end
 	return ns.cdb.makeRoomNever
 end
-function MR:NeverList()
+local function sortedList(t)
 	local out = {}
-	for id in pairs(self:Never()) do out[#out + 1] = { id = id, name = (itemInfo(id)) or ("Item " .. id) } end
+	for id in pairs(t) do out[#out + 1] = { id = id, name = (itemInfo(id)) or ("Item " .. id) } end
 	table.sort(out, function(a, b) return a.name < b.name end)
 	return out
 end
+local function settingsRefresh()
+	if ns.SettingsPanel and ns.SettingsPanel.frame and ns.SettingsPanel.frame:IsShown() then ns.SettingsPanel:Refresh() end
+end
+function MR:NeverList() return sortedList(self:Never()) end
 function MR:Unnever(id)
 	self:Never()[id] = nil
 	self:RefreshNeverWindow()
-	if ns.SettingsPanel and ns.SettingsPanel.frame and ns.SettingsPanel.frame:IsShown() then ns.SettingsPanel:Refresh() end
+	settingsRefresh()
 end
 function MR:ClearNever()
 	local t = self:Never()
@@ -76,25 +82,72 @@ function MR:ClearNever()
 	self:RefreshNeverWindow()
 end
 
--- The Loot Exclusion List window: the list, A to Z, with a search box; each row's
--- button asks about that item again. Made once; rows are reused.
+------------------------------------------------------------------------
+-- (1.7.0-beta1, Shweep) Protected Items (per character): items in your bags the Loot Helper never suggests destroying,
+-- without making them favorites or putting them in a gear set. The Protect button (beside Destroy since 1.7.0-beta10) adds one ("Don't
+-- suggest again"); it then counts with the other protected items. Not the Loot Exclusion List, which is about loot.
+------------------------------------------------------------------------
+function MR:Protected()
+	if not ns.cdb then return {} end
+	if type(ns.cdb.makeRoomProtect) ~= "table" then ns.cdb.makeRoomProtect = {} end
+	return ns.cdb.makeRoomProtect
+end
+function MR:IsProtected(id) return id ~= nil and self:Protected()[id] == true end
+function MR:ProtectedList() return sortedList(self:Protected()) end
+function MR:Protect(id)
+	if type(id) ~= "number" then return end
+	self:Protected()[id] = true
+	self:RefreshProtectedWindow()
+	settingsRefresh()
+	self:Refresh()
+end
+function MR:Unprotect(id)
+	self:Protected()[id] = nil
+	self:RefreshProtectedWindow()
+	settingsRefresh()
+	self:Refresh()
+end
+function MR:ClearProtected()
+	local t = self:Protected()
+	for id in pairs(t) do t[id] = nil end
+	self:RefreshProtectedWindow()
+	self:Refresh()
+end
+
+-- The two list windows (the Loot Exclusion List, Protected Items): the list, A to Z, with a search box; each row's
+-- button takes that item off. Each is made once; rows are reused.
 local NW, NROW = 300, 24
-function MR:NeverWindow()
-	local f = self.neverFrame
+local LISTS = {
+	never = { frameKey = "neverFrame", global = "BagSmithNeverAsk", title = "Loot Exclusion List",
+		list = function() return MR:NeverList() end, remove = function(id) MR:Unnever(id) end,
+		removeTip = "Remove from your Loot Exclusion List",
+		count = function(n) return n == 1 and "1 item on your Loot Exclusion List." or ("%d items on your Loot Exclusion List."):format(n) end,
+		empty = "Your Loot Exclusion List is empty. Use Exclude in the Loot Helper to add items." },
+	protect = { frameKey = "protectFrame", global = "BagSmithProtected", title = "Protected Items",
+		list = function() return MR:ProtectedList() end, remove = function(id) MR:Unprotect(id) end,
+		removeTip = "Stop protecting it: the Loot Helper can suggest it again",
+		count = function(n) return n == 1 and "1 item the Loot Helper won't suggest destroying." or ("%d items the Loot Helper won't suggest destroying."):format(n) end,
+		empty = "Nothing is protected yet. Use Protect in the Loot Helper to add items." },
+}
+MR.LISTS = LISTS
+local function listWindow(kind)
+	local spec = LISTS[kind]
+	local f = MR[spec.frameKey]
 	if f then return f end
-	f = CreateFrame("Frame", "BagSmithNeverAsk", UIParent, "BackdropTemplate")
+	f = CreateFrame("Frame", spec.global, UIParent, "BackdropTemplate")
+	f.kind = kind
 	f:SetSize(NW, 360); f:SetFrameStrata("DIALOG"); f:SetClampedToScreen(true); f:EnableMouse(true)
 	f:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
 	f:SetMovable(true); f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
-	f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); f.title:SetPoint("TOPLEFT", 12, -12); f.title:SetText("Loot Exclusion List")
+	f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge"); f.title:SetPoint("TOPLEFT", 12, -12); f.title:SetText(spec.title)
 	f.sub = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.sub:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -3)
 	f.sub:SetWidth(NW - 24); f.sub:SetJustifyH("LEFT")
-	f.search = CreateFrame("EditBox", "BagSmithNeverAskSearch", f, "SearchBoxTemplate")
+	f.search = CreateFrame("EditBox", spec.global .. "Search", f, "SearchBoxTemplate")
 	f.search:SetSize(NW - 32, 22); f.search:SetAutoFocus(false); f.search:SetPoint("TOPLEFT", 18, -58)
-	f.search:SetScript("OnTextChanged", function(box) if SearchBoxTemplate_OnTextChanged then SearchBoxTemplate_OnTextChanged(box) end; MR:RefreshNeverWindow() end)
+	f.search:SetScript("OnTextChanged", function(box) if SearchBoxTemplate_OnTextChanged then SearchBoxTemplate_OnTextChanged(box) end; MR:RefreshListWindow(kind) end)
 	f.search:SetScript("OnEscapePressed", function(box) box:SetText(""); box:ClearFocus() end)
-	f.scroll = CreateFrame("ScrollFrame", "BagSmithNeverAskScroll", f, "UIPanelScrollFrameTemplate")
+	f.scroll = CreateFrame("ScrollFrame", spec.global .. "Scroll", f, "UIPanelScrollFrameTemplate")
 	f.scroll:SetPoint("TOPLEFT", 10, -88); f.scroll:SetPoint("BOTTOMRIGHT", -30, 44)
 	f.child = CreateFrame("Frame", nil, f.scroll); f.child:SetSize(NW - 44, 1); f.scroll:SetScrollChild(f.child)
 	f.rows = {}
@@ -110,18 +163,19 @@ function MR:NeverWindow()
 	f:Hide()
 	ns:CloseOnEscape(f, function() f:Hide() end)   -- (1.5.4) Escape closes it like its Close button
 	ns:CombatWindow(f)   -- (1.5.6) fades in combat like the bags window
-	self.neverFrame = f
+	MR[spec.frameKey] = f
 	return f
 end
-local function neverRow(f, i)
+local function listRow(f, i)
 	local r = f.rows[i]
 	if r then return r end
+	local spec = LISTS[f.kind]
 	r = CreateFrame("Frame", nil, f.child); r:SetSize(NW - 44, NROW - 2)
 	r:EnableMouse(true)
 	r.icon = r:CreateTexture(nil, "ARTWORK"); r.icon:SetSize(18, 18); r.icon:SetPoint("LEFT", 2, 0)
 	r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); r.name:SetPoint("LEFT", r.icon, "RIGHT", 6, 0)
 	r.name:SetPoint("RIGHT", -28, 0); r.name:SetJustifyH("LEFT"); r.name:SetWordWrap(false)
-	r.remove = ns.IconButton(r, "Interface\\AddOns\\BagSmith\\Media\\ui-close.tga", "Remove from your Loot Exclusion List", function(b) MR:Unnever(b:GetParent().id) end)
+	r.remove = ns.IconButton(r, "Interface\\AddOns\\BagSmith\\Media\\ui-close.tga", spec.removeTip, function(b) spec.remove(b:GetParent().id) end)
 	r.remove:SetSize(16, 16); r.remove:SetPoint("RIGHT", -4, 0)
 	r:SetScript("OnEnter", function(self)
 		if not (self.id and ns.TooltipsOK()) then return end
@@ -131,16 +185,17 @@ local function neverRow(f, i)
 	f.rows[i] = r
 	return r
 end
-function MR:RefreshNeverWindow()
-	local f = self.neverFrame
+function MR:RefreshListWindow(kind)
+	local spec = LISTS[kind]
+	local f = self[spec.frameKey]
 	if not (f and f:IsShown()) then return end
-	local all = self:NeverList()
+	local all = spec.list()
 	local text = (f.search:GetText() or ""):lower()
 	local list = {}
 	for _, e in ipairs(all) do if text == "" or e.name:lower():find(text, 1, true) then list[#list + 1] = e end end
-	f.sub:SetText(#all == 1 and "1 item on your Loot Exclusion List." or ("%d items on your Loot Exclusion List."):format(#all))
+	f.sub:SetText(spec.count(#all))
 	for i, e in ipairs(list) do
-		local r = neverRow(f, i)
+		local r = listRow(f, i)
 		r.id = e.id
 		local icon = (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(e.id)) or (C_Item and C_Item.GetItemInfoInstant and select(5, C_Item.GetItemInfoInstant(e.id)))
 		r.icon:SetTexture(icon)
@@ -150,14 +205,20 @@ function MR:RefreshNeverWindow()
 	for i = #list + 1, #f.rows do f.rows[i]:Hide() end
 	f.child:SetHeight(math.max(1, #list * NROW))
 	f.empty:SetShown(#list == 0)
-	f.empty:SetText(#all == 0 and "Your Loot Exclusion List is empty. Use Exclude in the Loot Helper to add items." or "No items match.")
+	f.empty:SetText(#all == 0 and spec.empty or "No items match.")
 end
-function MR:ManageNever()
-	local f = self:NeverWindow()
+local function manage(kind)
+	local f = listWindow(kind)
 	f.search:SetText("")
 	f:Show()
-	self:RefreshNeverWindow()
+	MR:RefreshListWindow(kind)
 end
+function MR:NeverWindow() return listWindow("never") end
+function MR:RefreshNeverWindow() self:RefreshListWindow("never") end
+function MR:ManageNever() manage("never") end
+function MR:ProtectedWindow() return listWindow("protect") end
+function MR:RefreshProtectedWindow() self:RefreshListWindow("protect") end
+function MR:ManageProtected() manage("protect") end
 
 ------------------------------------------------------------------------
 -- Value: vendor and AH (when Auctionator knows it); the setting picks which ranks.
@@ -227,7 +288,7 @@ local function lootEntries(self)
 	for slot = 1, n do
 		if GetLootSlotType and GetLootSlotType(slot) == (LOOT_SLOT_ITEM or 1) then
 			local link = GetLootSlotLink(slot)
-			local icon, name, qty, _, quality = GetLootSlotInfo(slot)
+			local icon, name, qty, _, quality, _, isQuestItem = GetLootSlotInfo(slot)
 			local id = link and tonumber(link:match("item:(%d+)"))
 			-- (1.5.1) what each slot holds, so an item looted by hand is accounted for when its slot clears; and
 			-- (1.5.1-beta2) the item's arrivals are counted from when the loot window first showed it
@@ -238,7 +299,8 @@ local function lootEntries(self)
 			end
 			-- (a slot whose items already reached the bags before it cleared isn't counted again)
 			if id and not covered[slot] and not self.skipped[slot .. ":" .. id] and not never[id] then
-				out[#out + 1] = { slot = slot, id = id, name = name or "?", qty = qty or 1, quality = quality, icon = icon, link = link }
+				out[#out + 1] = { slot = slot, id = id, name = name or "?", qty = qty or 1, quality = quality, icon = icon, link = link,
+					questItem = isQuestItem == true or nil }   -- (1.7.0-beta12) for the note: a quest item never has a price
 			end
 		end
 	end
@@ -277,9 +339,22 @@ local function questEntries(self)
 end
 -- The entries that won't fit (room in existing stacks first, then special
 -- bags that take them, then ordinary bags), each counted against the last.
-local function fitting(self, entries)
+-- (1.7.0-beta10) first: the order slots are handed out in (the target, then the rest); the answer keeps the loot
+-- window's order
+local function fitting(self, entries, first)
 	local out = {}
 	if #entries == 0 then return out end
+	if first then
+		local ordered = {}
+		for _, e in ipairs(entries) do if e.reserved then ordered[#ordered + 1] = e end end
+		ordered[#ordered + 1] = first
+		for _, e in ipairs(entries) do if not e.reserved and e ~= first then ordered[#ordered + 1] = e end end
+		local at = {}
+		for i, e in ipairs(entries) do at[e] = i end
+		local res = fitting(self, ordered)
+		table.sort(res, function(a, b) return at[a] < at[b] end)
+		return res
+	end
 	local free = freeSpace()
 	local room = {}
 	for _, r in ipairs(ns.items or {}) do
@@ -317,9 +392,39 @@ local function fitting(self, entries)
 	end
 	return out
 end
+-- (1.7.0-beta10, Shweep: "better understand which item you are determining for") The loot the Loot Helper makes room
+-- for: the waiting entry you clicked (MR.target, until the loot window changes), else the most valuable. It gets the
+-- free slots first, so a slot you free goes to it (MR:Waiting), and every offer is judged against it alone.
+function MR:TargetKey(e) return tostring(e.slot or "q") .. ":" .. tostring(e.id or e.name) end
+local function entryRank(self, e)
+	if not e.values then e.values = e.id and self:Values(e.id, e.qty or 1, e.link, bindsOnPickup(e.id) and "bop" or nil) or { vendor = 0 } end
+	return self:Rank(e.values)
+end
+-- (1.7.0-beta12) Loot that's a quest item (the loot window says so, or its item class is Quest): it never has a price.
+local QUEST_CLASS = (Enum and Enum.ItemClass and Enum.ItemClass.Questitem) or 12
+function MR:IsQuestItem(e)
+	if not (e and e.id) then return false end
+	if e.questItem then return true end
+	local classID = C_Item and C_Item.GetItemInfoInstant and select(6, C_Item.GetItemInfoInstant(e.id))
+	if classID == nil then classID = select(12, itemInfo(e.id)) end
+	return classID == QUEST_CLASS
+end
+function MR:Target(list)
+	if self.target then
+		for _, e in ipairs(list or {}) do if not e.reserved and self:TargetKey(e) == self.target then return e end end
+	end
+	local best, bestRank
+	for _, e in ipairs(list or {}) do
+		if not e.reserved then
+			local r = entryRank(self, e)
+			if not best or r > bestRank then best, bestRank = e, r end
+		end
+	end
+	return best
+end
 function MR:Waiting()
-	if self.mode == "quest" then return fitting(self, questEntries(self)) end
-	return fitting(self, lootEntries(self))
+	local entries = self.mode == "quest" and questEntries(self) or lootEntries(self)
+	return fitting(self, entries, self:Target(entries))
 end
 
 -- Soul Shards in ordinary bags (never soul bags), and how many may go.
@@ -376,7 +481,11 @@ function MR:WorthLettingGo(bag, rank, junk, waiting)
 	return (rank or 0) < best
 end
 
-function MR:Suggestions(waiting)
+-- (1.7.0-beta10) judge: the loot it's making room for ({ MR:Target(waiting) }); slots and values are judged against it
+-- alone. Waiting loot of any kind is never offered itself. Also returns how many items were left out only for being
+-- worth more than it (pricier), for the note.
+function MR:Suggestions(waiting, judge)
+	judge = judge or waiting
 	local loot = {}
 	for _, w in ipairs(waiting) do
 		if w.id then loot[w.id] = true end
@@ -398,7 +507,7 @@ function MR:Suggestions(waiting)
 			local found
 			for i = 1, #list do
 				local src = list[i]
-				if self:SlotHelps(src.bag, waiting) then
+				if self:SlotHelps(src.bag, judge) then
 					for j = #list, 1, -1 do
 						local dst = list[j]
 						if j ~= i and (src.count or 1) + (dst.count or 1) <= max then found = { src = src, dst = dst, name = src.name }; break end
@@ -411,19 +520,38 @@ function MR:Suggestions(waiting)
 	end
 	table.sort(combine, function(a, b) return a.name < b.name end)
 	for i = #combine, MAX_COMBINE + 1, -1 do combine[i] = nil end
-	-- Items to destroy: junk first, then the cheapest; only worth less than the loot. Protected items that would
-	-- otherwise have qualified are counted by reason (1.3.0), so the window can say why they aren't offered.
+	-- Items to let go (1.7.0-beta3, Shweep: "how much it's really worth to you", not its price alone). Offered: junk,
+	-- whatever it's worth, and anything else worth less than the loot that could use its slot. Protected items that would
+	-- otherwise have qualified are counted by reason instead (1.3.0), and so is anything an active quest still asks for
+	-- ("questneed"). The order, least missed first: the value the setting ranks by, counted MAT_WEIGHT times over for a
+	-- material one of your professions uses (MR:Materials) and at SPARE_WEIGHT for a spare stack (a smaller stack of an
+	-- item you carry more of). Junk ranks by value with everything else. The weights only order the list: what may be
+	-- offered, and the check at the click, still go by plain value. Every candidate is listed (the panel scrolls).
 	local held = ns.Why:New()
+	local pricier = 0
+	local needs, questsRead = self:QuestObjectives()
+	local mats = self:Materials()
+	local mainStack = {}
 	for _, r in ipairs(ns.items or {}) do
-		if r.itemID and r.bag and not r.isLocked and not loot[r.itemID] and r.itemID ~= SHARD and self:SlotHelps(r.bag, waiting) then
+		if r.itemID and r.bag then
+			local m = mainStack[r.itemID]
+			if not m or (r.count or 1) > (m.count or 1) then mainStack[r.itemID] = r end
+		end
+	end
+	for _, r in ipairs(ns.items or {}) do
+		if r.itemID and r.bag and not r.isLocked and not loot[r.itemID] and r.itemID ~= SHARD and self:SlotHelps(r.bag, judge) then
 			local v = self:Values(r.itemID, r.count or 1, r.link, r.isBound and "soulbound" or nil)
 			local rank = self:Rank(v)
 			local junk = ns.Junk and ns.Junk:IsJunk(r)
-			local worth, noPrice = self:WorthLettingGo(r.bag, rank, junk, waiting)
+			local worth, noPrice = self:WorthLettingGo(r.bag, rank, junk, judge)
+			if not worth and not junk then pricier = pricier + 1 end
 			local why
 			if r.isQuest then why = "quest"
+			elseif not questsRead then why = "unknown"   -- (1.7.0-beta5, F2) the quest log couldn't be read: nothing is offered
+			elseif self:NeededForQuest(r.name, needs) then why = "questneed"
 			elseif r.hasNoValue or (r.sellPrice or 0) <= 0 then why = "novalue"
 			elseif ns.Marks and ns.Marks:IsFavorite(r.itemID) then why = "favorite"
+			elseif self:IsProtected(r.itemID) then why = "protected"
 			elseif ns.Pawn and ns.Pawn:IsUpgrade(r) then why = "pawn"
 			elseif ns.GearSets then
 				local sets, unreadable = ns.GearSets:SetsAt(r.bag, r.slot)
@@ -432,19 +560,227 @@ function MR:Suggestions(waiting)
 			if why then
 				if worth then ns.Why:Add(held, why, r.name) end
 			elseif worth then
-				destroy[#destroy + 1] = { rec = r, values = v, rank = rank, junk = junk, noPrice = noPrice and not junk }
+				local mat = (not junk) and mats[r.itemID] or false
+				local spare = mainStack[r.itemID] ~= r
+				local order = rank * (mat and MAT_WEIGHT or 1) * (spare and SPARE_WEIGHT or 1)
+				destroy[#destroy + 1] = { rec = r, values = v, rank = rank, order = order, junk = junk, mat = mat, spare = spare, noPrice = noPrice and not junk }
 			end
 		end
 	end
 	table.sort(destroy, function(a, b)
-		if a.junk ~= b.junk then return a.junk end
+		if a.order ~= b.order then return a.order < b.order end
 		if a.rank ~= b.rank then return a.rank < b.rank end
-		return (a.rec.name or "") < (b.rec.name or "")
+		if (a.rec.name or "") ~= (b.rec.name or "") then return (a.rec.name or "") < (b.rec.name or "") end
+		if a.rec.bag ~= b.rec.bag then return a.rec.bag < b.rec.bag end
+		return (a.rec.slot or 0) < (b.rec.slot or 0)
 	end)
-	for i = #destroy, MAX_SUGGEST + 1, -1 do destroy[i] = nil end
 	local noPrice = false
 	for _, d in ipairs(destroy) do if d.noPrice then noPrice = true end end
-	return combine, destroy, held, noPrice
+	return combine, destroy, held, noPrice, pricier
+end
+
+-- (1.7.0-beta4, Shweep's wording) How the "let go" list is ordered, said plainly: the footer's (i), and Settings >
+-- Loot Helper says the same.
+function MR:HowItDecides()
+	local ahPrices = (ns.db and (ns.db.makeRoomValue or "ah") == "ah") and ns.AH and ns.AH:Available()
+	return {
+		"Mostly it goes by price, cheapest first. Things you craft with stay further down, and if you have two stacks of something, the smaller one goes first.",
+		"Junk always shows up, even when it's worth more than what you're looting.",
+		"Anything you still need for a quest is never on the list, unless its heading is collapsed in your quest log.",
+		ahPrices and "Prices come from the AH when it has one, otherwise the vendor." or "Prices come from the vendor.",
+		"It learns what you craft with when you open your profession window.",
+	}
+end
+
+-- (1.7.0-beta3) What your quests still ask you to bring: the item objectives in your quest log, finished or not (they're
+-- handed in). The game words them by name ("Linen Cloth: 3/10").
+-- (1.7.0-beta5, the beta4 audit's F2) It fails closed. Returns the objectives and whether the reading is complete. A
+-- quest's last good reading this session is remembered (MR.questMemo): a quest whose read fails keeps it, and so does a
+-- quest whose heading has been collapsed since (the game doesn't list those). A failed read with nothing remembered makes
+-- the reading incomplete, and nothing is destroyed until it can be read. A client without the quest log functions has
+-- nothing to read (complete, no needs). A quest leaves the memory when it's turned in or abandoned, or when the whole log
+-- is in view and it isn't there.
+-- (1.7.0-beta8, the beta7 audit's F1 and A1) A quest is remembered by its quest ID (a positive number). One without an ID
+-- never borrows a reading: if it can't be read, the reading is incomplete; quests that share a title keep all their
+-- objectives together (by title, objective name -> text), replaced only by a full read with nothing collapsed. Every
+-- answer is checked: a count must be a number, each declared objective a text and a kind, C_QuestLog's entries tables
+-- with a type (and an item's text). Anything else is a failed read, which tries C_QuestLog next. A real 0 or an empty
+-- list is still an answer. report (optional, /bs questlog): each quest listed, with how it was read.
+-- (1.7.0-beta9, the beta8 audit's A2) An item objective with blank text, or C_QuestLog's list with a hole in it, is a
+-- failed read too (a non-item objective's blank text is fine).
+MR.questMemo = MR.questMemo or {}
+local function objectiveName(text) return text:match("^(.-):%s*%d+%s*/%s*%d+%s*$") or text end
+-- (1.7.0-beta9) A usable quest ID: a positive number (also for /bs questlog's count), else nil.
+function MR.QuestID(v)
+	v = tonumber(v)
+	if v and v > 0 then return v end
+	return nil
+end
+-- (1.7.0-beta9, the beta8 audit's A2) an item objective's text must name something
+local function blank(text) return not text:find("%S") end
+-- The quest log's lines for quest i: nil unless every declared objective came back.
+local function logTexts(i)
+	local okN, m = pcall(GetNumQuestLeaderBoards, i)
+	m = okN and tonumber(m) or nil
+	if not m or m < 0 then return nil end
+	local texts = {}
+	for j = 1, m do
+		local okL, text, kind = pcall(GetQuestLogLeaderBoard, j, i)
+		if not okL or type(text) ~= "string" or type(kind) ~= "string" then return nil end
+		if kind == "item" then
+			if blank(text) then return nil end
+			texts[#texts + 1] = text
+		end
+	end
+	return texts
+end
+-- C_QuestLog's objectives for a quest ID: nil unless every entry is well formed.
+-- (1.7.0-beta9, A2) and the list has no holes: its keys are exactly 1 to n (ipairs would stop at a hole)
+local function apiTexts(questID)
+	local okO, objs = pcall(C_QuestLog.GetQuestObjectives, questID)
+	if not okO or type(objs) ~= "table" then return nil end
+	local n = 0
+	for k in pairs(objs) do
+		if type(k) ~= "number" or k < 1 or k % 1 ~= 0 then return nil end
+		n = n + 1
+	end
+	local texts = {}
+	for i = 1, n do
+		local o = objs[i]
+		if type(o) ~= "table" or type(o.type) ~= "string" then return nil end
+		if o.type == "item" then
+			if type(o.text) ~= "string" or blank(o.text) then return nil end
+			texts[#texts + 1] = o.text
+		end
+	end
+	return texts
+end
+function MR:QuestObjectives(report)
+	local memo = self.questMemo
+	if not GetNumQuestLogEntries then return {}, true end
+	local okC, n = pcall(GetNumQuestLogEntries)
+	n = okC and tonumber(n) or nil
+	local complete = n ~= nil and n >= 0
+	local hasLog = GetNumQuestLeaderBoards and GetQuestLogLeaderBoard
+	local hasApi = C_QuestLog and C_QuestLog.GetQuestObjectives
+	local seen, byTitle, collapsed = {}, {}, false
+	for i = 1, (complete and n or 0) do
+		local ok, title, _, _, isHeader, isCollapsed, _, _, questID = pcall(GetQuestLogTitle, i)
+		if not ok or type(title) ~= "string" or title == "" then
+			complete = false
+			if report then report[#report + 1] = { line = i, failed = true } end
+		elseif isHeader then
+			if isCollapsed then collapsed = true end
+		else
+			questID = MR.QuestID(questID)
+			local texts, via
+			if hasLog then texts = logTexts(i); via = texts and "log" end
+			if not texts and questID and hasApi then texts = apiTexts(questID); via = texts and "C_QuestLog" end
+			if not texts and not (GetQuestLogLeaderBoard or hasApi) then texts, via = {}, "none" end   -- nothing to read objectives with
+			if questID then
+				seen[questID] = true
+				if texts then memo[questID] = texts elseif not memo[questID] then complete = false end
+			else
+				local key = "t:" .. title
+				seen[key] = true
+				if texts then
+					local u = byTitle[key] or {}
+					byTitle[key] = u
+					for _, t in ipairs(texts) do u[objectiveName(t)] = t end
+				else
+					complete = false   -- no ID: never take another quest's reading for this one
+				end
+			end
+			if report then report[#report + 1] = { title = title, questID = questID, via = via, texts = texts } end
+		end
+	end
+	local full = complete and not collapsed
+	for key, u in pairs(byTitle) do
+		if not full then for _, t in ipairs(memo[key] or {}) do local k = objectiveName(t); if u[k] == nil then u[k] = t end end end
+		local list = {}
+		for _, t in pairs(u) do list[#list + 1] = t end
+		memo[key] = list
+	end
+	-- the whole log in view and read: anything remembered that isn't in it has left it
+	if full then for key in pairs(memo) do if not seen[key] then memo[key] = nil end end end
+	local out = {}
+	for _, texts in pairs(memo) do for _, t in ipairs(texts) do out[#out + 1] = t end end
+	return out, complete, collapsed, n
+end
+function MR:ForgetQuest(questID) local id = MR.QuestID(questID); if id then self.questMemo[id] = nil end end
+-- Does a quest objective ask for this item? "Linen Cloth: 3/10" names it exactly; an objective worded some other way
+-- (another language's order) counts if it contains the name, which can only keep more, never less.
+function MR:NeededForQuest(name, objectives)
+	if type(name) ~= "string" or name == "" then return false end
+	for _, text in ipairs(objectives or {}) do
+		local named = text:match("^(.-):%s*%d+%s*/%s*%d+%s*$")
+		if named then
+			if named == name then return true end
+		elseif text:find(name, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- (1.7.0-beta3) Materials your crafting professions use, learned per character from the recipes you know each time a
+-- profession window opens or changes (BagSmithCharDB.professionMats: profession -> item ID -> true). A recipe list
+-- narrowed by a search or filter only adds; a material never seen in a window isn't known.
+function MR:Materials()
+	local out = {}
+	local t = ns.cdb and ns.cdb.professionMats
+	if type(t) == "table" then
+		for _, set in pairs(t) do if type(set) == "table" then for id in pairs(set) do out[id] = true end end end
+	end
+	return out
+end
+local function remember(prof, set)
+	if not (ns.cdb and type(prof) == "string" and prof ~= "" and next(set)) then return end
+	if type(ns.cdb.professionMats) ~= "table" then ns.cdb.professionMats = {} end
+	local t = ns.cdb.professionMats[prof]
+	if type(t) ~= "table" then t = {}; ns.cdb.professionMats[prof] = t end
+	for id in pairs(set) do t[id] = true end
+end
+local function itemIdOf(link) return type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil end
+function MR:LearnTradeSkill()
+	if not (GetTradeSkillLine and GetNumTradeSkills and GetTradeSkillNumReagents and GetTradeSkillReagentItemLink) then return end
+	local okP, prof = pcall(GetTradeSkillLine)
+	if not okP or type(prof) ~= "string" or prof == "" or prof == "UNKNOWN" then return end
+	local set = {}
+	local okN, n = pcall(GetNumTradeSkills)
+	for i = 1, (okN and tonumber(n) or 0) do
+		local okI, _, kind = pcall(GetTradeSkillInfo, i)
+		if okI and kind ~= "header" then
+			local okR, m = pcall(GetTradeSkillNumReagents, i)
+			for j = 1, (okR and tonumber(m) or 0) do
+				local okL, link = pcall(GetTradeSkillReagentItemLink, i, j)
+				local id = okL and itemIdOf(link)
+				if id then set[id] = true end
+			end
+		end
+	end
+	remember(prof, set)
+end
+-- Enchanting's window is the craft window on this client.
+function MR:LearnCraft()
+	if not (GetNumCrafts and GetCraftNumReagents and GetCraftReagentItemLink) then return end
+	local getName = GetCraftDisplaySkillLine or GetCraftName
+	local okP, prof = pcall(getName or function() end)
+	if not okP or type(prof) ~= "string" or prof == "" then return end
+	local set = {}
+	local okN, n = pcall(GetNumCrafts)
+	for i = 1, (okN and tonumber(n) or 0) do
+		local okI, _, _, kind = pcall(GetCraftInfo, i)
+		if okI and kind ~= "header" then
+			local okR, m = pcall(GetCraftNumReagents, i)
+			for j = 1, (okR and tonumber(m) or 0) do
+				local okL, link = pcall(GetCraftReagentItemLink, i, j)
+				local id = okL and itemIdOf(link)
+				if id then set[id] = true end
+			end
+		end
+	end
+	remember(prof, set)
 end
 
 -- (1.5.1) The bags this loot can't go in (a quiver, a reagent bag for loot that isn't a reagent), by name, for
@@ -512,6 +848,17 @@ local function pickUp(bag, slot, id, link)
 	ClearCursor()
 	return false
 end
+-- (1.7.0-beta9, the beta8 audit's A1) Delete the item just picked up, and check it went: the game can refuse an addon's
+-- delete (another Forever addon's author found it blocked on one client), silently or with an error. An error, or the
+-- item still on the cursor, means it wasn't destroyed: it goes back to its slot (ClearCursor) and the answer is false,
+-- so nothing counts it as gone.
+local function deleteHeld(id)
+	local ok = pcall(DeleteCursorItem)
+	local kind, cid = GetCursorInfo()
+	if ok and not (kind == "item" and cid == id) then return true end
+	ClearCursor()
+	return false
+end
 local function guidAt(bag, slot)
 	if not (C_Item and C_Item.GetItemGUID and ItemLocation) then return nil end
 	local ok, guid = pcall(function()
@@ -575,9 +922,19 @@ function MR:StillOk(o)
 	if o.guid and not guid and C_Item and C_Item.GetItemGUID then return false, "changed" end
 	if not o.guid and C_Item and C_Item.GetItemGUID and ItemLocation then return false, "changed" end
 	-- Freeing this slot must still help what's waiting now.
+	-- (1.7.0-beta10) judged against the loot it's making room for now (the target), as the list is: if that loot is
+	-- looted or skipped, the next one takes its place, and the offer must still be worth letting go for it
 	local waitingNow = self:Waiting()
-	if not self:SlotHelps(o.bag, waitingNow) then return false, "nohelp" end
+	local target = self:Target(waitingNow)
+	local judge = target and { target } or waitingNow
+	if not self:SlotHelps(o.bag, judge) then return false, "nohelp" end
 	if ns.Marks and ns.Marks:IsFavorite(o.itemID) then return false, "favorite" end
+	if self:IsProtected(o.itemID) then return false, "protected" end   -- (1.7.0-beta1)
+	do   -- (1.7.0-beta3) what a quest still asks for; (1.7.0-beta5, F2) a quest log that can't be read is a no
+		local needs, questsRead = self:QuestObjectives()
+		if not questsRead then return false, "questlog" end
+		if self:NeededForQuest(o.name or select(1, itemInfo(o.itemID)), needs) then return false, "questneed" end
+	end
 	-- (set membership re-read from the game right before destroying)
 	if ns.GearSets and ns.GearSets.Refresh then ns.GearSets:Refresh() end
 	if ns.GearSets then
@@ -611,7 +968,7 @@ function MR:StillOk(o)
 	-- protected item says why it's protected.
 	if not o.junk then
 		local v = self:Values(o.itemID, o.count or 1, o.link, info.isBound and "soulbound" or nil)   -- (bound as the bag says now)
-		local worth, noPrice = self:WorthLettingGo(o.bag, self:Rank(v), false, waitingNow)
+		local worth, noPrice = self:WorthLettingGo(o.bag, self:Rank(v), false, judge)
 		if not worth then return false, "worth" end
 		-- (1.5.1-beta2, the beta1 audit) and for the same reason it was offered: an offer made because valuable loot was
 		-- waiting isn't carried out on the no-price fallback (or the other way round) without being offered again
@@ -625,6 +982,9 @@ local REFUSED = {
 	moved = "That item moved, so nothing was destroyed. The Loot Helper has updated.",
 	changed = "That item changed since it was offered, so nothing was destroyed. The Loot Helper has updated.",
 	favorite = "That item is a favorite now, so nothing was destroyed.",
+	protected = "You protected that item, so nothing was destroyed.",   -- (1.7.0-beta1)
+	questneed = "One of your quests still asks for that item, so nothing was destroyed.",   -- (1.7.0-beta3)
+	questlog = "BagSmith couldn't check your quests just now, so nothing was destroyed. Try again in a moment.",   -- (1.7.0-beta5)
 	gearset = "That item is in one of your gear sets, so nothing was destroyed.",
 	quest = "That's a quest item, so nothing was destroyed.",
 	upgrade = "Pawn says that item is an upgrade, so nothing was destroyed.",
@@ -638,7 +998,10 @@ local REFUSED = {
 	price = "That item's price changed since it was offered, so nothing was destroyed. The Loot Helper has updated.",   -- (1.6.0-beta6, Shweep's wording)
 	novalue = "That item has no vendor price, so it's kept. Nothing was destroyed.",
 	ask = "Your settings say to ask before destroying that, so nothing was destroyed. Click it again to be asked.",
+	-- (1.7.0-beta9, the beta8 audit's A1; Shweep's wording) the game refused the delete
+	blocked = "The game wouldn't let BagSmith destroy that, so it's back in your bags. You can still drag it out of your bags to destroy it yourself.",
 }
+local SHARD_BLOCKED = "The game wouldn't let BagSmith destroy that Soul Shard, so it's back in your bags. You can still drag it out of your bags to destroy it yourself."
 -- The row's click: asks first if the current settings and quality call for it, or if the button said it would ask
 -- (a button drawn before a setting changed is only ever more careful, never less); otherwise destroys at once.
 function MR:TryDestroy(o, btn, what, value, key, shownAsk)
@@ -655,7 +1018,11 @@ function MR:Destroy(o, confirmed)
 	local ok, why = self:StillOk(o)
 	if not ok then ns:Print(REFUSED[why] or REFUSED.changed); self:Refresh(); return false end
 	if not confirmed and self:AsksFirstLive(o) then ns:Print(REFUSED.ask); self:Refresh(); return false end
-	if pickUp(o.bag, o.slot, o.itemID, o.link) then DeleteCursorItem(); return true end
+	if pickUp(o.bag, o.slot, o.itemID, o.link) then
+		if deleteHeld(o.itemID) then return true end
+		ns:Print(REFUSED.blocked); self:Refresh()
+		return false
+	end
 	ns:Print(REFUSED.changed); self:Refresh()
 	return false
 end
@@ -688,6 +1055,22 @@ function MR:NeverAsk(w)
 end
 
 -- Soul Shards: choose how many, confirm once, then one click per shard.
+-- (1.7.0-beta5, the beta4 audit's F1) The Soul Shards in your bags, counted live (soul bags included: the keep counts
+-- them), for the check right before each delete; nil when a bag can't be read. MR:Shards counts from the last scan,
+-- which can be behind (a shard used or moved since, or a scan held while a Clean Up runs).
+function MR:LiveShards()
+	local total = 0
+	for _, bag in ipairs(ns.BAGS or {}) do
+		local okN, n = pcall(C_Container.GetContainerNumSlots, bag)
+		if not okN then return nil end
+		for slot = 1, (tonumber(n) or 0) do
+			local okI, info = pcall(C_Container.GetContainerItemInfo, bag, slot)
+			if not okI then return nil end
+			if info and info.itemID == SHARD then total = total + (info.stackCount or 1) end
+		end
+	end
+	return total
+end
 function MR:DestroyNextShard(btn)
 	local list, can = self:Shards()
 	-- (1.5.1-beta3, L3) a batch started without a question isn't carried on once Ask Before Destroying is on: this
@@ -708,9 +1091,24 @@ function MR:DestroyNextShard(btn)
 	end
 	local r = list[1]
 	if r and can > 0 then
+		-- (1.7.0-beta5, F1) never below the keep: the shards are counted live, right before the delete
+		local keep, live = (ns.db and ns.db.shardKeep) or 0, self:LiveShards()
+		if not live or live - 1 < keep then
+			ns:Print(not live and "BagSmith couldn't count your Soul Shards just now, so nothing was destroyed. Try again in a moment."
+				or ("That would leave you with fewer than %d Soul %s, so nothing was destroyed."):format(keep, keep == 1 and "Shard" or "Shards"))
+			self.shardBatch = nil
+			self:Paint()
+			return
+		end
 		local info = C_Container.GetContainerItemInfo(r.bag, r.slot)
 		if info and info.itemID == SHARD and not info.isLocked and self:BagFamily(r.bag) == 0 and pickUp(r.bag, r.slot, SHARD) then
-			DeleteCursorItem()
+			-- (1.7.0-beta9, A1) counted only once it's really gone; a refused delete ends the batch
+			if not deleteHeld(SHARD) then
+				ns:Print(SHARD_BLOCKED)
+				self.shardBatch = nil
+				self:Paint()
+				return
+			end
 			self.shardBatch = self.shardBatch - 1
 		end
 	end
@@ -916,6 +1314,7 @@ end
 -- The panel
 ------------------------------------------------------------------------
 local ROW_H = 38
+local PROTECT_W = 76
 local MEDIA = "Interface\\AddOns\\BagSmith\\Media\\"
 local function row(f, list, i, make)
 	local r = list[i]
@@ -931,6 +1330,7 @@ end
 -- One row (1.3.0): a selection dot on rows you can choose (the space is kept on the waiting rows so the icons
 -- line up), the item's icon with its count on it, the name in its quality color, a value line beneath, and on
 -- waiting rows their own small buttons at the right.
+local COST_W = 70
 local function makeItemRow(parent, opts)
 	opts = opts or {}
 	local buttons = opts.buttons or {}
@@ -960,6 +1360,11 @@ local function makeItemRow(parent, opts)
 	r.value:SetJustifyH("LEFT"); r.value:SetWordWrap(false)
 	r.btns = {}
 	local prev, used = nil, 0
+	-- (1.7.0-beta10) a cost column on the right: "Free", "Junk 3c", "8c"
+	if opts.cost then
+		r.cost = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); r.cost:SetPoint("RIGHT", -8, 0); r.cost:SetJustifyH("RIGHT")
+		used = COST_W
+	end
 	for i = #buttons, 1, -1 do
 		local b = ns.TextButton(r, buttons[i][1], buttons[i][2], function(btn) btn.onClick(btn) end)
 		b:SetHeight(20)
@@ -969,9 +1374,18 @@ local function makeItemRow(parent, opts)
 		r.btns[i] = b
 	end
 	-- the name and value get the room left of the buttons (the full name is in the item's tooltip)
+	r.btnUsed = used
 	local textW = (W - 12) - 62 - used - 8
 	r.name:SetWidth(textW); r.value:SetWidth(textW)
 	return r
+end
+-- (1.7.0-beta3) a row at another width (the "let go" list, narrower while its scrollbar shows)
+local function fitRow(r, w)
+	if r.fitW == w then return end
+	r.fitW = w
+	r:SetWidth(w)
+	local textW = w - 62 - (r.btnUsed or 0) - 8
+	r.name:SetWidth(textW); r.value:SetWidth(textW)
 end
 -- A frame anchored to another frame leaps when it's dragged: put it on the screen at its own spot first.
 function MR.ToScreen(f)
@@ -993,8 +1407,11 @@ function MR:Frame()
 	if f.SetToplevel then f:SetToplevel(true) end   -- above the bags window, and forward when clicked
 	-- Drag to move; the spot is remembered (beside the loot window until then).
 	f:SetMovable(true); f:RegisterForDrag("LeftButton")
-	f:SetScript("OnDragStart", function(self) MR.ToScreen(self); self:StartMoving() end)
+	-- (1.7.0-beta2) not while Lock Windows is on
+	f:SetScript("OnDragStart", function(self) if ns:WindowsLocked() then return end; self.bsDragging = true; MR.ToScreen(self); self:StartMoving() end)
 	f:SetScript("OnDragStop", function(self)
+		if ns:WindowsLocked() and not self.bsDragging then return end   -- (locked: it never started, so no spot to save)
+		self.bsDragging = nil
 		self:StopMovingOrSizing()
 		local point, _, rel, x, yy = self:GetPoint(1)
 		if point then ns.db.makeRoomPos = { point, "UIParent", rel or point, math.floor(x + 0.5), math.floor(yy + 0.5) } end
@@ -1009,13 +1426,26 @@ function MR:Frame()
 	f.note = line(f); f.note:SetWidth(W - 24); f.note:SetWordWrap(true)
 	f.excl = line(f); f.exclInfo = ns.Why.InfoButton(f); f.exclInfo:Hide()
 	f.held = line(f); f.heldInfo = ns.Why.InfoButton(f); f.heldInfo:Hide()
+	-- (1.7.0-beta3, Shweep) the "let go" rows scroll: VISIBLE_ROWS at a time, every candidate listed
+	f.letGo = CreateFrame("ScrollFrame", "BagSmithMakeRoomLetGo", f, "UIPanelScrollFrameTemplate")
+	f.letGo.scrollBarHideable = true
+	f.letGo.child = CreateFrame("Frame", nil, f.letGo); f.letGo.child:SetSize(W - 12, 1); f.letGo:SetScrollChild(f.letGo.child)
+	f.letGo:Hide()
+	-- (1.7.0-beta3) the footer's (i): how the list is ordered
+	f.footInfo = ns.Why.InfoButton(f); f.footInfo:Hide()
 	f.rule1, f.rule2 = hrule(f), hrule(f)
 	-- Clean Up Bags is a way to free a slot like the others: a row you can choose.
-	f.cleanup = makeItemRow(f, { choosable = true }); f.cleanup:Hide()
+	-- (1.7.0-beta10) in the one list of ways to make room, with a cost column
+	f.cleanup = makeItemRow(f.letGo.child, { choosable = true, cost = true }); f.cleanup:Hide()
 	f.cleanup.icon:SetTexture(MEDIA .. "ui-broom.tga"); f.cleanup.name:SetText("Clean Up Bags")
 	f.cleanup.tipFn = function(tip) ns.TipText(tip, "Clean Up Bags", 1, 1, 1); ns.TipLine(tip, "Blizzard's Clean Up Bags merges partial stacks, which can free a slot or two.", 0.9, 0.9, 0.9, true) end
 	-- The one action, for the row you've chosen.
 	f.act = ns.TextButton(f, "", W - 24, function(btn) if MR.actRun then MR.actRun(btn) end end); f.act:SetHeight(24); f.act:Hide()
+	-- (1.7.0-beta10, Shweep: Protect "a secondary choice to the destroy button") beside it, for the chosen item to let go
+	f.protect = ns.TextButton(f, "Protect", PROTECT_W, function() if MR.protectRun then MR.protectRun() end end); f.protect:SetHeight(24); f.protect:Hide()
+	f.protect:SetSecondary(true)   -- 1.7.0-beta11: gray in both skins, a second choice beside the main button
+	f.protect.tip = "Don't suggest again"
+	f.protect.tipSub = "The Loot Helper won't offer this item again. Settings > Loot Helper lists what you've protected."
 	f.foot = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.foot:SetJustifyH("CENTER"); f.foot:SetWordWrap(false); f.foot:Hide()
 	-- Soul Shards row
 	f.shard = CreateFrame("Frame", nil, f); f.shard:SetSize(W - 24, 24)
@@ -1041,6 +1471,7 @@ function MR:Frame()
 		ns.Skins:ApplyBackdrop(fr); local s = ns.Skins:Current(); fr:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1)
 		fr.title:SetTextColor(unpack(s.heading)); fr.sub:SetTextColor(unpack(s.text)); fr.status:SetTextColor(unpack(s.muted))
 		for _, t in ipairs({ fr.note, fr.excl, fr.held, fr.foot, fr.card.text }) do t:SetTextColor(unpack(s.muted)) end
+		if ns.Classic.DressScrollBar then ns.Classic:DressScrollBar(fr.letGo, ns.Classic.IsOn()) end
 		fr.card.head:SetTextColor(unpack(s.heading))
 		do local ar, ag, ab = ns.Skins:Accent(); fr.card.mark:SetVertexColor(ar, ag, ab) end
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
@@ -1061,6 +1492,9 @@ end
 local function head(f, i, text, y)
 	local h = f.heads[i]
 	if not h then h = f:CreateFontString(nil, "OVERLAY", "GameFontNormal"); f.heads[i] = h end
+	-- left-justified (1.7.0-beta11): a heading given a width (the target's, so a long name truncates) would otherwise
+	-- center its text, and the (i) placed after the text's width would sit over it
+	h:SetJustifyH("LEFT")
 	h:SetText(text); h:ClearAllPoints(); h:SetPoint("TOPLEFT", 12, -y); h:Show()
 	h:SetTextColor(unpack(ns.Skins:Current().heading))
 	return y + 18
@@ -1085,7 +1519,7 @@ function MR:Paint()
 	local s = ns.Skins:Current()
 	for _, h in ipairs(f.heads) do h:Hide() end
 	for _, list in ipairs({ f.waitRows, f.combineRows, f.destroyRows }) do for _, r in ipairs(list) do r:Hide() end end
-	for _, w in ipairs({ f.cleanup, f.shard, f.note, f.excl, f.exclInfo, f.held, f.heldInfo, f.rule1, f.rule2, f.act, f.foot, f.card }) do w:Hide() end
+	for _, w in ipairs({ f.cleanup, f.shard, f.note, f.excl, f.exclInfo, f.held, f.heldInfo, f.letGo, f.footInfo, f.rule1, f.rule2, f.act, f.protect, f.foot, f.card }) do w:Hide() end
 	local shardsOnly = self.mode == "shards"
 	local waiting = shardsOnly and {} or self:Waiting()
 	-- Add to the session's queue (never drop from it here: an item that now
@@ -1117,14 +1551,28 @@ function MR:Paint()
 	local y, hi = 12 + (f.title:GetStringHeight() or 18) + 4 + (f.sub:GetStringHeight() or 14) + 12, 0
 	if n > 0 then
 		hi = hi + 1; y = head(f, hi, "Waiting to loot", y)
+		-- (1.7.0-beta10, Shweep) the loot it's making room for is the highlighted row; click another to switch
+		local target = self:Target(waiting)
+		local ar, ag, ab = ns.Skins:Accent()
 		for i, w in ipairs(waiting) do
 			local r = row(f, f.waitRows, i, function() return makeItemRow(f, { buttons = { { "Skip", 46 }, { "Exclude", 62 } } }) end)
 			r:ClearAllPoints(); r:SetPoint("TOPLEFT", 6, -y)
 			r.icon:SetTexture(w.icon); r.count:SetText((w.qty or 1) > 1 and tostring(w.qty) or "")
 			r.name:SetText(w.name); r.name:SetTextColor(qualityColor(w.quality))
 			r.value:SetText(w.id and self:ValueText(w.values) or ""); r.value:SetTextColor(unpack(s.muted))
+			local isTarget = w == target
+			if not r.bar then
+				r.bar = r:CreateTexture(nil, "ARTWORK"); r.bar:SetPoint("TOPLEFT", 0, -2); r.bar:SetPoint("BOTTOMLEFT", 0, 2); r.bar:SetWidth(3)
+				r.bar:SetTexture("Interface\\Buttons\\WHITE8X8")
+				r:SetScript("OnClick", function(self) if self.onTarget then self.onTarget() end end)
+			end
+			r.bar:SetVertexColor(ar, ag, ab, 1); r.bar:SetShown(isTarget); r.hl:SetShown(isTarget)
+			r.isTarget = isTarget
+			local key = self:TargetKey(w)
+			r.onTarget = (n > 1 and not isTarget) and function() MR.target = key; MR.sel, MR.selPicked = nil, nil; MR:Paint() end or nil
 			r.tipFn = function(tip)
 				if w.slot and tip.SetLootItem then tip:SetLootItem(w.slot) elseif w.link then tip:SetHyperlink(w.link) else ns.TipText(tip, w.name) end
+				if n > 1 and not isTarget then ns.TipLine(tip, "Click to make room for this instead.", 0.4, 0.8, 1, true) end
 			end
 			-- Skip and Exclude are about leaving loot behind: not for quests.
 			r.btns[1]:SetShown(not quest); r.btns[2]:SetShown(not quest)
@@ -1142,31 +1590,31 @@ end
 function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 	local s = ns.Skins:Current()
 	local quest = self.mode == "quest"
-	local combine, destroy, held, noPrice = {}, {}, nil, false
-	if not shardsOnly and #waiting > 0 then combine, destroy, held, noPrice = self:Suggestions(waiting) end
+	-- (1.7.0-beta10, Shweep's layout) The loot it's making room for, the target: offers are judged against it alone.
+	local target = (not shardsOnly) and self:Target(waiting) or nil
+	local judge = target and { target } or waiting
+	local combine, destroy, held, noPrice, pricier = {}, {}, nil, false, 0
+	if not shardsOnly and #waiting > 0 then combine, destroy, held, noPrice, pricier = self:Suggestions(waiting, judge) end
 	local cleanUp = not shardsOnly and #waiting > 0 and self:CleanUpHelps(#combine)
 	self.offeredCleanUp = cleanUp
-	-- Under the waiting rows: loot with no price (1.5.1), an incoming item worth less than anything offered, and loot
-	-- the Exclusion List leaves behind.
+	-- Under the waiting rows: the target has no price (1.5.1), the target is worth less than anything else you could let
+	-- go, and loot the Exclusion List leaves behind.
 	if noPrice then
-		local unpriced
-		for _, w in ipairs(waiting) do if self:Rank(w.values or { vendor = 0 }) <= 0 then unpriced = unpriced or w end end
 		f.note:ClearAllPoints(); f.note:SetPoint("TOPLEFT", 12, -(y + 2))
-		f.note:SetText(unpriced and unpriced.id and ("%s has no price yet, so these are simply your cheapest items."):format(unpriced.name)
+		-- (1.7.0-beta12, Shweep) a quest item will never have a price: "yet" would promise one
+		f.note:SetText(target and target.id and (self:IsQuestItem(target)
+				and ("%s is a quest item, so it has no price. These are simply your cheapest items."):format(target.name)
+				or ("%s has no price yet, so these are simply your cheapest items."):format(target.name))
 			or "There's no price to compare with, so these are simply your cheapest items.")
 		f.note:Show()
 		y = y + (f.note:GetStringHeight() or 12) + 4
-	elseif #waiting > 0 and #destroy > 0 and not quest then
-		local low = math.huge
-		for _, d in ipairs(destroy) do low = math.min(low, d.rank or math.huge) end
-		for _, w in ipairs(waiting) do
-			local rank = w.values and self:Rank(w.values) or 0
-			if w.id and rank > 0 and rank < low then
-				f.note:ClearAllPoints(); f.note:SetPoint("TOPLEFT", 12, -(y + 2))
-				f.note:SetText(("%s is worth less than anything you'd let go."):format(w.name)); f.note:Show()
-				y = y + (f.note:GetStringHeight() or 12) + 4
-				break
-			end
+	elseif target and target.id and not quest and (pricier or 0) > 0 then
+		local priced = false
+		for _, d in ipairs(destroy) do if not d.junk then priced = true end end
+		if not priced then
+			f.note:ClearAllPoints(); f.note:SetPoint("TOPLEFT", 12, -(y + 2))
+			f.note:SetText(("%s is worth less than anything you'd let go."):format(target.name)); f.note:Show()
+			y = y + (f.note:GetStringHeight() or 12) + 4
 		end
 	end
 	if self.mode == "loot" and #waiting > 0 then
@@ -1181,59 +1629,61 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 	end
 	local options = {}
 	if #waiting > 0 then placeRule(f, f.rule1, y + 6); y = y + 14 end
-	if not shardsOnly and #waiting > 0 and (#combine > 0 or cleanUp) then
-		hi = hi + 1; y = head(f, hi, "Free a slot without losing anything", y)
+	local heldN = held and held.total or 0
+	-- (1.7.0-beta10) One list of the ways to make room for the target: free ways first (combining stacks, Clean Up Bags),
+	-- then items to let go, least missed first; the cost on the right. One choice, one button.
+	local n = shardsOnly and 0 or (#combine + (cleanUp and 1 or 0) + #destroy)
+	if n > 0 then
+		hi = hi + 1; y = head(f, hi, ("To make room for %s"):format(target and target.name or "this loot"), y)
+		local h = f.heads[hi]
+		h:SetWidth(W - 24 - 22); h:SetWordWrap(false)
+		f.footInfo.title = "How it decides"
+		f.footInfo.lines = MR:HowItDecides()
+		f.footInfo:ClearAllPoints(); f.footInfo:SetPoint("LEFT", h, "LEFT", math.min(h:GetStringWidth() or 160, W - 24 - 22) + 4, 0)
+		f.footInfo:Show()
+		-- the rows sit in a scrolling list (1.7.0-beta3): VISIBLE_ROWS tall at most, narrower while its scrollbar shows;
+		-- the scroll position is kept as the list repaints (clamped when it gets shorter)
+		local list = f.letGo
+		local scrolling = n > VISIBLE_ROWS
+		local rowW = (W - 12) - (scrolling and SCROLLBAR_W or 0)
+		local viewH = math.min(n, VISIBLE_ROWS) * ROW_H
+		list:ClearAllPoints(); list:SetPoint("TOPLEFT", 6, -y); list:SetSize(rowW, math.max(1, viewH))
+		list.child:SetSize(rowW, math.max(1, n * ROW_H))
+		if list.ScrollBar then list.ScrollBar:SetShown(scrolling) end
+		list:Show()
+		local at = 0
+		local function place(r)
+			fitRow(r, rowW)
+			r:ClearAllPoints(); r:SetPoint("TOPLEFT", list.child, "TOPLEFT", 0, -at * ROW_H)
+			at = at + 1
+		end
 		for i, c in ipairs(combine) do
-			local r = row(f, f.combineRows, i, function() return makeItemRow(f, { choosable = true }) end)
-			r:ClearAllPoints(); r:SetPoint("TOPLEFT", 6, -y)
+			local r = row(f, f.combineRows, i, function() return makeItemRow(list.child, { choosable = true, cost = true }) end)
+			place(r)
 			r.icon:SetTexture(c.src.icon); r.count:SetText("")
 			r.name:SetText(c.name); r.name:SetTextColor(qualityColor(c.src.quality))
 			r.value:SetText("Combine 2 stacks into 1. Frees 1 slot."); r.value:SetTextColor(unpack(s.muted))
+			r.cost:SetText("Free"); r.cost:SetTextColor(unpack(s.text))
 			r.tipFn = function(tip) tip:SetBagItem(c.src.bag, c.src.slot) end
 			if ns.Pawn then ns.Pawn:DecorateIcon(r, r.icon, ns.Pawn:IsUpgrade(c.src)) end
 			options[#options + 1] = { key = ("c:%d:%d"):format(c.src.bag, c.src.slot), row = r, accent = true, label = "Combine " .. (c.name or "Stacks"),
 				tip = "Pours the smaller stack into the larger one", run = function() MR:Combine(c) end }
-			y = y + ROW_H
 		end
 		if cleanUp then
 			local r = f.cleanup
-			r:ClearAllPoints(); r:SetPoint("TOPLEFT", 6, -y); r:Show()
+			place(r); r:Show()
 			r.name:SetTextColor(unpack(s.text)); r.value:SetText("Sort and stack everything. Can free a slot or two."); r.value:SetTextColor(unpack(s.muted))
+			r.cost:SetText("Free"); r.cost:SetTextColor(unpack(s.text))
 			options[#options + 1] = { key = "cleanup", row = r, accent = true, label = "Clean Up Bags", tip = "Blizzard's Clean Up Bags merges partial stacks", run = function() MR:CleanUp() end }
-			y = y + ROW_H
-		end
-	end
-	-- Soul Shards (warlocks with shards in ordinary bags, above the minimum).
-	local shards, can = self:Shards()
-	if self:IsWarlock() and can > 0 then
-		if not shardsOnly then hi = hi + 1; y = head(f, hi, "Soul Shards", y) end
-		self.shardQty = math.max(1, math.min(self.shardQty or math.max(1, #waiting), can))
-		f.shard:ClearAllPoints(); f.shard:SetPoint("TOPLEFT", 12, -y); f.shard:Show()
-		local keep = ns.db.shardKeep or 0
-		f.shard.text:SetText(("%d in ordinary bags%s"):format(#shards, keep > 0 and (" (keeping at least " .. keep .. ")") or ""))
-		f.shard.qty:SetText(tostring(self.shardQty))
-		f.shard.go.label:SetText(self.shardBatch and ("Destroy Next Shard (%d left)"):format(self.shardBatch) or "Destroy Shards")
-		y = y + 42
-	elseif shardsOnly then
-		f.sub:SetText("No Soul Shards to clear in your ordinary bags" .. ((ns.db.shardKeep or 0) > 0 and " beyond the ones you keep." or "."))
-	end
-	local heldN = held and held.total or 0
-	if #destroy > 0 or (heldN > 0 and (#combine > 0 or cleanUp)) then
-		hi = hi + 1; y = head(f, hi, "Lowest value to let go", y)
-		if heldN > 0 then
-			f.held:ClearAllPoints(); f.held:SetPoint("TOPLEFT", 12, -y)
-			f.held:SetText(("%d protected %s offered"):format(heldN, heldN == 1 and "item isn't" or "items aren't")); f.held:Show()
-			f.heldInfo:ClearAllPoints(); f.heldInfo:SetPoint("LEFT", f.held, "LEFT", (f.held:GetStringWidth() or 150) + 4, 0)
-			f.heldInfo.title = "Kept out of these suggestions"; f.heldInfo.lines = ns.Why:Lines(held); f.heldInfo:Show()
-			y = y + 16
 		end
 		for i, d in ipairs(destroy) do
-			local r = row(f, f.destroyRows, i, function() return makeItemRow(f, { choosable = true }) end)
-			r:ClearAllPoints(); r:SetPoint("TOPLEFT", 6, -y)
+			local r = row(f, f.destroyRows, i, function() return makeItemRow(list.child, { choosable = true, cost = true }) end)
+			place(r)
 			local rec = d.rec
 			r.icon:SetTexture(rec.icon); r.count:SetText((rec.count or 1) > 1 and tostring(rec.count) or "")
 			r.name:SetText(rec.name or "?"); r.name:SetTextColor(qualityColor(rec.quality))
-			r.value:SetText((d.junk and "Junk   " or "") .. self:ValueText(d.values)); r.value:SetTextColor(unpack(s.muted))
+			r.value:SetText(self:ValueText(d.values)); r.value:SetTextColor(unpack(s.muted))
+			r.cost:SetText((d.junk and "Junk  " or "") .. ((d.rank or 0) > 0 and money(d.rank) or "-")); r.cost:SetTextColor(unpack(s.text))
 			r.tipFn = function(tip) tip:SetBagItem(rec.bag, rec.slot) end
 			if ns.Pawn then ns.Pawn:DecorateIcon(r, r.icon, ns.Pawn:IsUpgrade(rec)) end
 			-- The offer is this exact item and count; it's checked again at the moment of destroying.
@@ -1243,20 +1693,32 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 			local key = ("d:%d:%d:%d:%s"):format(rec.bag, rec.slot, rec.itemID, basis)
 			local ask = MR:AsksFirst(rec, d.junk)   -- for the button's words; the click decides afresh (1.5.1-beta3)
 			local what = (rec.name or "this item") .. ((rec.count or 1) > 1 and (" x" .. rec.count) or "")
-			options[#options + 1] = { key = key, row = r, accent = false, label = "Destroy " .. what,
+			options[#options + 1] = { key = key, row = r, accent = false, label = "Destroy " .. what, protect = rec.itemID,
 				tip = d.junk and "Junk: destroyed in one click" or (ask and "Asks before destroying" or "Destroyed at once"),
 				run = function(btn) MR:TryDestroy(offer, btn, what, d.values.vendor, key, ask) end }
-			y = y + ROW_H
+		end
+		list:SetVerticalScroll(math.max(0, math.min(list:GetVerticalScroll() or 0, n * ROW_H - viewH)))
+		y = y + viewH
+		if heldN > 0 then
+			f.held:ClearAllPoints(); f.held:SetPoint("TOPLEFT", 12, -(y + 4))
+			f.held:SetText(("%d protected %s offered"):format(heldN, heldN == 1 and "item isn't" or "items aren't")); f.held:Show()
+			f.heldInfo:ClearAllPoints(); f.heldInfo:SetPoint("LEFT", f.held, "LEFT", (f.held:GetStringWidth() or 150) + 4, 0)
+			f.heldInfo.title = "Kept out of these suggestions"; f.heldInfo.lines = ns.Why:Lines(held); f.heldInfo:Show()
+			y = y + 18
 		end
 	end
 	-- Nothing can free a slot: say why, plainly.
-	if self.mode == "loot" and #waiting > 0 and #options == 0 and not f.shard:IsShown() then
+	local shards, can = self:Shards()
+	local shardRow = self:IsWarlock() and can > 0
+	if self.mode == "loot" and #waiting > 0 and #options == 0 and not shardRow then
 		f.card:ClearAllPoints(); f.card:SetPoint("TOPLEFT", 12, -(y + 4))
 		-- (1.5.1) and the bags this loot can't go in, whose free slots and items can't make room for it
-		local cant = self:BagsLootCantUse(waiting)
+		local cant = self:BagsLootCantUse(judge)
 		f.card.text:SetText((heldN > 0 and ("Everything left is protected: %s. "):format(ns.Why:Phrase(held)) or "")
 			.. (cant and ("This loot can't go in your %s. "):format(cant) or "")
-			.. "Take what fits from the loot window, or make room by hand.")
+			.. "Take what fits from the loot window, or make room by hand."
+			-- (1.7.0-beta10) nothing frees a slot for this one; another waiting item may have a way
+			.. (#waiting > 1 and " Or click another waiting item to make room for it instead." or ""))
 		local ch = math.max(150, 8 + 48 + 8 + (f.card.head:GetStringHeight() or 18) + 6 + (f.card.text:GetStringHeight() or 36) + 12)
 		f.card:SetHeight(ch)
 		f.card:Show()
@@ -1271,7 +1733,7 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 			if not still then c:Hide() end
 		end
 	end
-	-- The one action, for the chosen row.
+	-- The one action, for the chosen row; Protect beside it when that's an item to let go (1.7.0-beta10).
 	if #options > 0 then
 		-- (1.6.0-beta7, the beta6 audit's R1) The default is always the first option, the cheapest as ranked now: it follows
 		-- every repaint. A row the player picked stays chosen while it's offered, until what the ranking follows changes
@@ -1289,28 +1751,52 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 			o.row.onPick = function() MR.sel = o.key; MR.selPicked = true; MR:Paint() end
 		end
 		placeRule(f, f.rule2, y + 6); y = y + 14
-		f.act:ClearAllPoints(); f.act:SetPoint("TOPLEFT", 12, -y); f.act:SetWidth(W - 24)
+		local withProtect = chosen.protect ~= nil
+		local actW = (W - 24) - (withProtect and (PROTECT_W + 6) or 0)
+		f.act:ClearAllPoints(); f.act:SetPoint("TOPLEFT", 12, -y); f.act:SetWidth(actW)
 		f.act.label:SetText(chosen.label); f.act.tip = chosen.tip
 		if f.act.SetActive then f.act:SetActive(chosen.accent) end
 		MR.actRun = chosen.run
-		f.act:Show(); y = y + 24 + 8
+		f.act:Show()
+		if withProtect then
+			local id = chosen.protect
+			f.protect:ClearAllPoints(); f.protect:SetPoint("TOPLEFT", 12 + actW + 6, -y); f.protect:Show()
+			MR.protectRun = function() MR:Protect(id) end
+		else
+			MR.protectRun = nil
+		end
+		y = y + 24 + 8
 		self.chosen = chosen
 	else
 		-- (1.6.0-beta8, the beta7 audit's A1) nothing offered: a pick ends, as when its own row goes, so the list starts
 		-- from the cheapest when items come back
-		MR.actRun = nil; self.chosen = nil
+		MR.actRun, MR.protectRun = nil, nil; self.chosen = nil
 		self.sel, self.selPicked = nil, nil
 	end
-	-- The footer: what the ranking follows, or a status line when there is one.
+	-- The footer: what happens next (1.7.0-beta10), or a status line when there is one.
 	local st = f.status:GetText()
 	local hasStatus = st ~= nil and st ~= ""
 	f.status:ClearAllPoints(); f.status:SetPoint("TOPLEFT", 12, -y); f.status:SetPoint("TOPRIGHT", -12, -y)
-	if not shardsOnly and #waiting > 0 then
+	if not shardsOnly and #options > 0 and target then
 		f.foot:ClearAllPoints(); f.foot:SetPoint("TOPLEFT", 12, -y); f.foot:SetPoint("TOPRIGHT", -12, -y)
-		f.foot:SetText(((ns.db.makeRoomValue or "ah") == "ah" and ns.AH and ns.AH:Available()) and "Ranked by AH price" or "Ranked by vendor price")
+		f.foot:SetJustifyH("LEFT")
+		f.foot:SetText((quest and "Then there's room for %s." or "Then %s goes in your bags."):format(target.name))
 		f.foot:SetShown(not hasStatus)
 		y = y + 16
 	elseif hasStatus then y = y + 16 end
+	-- Soul Shards (warlocks with shards in ordinary bags, above the minimum), below the list and its button.
+	if shardRow then
+		if not shardsOnly then hi = hi + 1; y = head(f, hi, "Soul Shards", y + 6) end
+		self.shardQty = math.max(1, math.min(self.shardQty or math.max(1, #waiting), can))
+		f.shard:ClearAllPoints(); f.shard:SetPoint("TOPLEFT", 12, -y); f.shard:Show()
+		local keep = ns.db.shardKeep or 0
+		f.shard.text:SetText(("%d in ordinary bags%s"):format(#shards, keep > 0 and (" (keeping at least " .. keep .. ")") or ""))
+		f.shard.qty:SetText(tostring(self.shardQty))
+		f.shard.go.label:SetText(self.shardBatch and ("Destroy Next Shard (%d left)"):format(self.shardBatch) or "Destroy Shards")
+		y = y + 42
+	elseif shardsOnly then
+		f.sub:SetText("No Soul Shards to clear in your ordinary bags" .. ((ns.db.shardKeep or 0) > 0 and " beyond the ones you keep." or "."))
+	end
 	f:SetHeight(y + 10)
 end
 
@@ -1376,6 +1862,7 @@ function MR:Install()
 	local function newOffers()
 		MR.offerToken = (MR.offerToken or 0) + 1
 		MR.sel, MR.selPicked = nil, nil   -- (1.6.0-beta8, A1) a new loot window starts from the cheapest
+		MR.target = nil   -- (1.7.0-beta10) and makes room for the most valuable item again
 		local c = ns.Popups and ns.Popups.confirm
 		if c and c:IsShown() and c.lootHelper then c:Hide() end
 	end
@@ -1486,9 +1973,19 @@ function MR:Install()
 		local t = msg:match(failPattern)
 		if t and not (MR.frame and MR.frame:IsShown() and MR.mode == "quest") then questFull(t) end
 	end)
+	-- (1.7.0-beta5, F2) a quest turned in or abandoned leaves the remembered readings
+	ns:On("QUEST_TURNED_IN", function(questID) MR:ForgetQuest(questID) end)
+	ns:On("QUEST_REMOVED", function(questID) MR:ForgetQuest(questID) end)
+	-- (1.7.0-beta3) the materials your recipes use, learned whenever a profession window opens or changes
+	local function learn(fn) ns:NextFrame("mr:" .. fn, function() pcall(MR[fn], MR) end) end
+	ns:On("TRADE_SKILL_SHOW", function() learn("LearnTradeSkill") end)
+	ns:On("TRADE_SKILL_UPDATE", function() learn("LearnTradeSkill") end)
+	ns:On("CRAFT_SHOW", function() learn("LearnCraft") end)
+	ns:On("CRAFT_UPDATE", function() learn("LearnCraft") end)
 	-- Item names arriving from the game: the Loot Exclusion List window shows them.
 	ns:On("GET_ITEM_INFO_RECEIVED", function()
 		if MR.neverFrame and MR.neverFrame:IsShown() then MR:RefreshNeverWindow() end
+		if MR.protectFrame and MR.protectFrame:IsShown() then MR:RefreshProtectedWindow() end
 		-- (1.5.1) the panel too: a price or a bag rule may only now be known (once per moment, however many arrive)
 		if MR.frame and MR.frame:IsShown() and not MR.infoQueued then
 			MR.infoQueued = true

@@ -22,15 +22,18 @@
 	local function said() return M.log[#M.log] or "" end
 	check(D:Where() == nil, "nowhere special: no follow-up")
 	-- the mailbox: the right-clicked stack attached by the game, the rest attach one by one
+	-- (1.7.0-beta11, by design: an attached stack stays in its bag slot, locked, until the mail is sent, as a traded
+	-- one does; the 1.2.0 model took it out of the bag, which the game doesn't, so the follow-up never ran in game)
 	MailFrame:Show(); SendMailFrame:Show()
 	check(D:Where() == "mail" and D:FreeSlots("mail") == 12, "with the send form open the destination is the mail, twelve slots free")
 	local used = {}
 	local realUse = C_Container.UseContainerItem
-	C_Container.UseContainerItem = function(bag, slot) used[#used + 1] = bag .. ":" .. slot; mailSlots[#mailSlots + 1] = "Wool Cloth"; M.bags[bag][slot] = nil end
+	C_Container.UseContainerItem = function(bag, slot) used[#used + 1] = bag .. ":" .. slot; mailSlots[#mailSlots + 1] = "Wool Cloth"; M.bags[bag][slot].locked = true end
 	local rec = wool()
 	check(rec and rec.merged and rec.stacks == 5, "(setup) one merged row of five stacks")
 	-- the click: the game attaches the clicked stack; BagSmith's hook sends the rest
-	mailSlots[1] = "Wool Cloth"; M.bags[0][1] = nil
+	D:NoteTradeBaseline(rec)   -- (1.7.0-beta11) mouse-down: the mail holds none yet
+	mailSlots[1] = "Wool Cloth"; M.bags[0][1].locked = true
 	local b = n.Buttons.byBag[0][1]
 	local members = {}; for _, m in ipairs(rec.members) do members[#members + 1] = { bag = m.bag, slot = m.slot, itemID = m.itemID, count = m.count } end
 	D:MoveRest({ itemID = 2592, members = members, name = "Wool Cloth", where = "mail", first = { bag = 0, slot = 1 } })
@@ -42,7 +45,8 @@
 	n:Scan(); M.runTimers(); rec = wool()
 	mailSlots = {}; for i = 1, 10 do mailSlots[i] = "x" end   -- ten of twelve used
 	used = {}
-	mailSlots[11] = "Wool Cloth"; M.bags[0][1] = nil   -- the clicked stack took the eleventh
+	D:NoteTradeBaseline(rec)   -- (1.7.0-beta11) mouse-down
+	mailSlots[11] = "Wool Cloth"; M.bags[0][1].locked = true   -- the clicked stack took the eleventh (and stays, locked)
 	members = {}; for _, m in ipairs(rec.members) do members[#members + 1] = { bag = m.bag, slot = m.slot, itemID = m.itemID, count = m.count } end
 	D:MoveRest({ itemID = 2592, members = members, name = "Wool Cloth", where = "mail", first = { bag = 0, slot = 1 } })
 	for _ = 1, 14 do M.runTimers() end
