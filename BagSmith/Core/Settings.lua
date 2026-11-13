@@ -165,6 +165,7 @@ local DEFAULTS = {
 	bankTabOrder = {},
 	bankHiddenTabs = {},
 	fav = {},                  -- currency keys, e.g. "c:3402" or "i:20558"
+	blizzUnpinned = {},        -- (1.7.1-beta1) currency ID -> true: unpinned in this profile, never pinned again by the game's picks
 	-- size
 	scale = 1.0, sizeMode = "fixed", maxW = 680, maxH = 720, fixW = 620, fixH = 560,   -- new players start Scalable ("fixed")
 	iconSize = 37, rowHeight = 26,
@@ -273,8 +274,9 @@ local function deResultsValidator(v)
 end
 local validators = {
 	deNever = deNeverValidator, deResults = deResultsValidator,
-	makeRoomProtect = deNeverValidator,
-	blizzPicksSeen = deNeverValidator,   -- (1.7.0-beta14) currency ID -> true   -- (1.7.0-beta1) the Loot Helper's Protected Items: item ID -> true, like the DE list
+	makeRoomProtect = deNeverValidator,   -- (1.7.0-beta1) the Loot Helper's Protected Items: item ID -> true, like the DE list
+	blizzPicksSeen = deNeverValidator,   -- (1.7.0-beta14) currency ID -> true
+	blizzUnpinned = deNeverValidator,    -- (1.7.1-beta1) currency ID -> true, per profile
 	-- (1.7.0-beta3) the materials each profession's recipes use: profession name -> item ID -> true
 	professionMats = function(v)
 		if type(v) ~= "table" then return nil end

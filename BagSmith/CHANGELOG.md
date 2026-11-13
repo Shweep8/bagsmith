@@ -1,3 +1,14 @@
+## 1.7.1
+
+Changed:
+- Swapping in a bag takes one drag, even when it's stored in the bag it replaces: drop it on that bag's slot (on the
+  Bag Bar, the bank's bag strip or the game's own bag bar) and BagSmith moves it to a free slot in another bag first,
+  then swaps it in. The old bag's items move into the new one, and chat says which bag the old one is in now. Before,
+  the game refused it and you had to move the bag out yourself. If no other bag has a free slot, or the two bags are
+  the same kind, chat says so.
+- A currency you unpin now stays unpinned for every character sharing your profile: another character's Show on
+  Backpack picks no longer pin it again. Import Blizzard Picks still brings them all back.
+
 ## 1.7.0
 
 New:

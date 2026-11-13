@@ -173,7 +173,9 @@ local function slotClick(btn, button)
 		return
 	end
 	if not btn.invID then return end
-	if CursorHasItem() then PutItemInBag(btn.invID)
+	-- (1.7.1-beta1) a bag stored in the bank bag it should replace: BagSmith moves it out first and swaps it in
+	if CursorHasItem() then
+		if not (ns.SwapHint and ns.SwapHint.Intercept and ns.SwapHint:Intercept(nil, btn.invID)) then PutItemInBag(btn.invID) end
 	elseif button == "LeftButton" then PickupBagFromSlot(btn.invID) end
 end
 
@@ -201,7 +203,11 @@ local function makeSlot(parent, i)
 	b.secureBuy:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	b.secureBuy:Hide()
 	b:SetScript("OnDragStart", function(self) if self.purchased and self.invID then PickupBagFromSlot(self.invID) end end)
-	b:SetScript("OnReceiveDrag", function(self) if self.purchased and self.invID and CursorHasItem() then PutItemInBag(self.invID) end end)
+	b:SetScript("OnReceiveDrag", function(self)
+		if self.purchased and self.invID and CursorHasItem() then
+			if not (ns.SwapHint and ns.SwapHint.Intercept and ns.SwapHint:Intercept(nil, self.invID)) then PutItemInBag(self.invID) end
+		end
+	end)
 	b:SetScript("OnEnter", slotTooltip)
 	b:SetScript("OnLeave", function() GameTooltip:Hide(); ResetCursor() end)
 	-- Modern hover, from the slot itself or from the purchase overlay on top of it.

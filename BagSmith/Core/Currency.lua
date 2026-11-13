@@ -227,9 +227,19 @@ function Currency:Favorites(owner)
 end
 
 function Currency:IsFavorite(key) return ns.IndexOf(ns.db.fav, key) ~= nil end
+-- (1.7.1-beta1, the 1.7.0-beta14 audit's advisory) A wallet currency unpinned here is remembered in the profile, so
+-- the game's Show on Backpack picks never pin it again in this profile, whichever character opens the bags; pinning it
+-- again (here, or with Import Blizzard Picks) forgets that.
+local function noteUnpinned(key, unpinned)
+	local id = tonumber(tostring(key):match("^c:(%d+)$"))
+	if not (id and ns.db) then return end
+	if type(ns.db.blizzUnpinned) ~= "table" then ns.db.blizzUnpinned = {} end
+	ns.db.blizzUnpinned[id] = unpinned and true or nil
+end
 function Currency:ToggleFavorite(key)
 	local i = ns.IndexOf(ns.db.fav, key)
 	if i then table.remove(ns.db.fav, i) else table.insert(ns.db.fav, key) end
+	noteUnpinned(key, i ~= nil)
 	-- (1.5.0-beta12, audit G1) favorites tell the list which hidden currencies to look up by ID, so the cached list
 	-- is cleared before anyone is told (a listener that redraws first must not read the old list)
 	self:Invalidate()
@@ -267,6 +277,7 @@ function Currency:ImportBlizzard()
 	for _, id in ipairs(self:BlizzardPicks()) do
 		local key = "c:" .. id
 		if seen then seen[id] = true end
+		noteUnpinned(key, false)   -- (1.7.1-beta1) pinned again on purpose: no longer held back in this profile
 		if not self:IsFavorite(key) then table.insert(ns.db.fav, key); added = added + 1 end
 	end
 	return pinned(self, added)
@@ -280,11 +291,13 @@ function Currency:SyncBlizzardPicks()
 	local seen = ns.cdb.blizzPicksSeen
 	if type(seen) ~= "table" then seen = {}; ns.cdb.blizzPicksSeen = seen end
 	local added = 0
+	local unpinned = type(ns.db.blizzUnpinned) == "table" and ns.db.blizzUnpinned or {}
 	for _, id in ipairs(self:BlizzardPicks()) do
 		if not seen[id] then
 			seen[id] = true
 			local key = "c:" .. id
-			if not self:IsFavorite(key) then table.insert(ns.db.fav, key); added = added + 1 end
+			-- (1.7.1-beta1) a currency unpinned in this profile stays unpinned, for every character using it
+			if not unpinned[id] and not self:IsFavorite(key) then table.insert(ns.db.fav, key); added = added + 1 end
 		end
 	end
 	return pinned(self, added)

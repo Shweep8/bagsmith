@@ -1,4 +1,5 @@
--- 1.7.0: the 1.7.0-beta14 audit's own probe (currency/currency_lifecycle.lua), its checks unchanged, kept in the suite. Evidence and the
+-- 1.7.0: the 1.7.0-beta14 audit's own probe (currency/currency_lifecycle.lua), kept in the suite; one check turned round
+-- by design in 1.7.1-beta1 (marked). Evidence and the
 -- report: docs/plugins/audit-1.7.0-beta14/.
 ;(function()
 local function boot(char, account, picks)
@@ -46,7 +47,9 @@ local account,char=BagSmithDB,BagSmithCharDB
 n,M=boot(char,account,{1901,1902,1903});open(n)
 check(not fav(n,1901),'reload preserves user unpin')
 n,M=boot(nil,account,{1901,1902,1903});open(n)
-check(fav(n,1901),'new character has its own seen set and may repin shared-profile removal')
+-- (1.7.1-beta1, by design: the audit's advisory, option 2) an unpin is remembered in the profile, so a new character
+-- sharing it doesn't pin it again (its own seen set still records the pick)
+check(not fav(n,1901) and n.cdb.blizzPicksSeen[1901],'new character sharing the profile does not repin a currency unpinned there')
 -- No answer/API: do not mark seen. Answer arriving with bags closed is imported by event.
 n,M=boot(nil,nil,{})
 local get=C_CurrencyInfo.GetBackpackCurrencyInfo

@@ -143,7 +143,10 @@ end
 local function drop(btn)
 	if not CursorHasItem() then return false end
 	if btn.bag == 0 then if PutItemInBackpack then PutItemInBackpack() end
-	elseif btn.inv then PutItemInBag(btn.inv) end
+	elseif btn.inv then
+		-- (1.7.1-beta1) a bag stored in the bag it should replace: BagSmith moves it out first and swaps it in
+		if not (ns.SwapHint and ns.SwapHint.Intercept and ns.SwapHint:Intercept(btn.bag, btn.inv)) then PutItemInBag(btn.inv) end
+	end
 	return true
 end
 

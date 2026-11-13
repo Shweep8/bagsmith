@@ -2655,6 +2655,7 @@ end)()
 	MC.cursorItem = nil; MC.bags[1][1].locked = false
 	b0 = H.shown
 	MC.fire("ITEM_LOCK_CHANGED", 1, 1)
+	MC.runTimers()   -- (1.7.1-beta4, by design: the explanation waits one frame for the game's bag button handler)
 	check(H.shown == b0 + 1, "a refused drop is spotted from the bag itself, with no error event")
 	-- Forever, as logged in game: the slot unlocks while the bag stays on the cursor.
 	later(5)
@@ -2662,6 +2663,7 @@ end)()
 	MC.bags[1][1].locked = false; over = slot1      -- cursor still holds the bag
 	b0 = H.shown
 	MC.fire("ITEM_LOCK_CHANGED", 1, 1)
+	MC.runTimers()   -- (1.7.1-beta4, by design: the explanation waits one frame for the game's bag button handler)
 	check(H.shown == b0 + 1, "Forever: the bag's slot unlocks while the bag is still on the cursor, and the message shows")
 	MC.cursorItem = nil
 	-- A different item on the cursor at that moment: nothing.
@@ -2708,6 +2710,10 @@ end)()
 	check(H.shown == before, "a bag picked up long ago doesn't trigger the hint")
 	_G.GetTime = realTime; _G.GetMouseFoci = nil; _G.UIErrorsFrame = nil
 	MC.fire("BANKFRAME_CLOSED"); MC.runTimers()
+	-- (1.7.1-beta2, by design) the mock's game bag buttons are cleared once used: BagSmith now hooks the game's bag
+	-- buttons when it loads, and every later boot in this file would hook these again (each hook keeping that whole
+	-- boot alive; the game loads BagSmith once)
+	_G.CharacterBag0Slot, _G.CharacterBag1Slot = nil, nil
 end)()
 
 ;(function()
@@ -6411,7 +6417,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.7%.0\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.7.0, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.7%.1\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.7.1, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -10853,7 +10859,7 @@ end)()
 ;(function()
 	-- 0.15.0 (prod): one clean 0.15.0 changelog section; the sword-and-shield replaces the helmet everywhere.
 	local log = io.open("BagSmith/CHANGELOG.md"):read("*a")
-	check(log:find("^## 1%.7%.0\n") and log:find("\n## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.7.0 (the release in progress; 1.7.0, by design), then 1.6.3, 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
+	check(log:find("^## 1%.7%.1\n") and log:find("\n## 1%.7%.0\n") and log:find("\n## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.7.1 (the release in progress; 1.7.1, by design), then 1.7.0, 1.6.3, 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
 	local section = log:match("(## 0%.15%.0\n.-)\n## ") or ""
 	local bad = false
 	for _, w in ipairs({ "colour", "favourite", "behaviour", "cancelled", "helmet", "\226\128\148" }) do if section:find(w) then bad = true end end
