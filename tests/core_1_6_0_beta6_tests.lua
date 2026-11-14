@@ -235,7 +235,7 @@
 		check(not f.bsMoving and type(n.db.dePos) == "table", skin .. ": combat starting mid-move, before the lock: the move ends and its spot is saved")
 		n, M, DE, f = deBoot({ skin = skin })
 		f.grip:GetScript("OnMouseDown")(f.grip)
-		f.w, f.h = 700, 420
+		n.Outline.frame:SetSize(700, 420)   -- (1.7.3-beta4) the drag sizes the outline, not the window
 		combat(M, DE, true)
 		f.grip:GetScript("OnMouseUp")(f.grip)
 		ok, log = clean(n)

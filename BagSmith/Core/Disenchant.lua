@@ -805,9 +805,17 @@ function DE:Frame()
 	if f.SetResizeBounds then f:SetResizeBounds(self.MIN_W, self.MIN_H) elseif f.SetMinResize then f:SetMinResize(self.MIN_W, self.MIN_H) end
 	f.grip = CreateFrame("Button", nil, f); f.grip:SetSize(16, 16); f.grip:SetPoint("BOTTOMRIGHT", -4, 4)
 	f.grip.tex = f.grip:CreateTexture(nil, "OVERLAY"); f.grip.tex:SetAllPoints(); f.grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-	f.grip:SetScript("OnMouseDown", function() if InCombatLockdown() or ns:WindowsLocked() then return end; f.bsSizing = true; DE.ToScreen(f); if f.StartSizing then f:StartSizing("BOTTOMRIGHT") end end)
+	-- (1.7.3-beta4, Shweep: "extend this to all our windows that resize") the grip drags the shared outline
+	-- (Frames/Outline.lua), not the window: the window keeps its size until the button is let go. The outline goes at
+	-- once on release, even in combat; the window takes its size then, or when combat ends (a protected window).
+	f.grip:SetScript("OnMouseDown", function()
+		if InCombatLockdown() or ns:WindowsLocked() then return end
+		DE.ToScreen(f)
+		if ns.Outline:Start(f, self.MIN_W, self.MIN_H) then f.bsSizing = true end
+	end)
 	f.grip:SetScript("OnMouseUp", function()
 		if not f.bsSizing then return end
+		DE:EndOutline()
 		if InCombatLockdown() then ns:Safely("de:gesture", function() DE:FinishGesture() end); return end
 		DE:FinishGesture()
 	end)
@@ -928,6 +936,12 @@ function DE:Frame()
 	ns:CloseOnEscape(f, function() DE:Close() end)
 	ns:CombatWindow(f)
 	f:HookScript("OnHide", function() DE:AfterClose() end)
+	-- (1.7.3-beta4) closed mid-resize: no outline left on screen; the resize is dropped (out of combat; in combat the
+	-- gesture still finishes when combat ends, with what the outline had)
+	f:HookScript("OnHide", function()
+		if not ns.Outline:Active(f) then return end
+		if InCombatLockdown() then DE:EndOutline() else ns.Outline:Cancel(f); f.bsSizing = nil end
+	end)
 	self.frame = f
 	self:Layout()
 	return f
@@ -935,13 +949,27 @@ end
 -- (1.6.0-beta6, F4) Ends a move or resize: stops it, saves the spot or size, lays the window out again. Out of combat only
 -- (callers defer it with ns:Safely); combat starting mid-gesture finishes it at once when the game still allows it, else
 -- when combat ends.
+-- (1.7.3-beta4) The outline's size, taken when the grip is let go (or the gesture ends), kept for FinishGesture: the
+-- outline itself is gone at once, combat or not.
+function DE:EndOutline()
+	local f = self.frame
+	if not f then return end
+	local w, h = ns.Outline:Finish(f)
+	if w then f.bsOutlineSize = { w, h } end
+end
 function DE:FinishGesture()
 	local f = self.frame
-	if not f or InCombatLockdown() then return end
+	if not f then return end
+	if f.bsSizing then self:EndOutline() end   -- (combat starting mid-drag: the outline ends now)
+	if InCombatLockdown() then return end
 	local moved, sized = f.bsMoving, f.bsSizing
 	if not (moved or sized) then return end
 	f.bsMoving, f.bsSizing = nil, nil
 	f:StopMovingOrSizing()
+	-- (1.7.3-beta4) the window takes the outline's size (anchored at its top-left by DE.ToScreen when the drag began)
+	local size = f.bsOutlineSize
+	f.bsOutlineSize = nil
+	if sized and size then f:SetSize(size[1], size[2]) end
 	if moved then
 		local point, _, rel, x, yy = f:GetPoint(1)
 		if point then ns.db.dePos = { point, "UIParent", rel or point, math.floor(x + 0.5), math.floor(yy + 0.5) } end
@@ -1409,6 +1437,7 @@ ns:OnSignal("ADDON_READY", function()
 	ns:On("PLAYER_REGEN_DISABLED", function()
 		local f = DE.frame
 		if f and (f.bsMoving or f.bsSizing) then
+			if f.bsSizing then DE:EndOutline() end   -- (1.7.3-beta4) the outline (not protected) ends now either way
 			if InCombatLockdown() then ns:Safely("de:gesture", function() DE:FinishGesture() end) else DE:FinishGesture() end
 		end
 	end)

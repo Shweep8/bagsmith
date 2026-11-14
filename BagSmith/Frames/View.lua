@@ -1200,99 +1200,25 @@ local function bottomPosition(p, height)
 	return { bottomAnchor(p[1]), "UIParent", p[3], p[4], p[5] - shift }
 end
 
--- (1.7.3-beta2) The resize outline: the window's size and place when the grip is pressed, sized by the client while
--- the button is held. It is anchored to the screen (a frame anchored to another frame leaps when sized on this
--- client), at the window's scale, with the window's size limits.
--- (1.7.3-beta3, Shweep) Its look: a white line 3 screen pixels wide with a 1-pixel dark edge outside it, so it shows on
--- any background, whatever the accent color (beta2 drew it in the accent, 2 UI units: about 3 to 4 pixels, varying
--- with the screen and scale); a faint white fill shows the area the window will take. The same in both skins.
-local OUTLINE_PX, OUTLINE_EDGE_PX = 3, 1
-function View:ResizeOutline()
-	local o = self.outline
-	if o then return o end
-	o = CreateFrame("Frame", nil, UIParent)
-	o:SetFrameStrata("TOOLTIP")
-	o:SetClampedToScreen(true)
-	o:SetMovable(true)
-	o:SetResizable(true)
-	o:EnableMouse(false)
-	local function tex(layer)
-		local t = o:CreateTexture(nil, layer)
-		t:SetTexture("Interface\\Buttons\\WHITE8X8")
-		return t
-	end
-	o.fill = tex("BACKGROUND")
-	o.fill:SetAllPoints()
-	o.fill:SetVertexColor(1, 1, 1, 0.06)
-	o.lines, o.edges = {}, {}
-	for i = 1, 4 do
-		o.lines[i] = tex("ARTWORK"); o.lines[i]:SetVertexColor(1, 1, 1, 0.9)
-		o.edges[i] = tex("BORDER"); o.edges[i]:SetVertexColor(0, 0, 0, 0.8)
-	end
-	-- the white lines, inside the box: top, bottom, left, right
-	o.lines[1]:SetPoint("TOPLEFT"); o.lines[1]:SetPoint("TOPRIGHT")
-	o.lines[2]:SetPoint("BOTTOMLEFT"); o.lines[2]:SetPoint("BOTTOMRIGHT")
-	o.lines[3]:SetPoint("TOPLEFT"); o.lines[3]:SetPoint("BOTTOMLEFT")
-	o.lines[4]:SetPoint("TOPRIGHT"); o.lines[4]:SetPoint("BOTTOMRIGHT")
-	o:Hide()
-	self.outline = o
-	return o
-end
-
--- Line widths in screen pixels at the outline's scale (set each time: the scale can change between drags).
-function View:SizeOutlineLines(o)
-	local px = ns.Buttons and ns.Buttons.PixelSize and ns.Buttons.PixelSize(o) or 1
-	local line, edge = OUTLINE_PX * px, OUTLINE_EDGE_PX * px
-	o.lineWidth, o.edgeWidth = line, edge
-	o.lines[1]:SetHeight(line); o.lines[2]:SetHeight(line); o.lines[3]:SetWidth(line); o.lines[4]:SetWidth(line)
-	-- the dark edge, just outside the box, its corners closed
-	local e = o.edges
-	for _, t in ipairs(e) do t:ClearAllPoints() end
-	e[1]:SetPoint("BOTTOMLEFT", o, "TOPLEFT", -edge, 0); e[1]:SetPoint("BOTTOMRIGHT", o, "TOPRIGHT", edge, 0); e[1]:SetHeight(edge)
-	e[2]:SetPoint("TOPLEFT", o, "BOTTOMLEFT", -edge, 0); e[2]:SetPoint("TOPRIGHT", o, "BOTTOMRIGHT", edge, 0); e[2]:SetHeight(edge)
-	e[3]:SetPoint("TOPRIGHT", o, "TOPLEFT"); e[3]:SetPoint("BOTTOMRIGHT", o, "BOTTOMLEFT"); e[3]:SetWidth(edge)
-	e[4]:SetPoint("TOPLEFT", o, "TOPRIGHT"); e[4]:SetPoint("BOTTOMLEFT", o, "BOTTOMRIGHT"); e[4]:SetWidth(edge)
-end
-
+-- (1.7.3) Resizing drags the shared outline (Frames/Outline.lua); the window takes its size on release.
 function View:StartOutlineResize()
-	local f = self.frame
-	local L, T, w, h = f:GetLeft(), f:GetTop(), f:GetWidth(), f:GetHeight()
-	if not (L and T and w and h) then self.sizing = false; return end
-	local o = self:ResizeOutline()
-	local us = UIParent:GetEffectiveScale()
-	o:SetScale((us and us > 0) and f:GetEffectiveScale() / us or 1)
 	local minW = self.minWidth or View.MinWidthFor(self.isBank)
-	if o.SetResizeBounds then o:SetResizeBounds(minW, 300, 1400, 1200) end
-	self:SizeOutlineLines(o)
-	o:ClearAllPoints()
-	o:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", L, T)
-	o:SetSize(w, h)
-	o:Show()
-	o:StartSizing("BOTTOMRIGHT")
-	self.outlineFrom = { L, T }
+	if not ns.Outline:Start(self.frame, minW, 300, 1400, 1200) then self.sizing = false; return end
+	self.outline = ns.Outline.frame
 end
 
 -- The window takes the outline's size, its top-left corner staying where it was (as the client's own sizing from
 -- the bottom-right corner did). The caller saves the size and place, then lays out once.
 function View:EndOutlineResize()
-	local o, from = self.outline, self.outlineFrom
-	self.outlineFrom = nil
-	if not (o and from and o:IsShown()) then return end
-	o:StopMovingOrSizing()
-	local w, h = o:GetWidth(), o:GetHeight()
-	o:Hide()
-	if not (w and h and w > 0 and h > 0) then return end
 	local f = self.frame
+	local w, h, L, T = ns.Outline:Finish(f)
+	if not w then return end
 	f:ClearAllPoints()
-	f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", from[1], from[2])
+	f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", L, T)
 	f:SetSize(w, h)
 end
 
-function View:CancelOutlineResize()
-	local o = self.outline
-	self.outlineFrom = nil
-	if o and o:IsShown() then o:StopMovingOrSizing(); o:Hide() end
-end
+function View:CancelOutlineResize() ns.Outline:Cancel(self.frame) end
 
 function View:ApplySize()
 	-- Native dragging owns size and position until the gesture is saved.

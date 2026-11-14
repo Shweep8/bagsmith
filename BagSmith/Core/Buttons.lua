@@ -135,7 +135,7 @@ local function pixelSize(b)
 	return factor / scale
 end
 
-Buttons.PixelSize = pixelSize   -- (1.7.3-beta3) also the resize outline's line
+Buttons.PixelSize = pixelSize   -- (1.7.3-beta3) also the resize outline's line (Frames/Outline.lua)
 
 function Buttons.AddFrame(b)
 	b.frameBG = b:CreateTexture(nil, "BACKGROUND", nil, -2)
