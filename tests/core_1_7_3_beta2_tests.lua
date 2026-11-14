@@ -37,12 +37,13 @@
 		local white, dark = true, true
 		for i = 1, 4 do
 			local c, d = o.lines[i].color, o.edges[i].color
-			white = white and c and c[1] == 1 and c[2] == 1 and c[3] == 1 and c[4] == 0.9
+			-- (1.7.3-beta5) #fffaed
+			white = white and c and c[1] == 1 and math.abs(c[2] - 250 / 255) < 1e-9 and math.abs(c[3] - 237 / 255) < 1e-9 and c[4] == 0.9
 			dark = dark and d and d[1] == 0 and d[2] == 0 and d[3] == 0 and d[4] == 0.8
 		end
-		check(white and dark, S .. "white lines with a dark edge, whatever the accent color")
+		check(white and dark, S .. "#fffaed lines with a dark edge, whatever the accent color")
 		local fc = o.fill.color
-		check(fc and fc[1] == 1 and fc[4] == 0.06, S .. "and a faint white fill")
+		check(fc and fc[1] == 1 and math.abs(fc[3] - 237 / 255) < 1e-9 and fc[4] == 0.06, S .. "and a faint fill in the same #fffaed")
 		local e1 = o.edges[1].points and o.edges[1].points[1]
 		check(e1 and e1[1] == "BOTTOMLEFT" and e1[3] == "TOPLEFT" and math.abs(e1[4] + px) < 1e-9, S .. "the dark edge sits just outside the box")
 

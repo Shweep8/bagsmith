@@ -50,6 +50,13 @@ local M = {
 	nexusCrystal = 20725,
 }
 DE.MATS = M
+-- (1.7.3-beta5) Each material's quality, for its rarity color before the game has the item loaded: dust is common,
+-- essences uncommon, shards rare, the Nexus Crystal epic.
+DE.MAT_QUALITY = {}
+for key, id in pairs(M) do
+	DE.MAT_QUALITY[id] = key:find("Dust$") and 1 or (key:find("Magic$") or key:find("Astral$") or key:find("Mystic$")
+		or key:find("Nether$") or key:find("Eternal$")) and 2 or key == "nexusCrystal" and 4 or 3
+end
 
 -- Uncommon brackets: dust (min, max), essence (min, max), shard. Armor favors dust, weapons favor essence.
 -- Chances: the favored one 75%, the other 20%, the shard 5%.
@@ -317,17 +324,20 @@ DE.VERDICT_TEXT = { de = "Disenchant", ah = "Sell at AH", vendor = "Vendor", sel
 function DE:LikelyLines(rec)
 	local list, basis, n = self:Expected(rec)
 	if not list then return nil end
-	local lines = {}
+	local lines, parts = {}, {}
 	for _, m in ipairs(list) do
+		local rest
 		if basis == "yours" then
-			lines[#lines + 1] = ("%s: %.1f per cast, in %d of %d"):format(self.MatName(m[1]), m[2], m.seen or 0, n)
+			rest = (": %.1f per cast, in %d of %d"):format(m[2], m.seen or 0, n)
 		else
 			local qty = m.min == m.max and tostring(m.min) or ("%d to %d"):format(m.min, m.max)
-			lines[#lines + 1] = ("%s: %s, about %d%%"):format(self.MatName(m[1]), qty, math.floor(m.chance * 100 + 0.5))
+			rest = (": %s, about %d%%"):format(qty, math.floor(m.chance * 100 + 0.5))
 		end
+		lines[#lines + 1] = self.MatName(m[1]) .. rest
+		parts[#parts + 1] = { id = m[1], rest = rest }   -- (1.7.3-beta5) the result rows: a linked name, then the rest
 	end
 	local head = basis == "yours" and ("from %d of your results"):format(n) or ("DE estimate, %d of %d in this range"):format(n or 0, self.CALIBRATE_AT)
-	return lines, head, basis, n
+	return lines, head, basis, n, parts
 end
 
 ------------------------------------------------------------------------
@@ -1035,6 +1045,61 @@ local function qcolor(q)
 	if c then return c.r, c.g, c.b end
 	return 1, 1, 1
 end
+-- (1.7.3-beta5, Shweep) The likely results as rows: each material's name in its rarity color, softly underlined, shows
+-- the item's tooltip on hover (by item ID, so it works in every language); the amount and odds follow in the muted
+-- color. Shown under "Likely results" in the item panel's right half.
+local LIKELY_ROW = 13
+local function likelyRow(f, i)
+	f.cur.likelyRows = f.cur.likelyRows or {}
+	local r = f.cur.likelyRows[i]
+	if r then return r end
+	r = CreateFrame("Button", nil, f.cur)
+	r:SetHeight(LIKELY_ROW)
+	r:SetPoint("TOPLEFT", f.cur.likelyHead, "BOTTOMLEFT", 0, -2 - (i - 1) * LIKELY_ROW)
+	r:SetPoint("RIGHT", f.cur, "RIGHT", 0, 0)
+	local font, _, flags
+	if f.cur.likely.GetFont then font, _, flags = f.cur.likely:GetFont() end
+	r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	r.name:SetPoint("LEFT", r, "LEFT", 0, 0); r.name:SetJustifyH("LEFT"); r.name:SetWordWrap(false)
+	r.rest = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	r.rest:SetPoint("LEFT", r.name, "RIGHT", 0, 0); r.rest:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+	r.rest:SetJustifyH("LEFT"); r.rest:SetWordWrap(false)
+	if font then r.name:SetFont(font, 10, flags); r.rest:SetFont(font, 10, flags) end
+	-- the soft underline, under the name only
+	r.line = r:CreateTexture(nil, "ARTWORK")
+	r.line:SetTexture("Interface\\Buttons\\WHITE8X8")
+	r.line:SetPoint("TOPLEFT", r.name, "BOTTOMLEFT", 0, -1); r.line:SetPoint("TOPRIGHT", r.name, "BOTTOMRIGHT", 0, -1)
+	r:SetScript("OnEnter", function(self)
+		if self.c then self.line:SetVertexColor(self.c[1], self.c[2], self.c[3], 0.9) end
+		if self.id and ns.TooltipsOK() then
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetHyperlink("item:" .. self.id); GameTooltip:Show()
+		end
+	end)
+	r:SetScript("OnLeave", function(self)
+		if self.c then self.line:SetVertexColor(self.c[1], self.c[2], self.c[3], 0.4) end
+		GameTooltip:Hide()
+	end)
+	f.cur.likelyRows[i] = r
+	return r
+end
+DE.LikelyRow = likelyRow
+function DE:PaintLikely(parts)
+	local f = self.frame
+	local muted = (ns.Skins and ns.Skins.Current and ns.Skins:Current().muted) or { 0.7, 0.7, 0.7 }
+	for i, p in ipairs(parts or {}) do
+		local r = likelyRow(f, i)
+		local q = select(3, itemInfo(p.id)) or self.MAT_QUALITY[p.id] or 1
+		local cr, cg, cb = qcolor(q)
+		r.id, r.c = p.id, { cr, cg, cb }
+		r.name:SetText(self.MatName(p.id)); r.name:SetTextColor(cr, cg, cb)
+		r.rest:SetText(p.rest); r.rest:SetTextColor(unpack(muted))
+		r.line:SetHeight(ns.Buttons and ns.Buttons.PixelSize and ns.Buttons.PixelSize(r) or 1)
+		r.line:SetVertexColor(cr, cg, cb, 0.4)
+		r:Show()
+	end
+	for i = #(parts or {}) + 1, #(f.cur.likelyRows or {}) do f.cur.likelyRows[i]:Hide() end
+end
+
 -- The wording for a missing price: one message everywhere.
 -- (1.6.0) either price addon (Core/AH.lua); the name stays for anything that reads it
 DE.NO_AUCTIONATOR = "Install Auctionator or Blackthornes Tradeskills to enable this column. It shows prices from your auction house scans."
@@ -1211,9 +1276,11 @@ function DE:Paint()
 		if cur.basis then vt = vt .. (cur.basis == "yours" and ("  (from %d of your results)"):format(cur.n or 0) or "  (DE estimate)") end
 		if cur.verdict == "unknown" and cur.missing then vt = ("No price yet for %s"):format(self.MatName(cur.missing)) end
 		f.cur.verdict:SetText(vt)
-		local lines, head = self:LikelyLines(cur.rec)
+		local lines, head, _, _, parts = self:LikelyLines(cur.rec)
 		f.cur.likelyHead:SetText("Likely results")
-		f.cur.likely:SetText(lines and table.concat(lines, "\n") or "No table for this item.")
+		-- (1.7.3-beta5) one row per material, its name a link to the item's tooltip; the plain line only says there's no table
+		f.cur.likely:SetText(lines and "" or "No table for this item.")
+		self:PaintLikely(parts)
 		f.cur.basis:SetText(head and (head:sub(1, 1):upper() .. head:sub(2)) or "")
 		f.cur.rule:Show(); f.cur.likelyHead:Show(); f.cur.likely:Show(); f.cur.basis:Show(); f.cur.info:SetShown(head ~= nil)
 		f.junk:SetShown(cur.verdict == "vendor" and ns.Junk ~= nil and not ns.Junk:Marked(cur.itemID))   -- never a nudge toward junking something the AH pays for

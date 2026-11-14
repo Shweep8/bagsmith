@@ -61,7 +61,11 @@
 	check(f.skip.points[1][2] == b and f.never.points[1][2] == f.skip and f.junk.points[1][2] == f.never, "Skip, Never and Mark as Junk follow it in one row")
 	check(b.active == false, "the Disenchant button is an action: never held in the active (pressed) state")
 	-- the item panel's right half: the likely results beside a vertical rule, in small type
-	check(f.cur.rule:IsShown() and f.cur.likelyHead.text == "Likely results" and f.cur.basis.text == "DE estimate, 0 of 20 in this range" and f.cur.basis.points[1][1] == "BOTTOMLEFT" and f.cur.likely.text:find("about 75%%") and f.cur.likely.text:find("about 5%%") and f.cur.likely.text:find(" to ", 1, true), "the right half lists the likely results with ranges and rough odds, headed DE estimate")
+	-- (1.7.3-beta5) the results are rows (a linked name, then the rest); read them as the lines they show
+	local likelyText = {}
+	for _, r in ipairs(f.cur.likelyRows or {}) do if r:IsShown() then likelyText[#likelyText + 1] = (r.name.text or "") .. (r.rest.text or "") end end
+	likelyText = table.concat(likelyText, "\n")
+	check(f.cur.rule:IsShown() and f.cur.likelyHead.text == "Likely results" and f.cur.basis.text == "DE estimate, 0 of 20 in this range" and f.cur.basis.points[1][1] == "BOTTOMLEFT" and likelyText:find("about 75%%") and likelyText:find("about 5%%") and likelyText:find(" to ", 1, true), "the right half lists the likely results with ranges and rough odds, headed DE estimate")
 	check(f.cur.rule.points[1][4] >= 330 and f.cur.rule.points[1][4] < f:GetWidth() - 24, "the rule splits the panel with the left half at least 330 px")
 	check(f.footer.text == "Mats are DE estimates that improve as you disenchant." and f.footer.points[1][1] == "BOTTOMLEFT" and f.footer.points[2][1] == "BOTTOMRIGHT" and f.footer.points[2][2] == -12, "the footer is one short line that explains the mats values and that they improve, centered on the window")
 	check(b.tip == "Disenchant this item" and f.skip.tip == "Pass on it for now" and f.never.tip == "Add it to your DE Exclusion List" and f.junk.tip == "Mark as Junk" and f.junk.tipSub == "Sell Junk will sell it at your next vendor.", "the button tooltips are short (1.5.8, by design: Mark as Junk is an icon, so its tooltip names it and says what it does)")

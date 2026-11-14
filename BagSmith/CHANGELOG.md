@@ -4,6 +4,8 @@ Changed:
 - Modern icons look cleaner: each item's icon is trimmed of its old beveled edge, with a thin, even border in its
   rarity color (or the neutral border, as Rarity Borders sets). Empty slots keep their look, and Classic is unchanged.
   Thanks to Jeor.
+- In the Disenchant Helper, each likely result's name is in its rarity color, and hovering it shows the item's
+  tooltip.
 Fixed:
 - With Fit to Items, switching to a smaller sheet no longer moves the bottom tabs out from under your pointer after
   you've dragged the window: the window keeps its bottom edge and grows or shrinks upward. If you moved your window

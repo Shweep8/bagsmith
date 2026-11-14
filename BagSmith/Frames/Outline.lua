@@ -3,8 +3,9 @@
 -- button is held, then takes the outline's size once when it's let go. Resizing the window itself re-laid its contents
 -- as the size passed through, and it flickered (1.7.3-beta1, worst in Classic), or left them stale or blank (1.7.2).
 --
--- The look (1.7.3-beta3, Shweep): a white line 3 screen pixels wide with a 1-pixel dark edge outside it, so it shows on
--- any background whatever the accent color, and a faint white fill. The same in both skins.
+-- The look (1.7.3-beta3, Shweep): a light line 3 screen pixels wide with a 1-pixel dark edge outside it, so it shows on
+-- any background whatever the accent color, and a faint fill. The same in both skins. (1.7.3-beta5, Shweep) The line and
+-- the fill are #fffaed, a warm white (beta3: pure white).
 -- It is anchored to the screen (a frame anchored to another frame leaps when sized on this client), at the window's
 -- scale, so its sizes are in the window's own units, with the window's size limits. One outline serves every window:
 -- only one resize happens at a time.
@@ -13,6 +14,7 @@ local Outline = {}
 ns.Outline = Outline
 
 local LINE_PX, EDGE_PX = 3, 1
+Outline.COLOR = { 0xff / 255, 0xfa / 255, 0xed / 255 }   -- #fffaed
 
 local function build()
 	local o = CreateFrame("Frame", nil, UIParent)
@@ -28,10 +30,11 @@ local function build()
 	end
 	o.fill = tex("BACKGROUND")
 	o.fill:SetAllPoints()
-	o.fill:SetVertexColor(1, 1, 1, 0.06)
+	local r, g, b = unpack(Outline.COLOR)
+	o.fill:SetVertexColor(r, g, b, 0.06)
 	o.lines, o.edges = {}, {}
 	for i = 1, 4 do
-		o.lines[i] = tex("ARTWORK"); o.lines[i]:SetVertexColor(1, 1, 1, 0.9)
+		o.lines[i] = tex("ARTWORK"); o.lines[i]:SetVertexColor(r, g, b, 0.9)
 		o.edges[i] = tex("BORDER"); o.edges[i]:SetVertexColor(0, 0, 0, 0.8)
 	end
 	-- the white lines, inside the box: top, bottom, left, right
