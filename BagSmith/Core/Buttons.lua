@@ -73,12 +73,69 @@ end
 
 -- Modern items use a cropped icon and four edges aligned to physical pixels.
 -- Classic skin: Blizzard's own empty-slot art in cell mode, nothing in rows.
-local function updateModernBorder(b)
-	if b.modernBorderActive then Buttons:UpdateModernBorderGeometry(b) end
+--
+-- (1.7.3) The edges follow the icon's on-screen position, so they are realigned when that can change: while a
+-- window is moved or resized, and for a few frames after a layout, a scroll or a UI scale change (the client can
+-- settle positions a frame or two late, and an icon's rect can be unreadable on its first frame). One small driver
+-- does it for every bordered button, and it switches itself off when nothing moves, rather than every button
+-- re-checking on every frame (Jeor's first version, 1.7.3-beta1 PR #5).
+local bordered = setmetatable({}, { __mode = "k" })   -- buttons showing a Modern border
+local SETTLE_FRAMES = 10
+local settleLeft, driver = 0, nil
+
+local function windowMoving()
+	for _, v in pairs(ns.views or {}) do
+		if v.dragMoving or v.sizing then return true end
+	end
+	return false
+end
+
+function Buttons:RealignModernBorders()
+	for b in pairs(bordered) do
+		if b.modernBorderActive then self:UpdateModernBorderGeometry(b) else bordered[b] = nil end
+	end
+end
+
+local function driverTick()
+	Buttons:RealignModernBorders()
+	if windowMoving() then settleLeft = SETTLE_FRAMES; return end
+	settleLeft = settleLeft - 1
+	if settleLeft <= 0 and driver then driver:SetScript("OnUpdate", nil) end
+end
+
+-- Realign now and for the next few frames (and for as long as a window is being moved or resized).
+function Buttons:WakeModernBorders()
+	settleLeft = SETTLE_FRAMES
+	if not driver then
+		if not CreateFrame then return self:RealignModernBorders() end
+		driver = CreateFrame("Frame")
+		if driver.RegisterEvent then
+			pcall(driver.RegisterEvent, driver, "UI_SCALE_CHANGED")
+			pcall(driver.RegisterEvent, driver, "DISPLAY_SIZE_CHANGED")
+			driver:SetScript("OnEvent", function() Buttons:WakeModernBorders() end)
+		end
+	end
+	driver:SetScript("OnUpdate", driverTick)
+end
+Buttons.BorderDriverRunning = function() return driver ~= nil and driver:GetScript("OnUpdate") ~= nil end
+
+-- The size of one screen pixel in UI units at this button's scale. A client without PixelUtil works it out from
+-- the screen's height (the UI is 768 units tall); without that either, one UI unit.
+local function pixelSize(b)
+	local factor
+	if PixelUtil and PixelUtil.GetPixelToUIUnitFactor then
+		factor = PixelUtil.GetPixelToUIUnitFactor()
+	elseif GetPhysicalScreenSize then
+		local _, h = GetPhysicalScreenSize()
+		if h and h > 0 then factor = 768 / h end
+	end
+	local scale = b:GetEffectiveScale()
+	if not (factor and factor > 0) then factor = 1 end
+	if not (scale and scale > 0) then scale = 1 end
+	return factor / scale
 end
 
 function Buttons.AddFrame(b)
-	b:HookScript("OnUpdate", updateModernBorder)
 	b.frameBG = b:CreateTexture(nil, "BACKGROUND", nil, -2)
 	b.frameBG:SetTexture("Interface\\Buttons\\WHITE8X8")
 	b.frameEdge = b:CreateTexture(nil, "BACKGROUND", nil, -1)
@@ -139,7 +196,7 @@ end
 function Buttons:UpdateModernBorderGeometry(b)
 	local x, y, width, height = b.icon:GetRect()
 	if not (x and y and width and height) then return end
-	local pixel = PixelUtil.GetPixelToUIUnitFactor() / b:GetEffectiveScale()
+	local pixel = pixelSize(b)
 	if b.borderX == x and b.borderY == y and b.borderW == width and b.borderH == height and b.borderPixel == pixel then return end
 	b.borderX, b.borderY, b.borderW, b.borderH, b.borderPixel = x, y, width, height, pixel
 	local left = math.floor(x / pixel + 0.5) * pixel
@@ -156,7 +213,9 @@ end
 
 function Buttons:DrawModernBorder(b, r, g, bl)
 	b.modernBorderActive = true
+	bordered[b] = true
 	self:UpdateModernBorderGeometry(b)
+	self:WakeModernBorders()
 	for _, edge in ipairs(b.modernBorder) do
 		edge:SetVertexColor(r, g, bl, 0.95)
 		edge:Show()

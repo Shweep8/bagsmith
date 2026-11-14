@@ -230,6 +230,7 @@ function View:SetupScroll(scroll, child)
 	end)
 	scroll:HookScript("OnVerticalScroll", function(sf, offset)
 		self:OnScrollMoved(offset or (sf.GetVerticalScroll and sf:GetVerticalScroll()) or 0)
+		if ns.Buttons and ns.Buttons.WakeModernBorders and ns.db and ns.db.skin ~= "classic" then ns.Buttons:WakeModernBorders() end
 	end)
 	-- The template resets the bar's range whenever the game's range changes.
 	scroll:HookScript("OnScrollRangeChanged", function() self:SyncScrollBar() end)
@@ -323,6 +324,7 @@ local function smoothContentTextures(frame)
 end
 ns:OnSignal("VIEW_LAYOUT", function(view)
 	if not ns.db or ns.db.skin == "classic" then restoreContentSnapping(); return end
+	if ns.Buttons and ns.Buttons.WakeModernBorders then ns.Buttons:WakeModernBorders() end   -- (1.7.3) icons moved
 	if view.child then smoothContentTextures(view.child) end
 end)
 ns:OnSignal("SETTINGS_CHANGED", function(key)

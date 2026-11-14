@@ -397,11 +397,12 @@ function View:Build()
 	drag:EnableMouse(true)
 	drag:RegisterForDrag("LeftButton")
 	-- (1.7.0-beta2) Lock Windows: no moving (nor resizing, the grip below) while it's on
-	drag:SetScript("OnDragStart", function() if ns:WindowsLocked() then return end; self.dragMoving = true; f:StartMoving() end)
+	drag:SetScript("OnDragStart", function() if ns:WindowsLocked() then return end; self.dragMoving = true; f:StartMoving(); ns.Buttons:WakeModernBorders() end)
 	drag:SetScript("OnDragStop", function()
 		if ns:WindowsLocked() and not self.dragMoving then return end   -- (locked: it never started, so no spot to save)
 		self.dragMoving = nil
 		f:StopMovingOrSizing(); self:SavePosition(); ns:RepositionPanels()
+		ns.Buttons:WakeModernBorders()   -- (1.7.3) the borders settle where the window landed
 	end)
 	self.dragArea = drag
 
@@ -866,7 +867,7 @@ function View:Build()
 	grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
 	grip:SetScript("OnMouseDown", function()
 		if ns:WindowsLocked() then self.lockedPress = true; return end   -- (1.7.0-beta2) Lock Windows
-		self.sizing = true; f:StartSizing("BOTTOMRIGHT")
+		self.sizing = true; f:StartSizing("BOTTOMRIGHT"); ns.Buttons:WakeModernBorders()
 	end)
 	grip:SetScript("OnMouseUp", function()
 		if self.lockedPress then self.lockedPress = nil; return end
