@@ -2,7 +2,9 @@ Copyright (c) 2026 Shweep. All rights reserved.
 
 BagSmith and BagSmith Gamepad (the BagSmith and BagSmith_Gamepad folders), and the tests and tools folders, are
 not licensed for reuse, modification or redistribution. You're welcome to read the code here and to install
-BagSmith from CurseForge (https://www.curseforge.com/wow/addons/bagsmith) or this repository's Releases.
+BagSmith from CurseForge (https://www.curseforge.com/wow/addons/bagsmith) or this repository's Releases. You may also
+fork this repository and change the code in order to propose changes back to it; contributions are covered by
+CONTRIBUTING.md.
 
 Exceptions, each under its own terms:
 
