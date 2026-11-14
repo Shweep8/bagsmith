@@ -110,7 +110,8 @@
 	-- resizing re-lays the columns and remembers the size
 	-- (1.5.7, by design) a resize starts with a press on the grip: a release alone (say, after a press in combat, which is
 	-- ignored) doesn't count as one
-	f.grip:GetScript("OnMouseDown")(f.grip); f.w = 720; f.h = 500; f.grip:GetScript("OnMouseUp")(f.grip)
+	-- (1.7.3-beta4, by design) the drag sizes the shared outline; the window takes its size on release
+	f.grip:GetScript("OnMouseDown")(f.grip); n.Outline.frame:SetSize(720, 500); f.grip:GetScript("OnMouseUp")(f.grip)
 	check(n.db.deSize[1] == 720 and f.cols[2][3] > cols[2][3] and f.cols[6][2] + f.cols[6][3] <= 720 - 44, "a wider window gives the item column the extra room and the size is remembered")
 	f:Hide(); DE:Show()
 	check(f:GetWidth() == 720, "the remembered size is used next time")
