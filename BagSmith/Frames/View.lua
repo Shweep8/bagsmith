@@ -1178,6 +1178,19 @@ function View:ApplySkin()
 end
 
 
+-- Fit to Items grows upwards: the sheet tabs/footer must not move when a
+-- filter changes the height. Keep the horizontal anchor and relative point;
+-- moving only our anchor down needs an offset in the frame's own coordinates
+-- (the same units as GetHeight), even when UIParent has a different scale.
+local function bottomAnchor(point)
+	return point:find("LEFT") and "BOTTOMLEFT" or point:find("RIGHT") and "BOTTOMRIGHT" or "BOTTOM"
+end
+local function bottomPosition(p, height)
+	if p[1]:find("BOTTOM") then return p end
+	local shift = p[1]:find("TOP") and height or height / 2
+	return { bottomAnchor(p[1]), "UIParent", p[3], p[4], p[5] - shift }
+end
+
 function View:ApplySize()
 	-- Never while the corner is being dragged: re-applying the saved size and
 	-- spot mid-drag made the window jump back (the drag's end saves both).
@@ -1185,10 +1198,20 @@ function View:ApplySize()
 	local f, db = self.frame, ns.db
 	f:SetScale(db.scale)
 	if self.isMain then
-		if db.sizeMode == "fixed" then f:SetSize(db.fixW, db.fixH) else f:SetSize(db.maxW, math.min(db.maxH, self.autoHeight or db.maxH)) end
+		if db.sizeMode == "fixed" then f:SetSize(db.fixW, db.fixH) else
+			local height = math.min(db.maxH, self.autoHeight or db.maxH)
+			-- Convert old saved top/center anchors before changing height. On
+			-- first use of a profile, use its full height like a fresh login:
+			-- neither the frame nor autoHeight belongs to that profile yet.
+			local oldHeight = self.sizeProfile == db and f:GetHeight() or 0
+			local p = bottomPosition(db.point, oldHeight and oldHeight > 0 and oldHeight or db.maxH)
+			if p ~= db.point then ns:Set("point", p, true) end
+			f:SetSize(db.maxW, height)
+		end
 		f:ClearAllPoints()
 		local p = db.point
 		f:SetPoint(p[1], UIParent, p[3], p[4], p[5])
+		self.sizeProfile = db
 	elseif self.isBank then
 		f:SetSize(db.bankW, db.bankH)
 		f:ClearAllPoints()
@@ -1224,6 +1247,11 @@ function View:SavePosition()
 	local point, _, rel, x, y = self.frame:GetPoint(1)
 	if not point then return end
 	local p = { point, "UIParent", rel, math.floor(x + 0.5), math.floor(y + 0.5) }
+	if self.isMain and ns.db.sizeMode == "auto" then
+		p = bottomPosition(p, self.frame:GetHeight())
+		self.frame:ClearAllPoints()
+		self.frame:SetPoint(p[1], UIParent, p[3], p[4], p[5])
+	end
 	if self.isMain then ns:Set("point", p, true)
 	elseif self.isBank then ns:Set("bankPoint", p, true)
 	elseif self.kind == "bag" then ns.db.bagPoints[tostring(self.opts.bags[1])] = p end
@@ -1940,6 +1968,7 @@ function View:SaveSizedPosition()
 	local key = self.isMain and "point" or "bankPoint"
 	local saved = ns.db[key]
 	local point = type(saved) == "table" and saved[1] or "BOTTOMRIGHT"
+	if self.isMain and ns.db.sizeMode == "auto" then point = bottomAnchor(point) end
 	local L, R, T, B = f:GetLeft(), f:GetRight(), f:GetTop(), f:GetBottom()
 	if not (L and R and T and B) then return end
 	local s, us = f:GetEffectiveScale(), UIParent:GetEffectiveScale()
