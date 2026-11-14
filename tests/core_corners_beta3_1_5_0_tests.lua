@@ -72,7 +72,7 @@
 	n:Set("border", "off"); P:Refresh(); b = P.pools.cornerCards[1].preview
 	local offNeutral = b.qNeutral == true
 	n:Set("border", "all"); P:Refresh(); b = P.pools.cornerCards[1].preview
-	check(offNeutral and b.qNeutral == false and b.qRing:IsShown(), "the rarity border follows Rarity Borders (a plain frame when off, green when on)")
+	check(offNeutral and b.qNeutral == false and b.modernBorder and #b.modernBorder == 4 and b.modernBorder[1]:IsShown() and b.modernBorder[2]:IsShown() and b.modernBorder[3]:IsShown() and b.modernBorder[4]:IsShown() and not b.qRing:IsShown(), "the rarity border follows Rarity Borders (a plain frame when off, green when on)")
 	-- (1.5.0-beta10) the Icons view preview is your icon at your Icon Size, magnified as a whole to about 56 px, so
 	-- text marks keep their real proportions
 	n:Set("iconSize", 24); P:Refresh(); b = P.pools.cornerCards[1].preview

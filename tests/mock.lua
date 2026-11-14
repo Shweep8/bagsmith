@@ -119,6 +119,13 @@ function M.tex()
 	t.SetAtlas = function(self, a) self.atlas = a end
 	t.SetTexture = function(self, path) self.texture = path end
 	t.SetTexCoord = function(self, ...) self.texCoord = { ... } end
+	t.GetTexCoord = function(self)
+		local c = self.texCoord or { 0, 1, 0, 1 }
+		if #c == 4 then return c[1], c[3], c[1], c[4], c[2], c[3], c[2], c[4] end
+		return unpack(c)
+	end
+	t.GetRect = function(self) return 0, 0, self:GetWidth(), self:GetHeight() end
+
 	t.SetParent = function(self, p) self.parentFrame = p end
 	t.AddMaskTexture = function(self, mk) self.mask = mk end
 	t.SetHorizTile, t.SetVertTile = noop, noop
@@ -514,5 +521,8 @@ function M.addSet(name, slots, icon)
 end
 function M.removeEquipmentSets() _G.C_EquipmentSet = nil; _G.MAX_EQUIPMENT_SETS_PER_PLAYER = nil; M.eqSets = nil end
 M.fire_ = M.fire
+
+
+_G.PixelUtil = { GetPixelToUIUnitFactor = function() return 768 / 1080 end }
 
 return M

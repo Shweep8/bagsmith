@@ -296,3 +296,35 @@ function View:UpdateResizePreview(elapsed)
 	local ok = ns:Guard("Resize preview " .. self.name, self.Refresh, self, true, "resize preview")
 	if ok then self:RefreshCanvas("resize preview", true) end
 end
+-- Keep scroll-content textures from snapping independently during Modern resizing.
+local contentSnapping = setmetatable({}, { __mode = "k" })
+local function restoreContentSnapping()
+	for texture, original in pairs(contentSnapping) do
+		texture:SetSnapToPixelGrid(original.snap)
+		texture:SetTexelSnappingBias(original.bias)
+		contentSnapping[texture] = nil
+	end
+end
+local function smoothContentTextures(frame)
+	if frame.GetRegions then
+		for _, texture in ipairs({ frame:GetRegions() }) do
+			if texture.SetSnapToPixelGrid and texture.SetTexelSnappingBias
+				and texture.IsSnappingToPixelGrid and texture.GetTexelSnappingBias then
+				local snap, bias = texture:IsSnappingToPixelGrid(), texture:GetTexelSnappingBias()
+				if not contentSnapping[texture] then contentSnapping[texture] = { snap = snap, bias = bias } end
+				if snap then texture:SetSnapToPixelGrid(false) end
+				if bias ~= 0 then texture:SetTexelSnappingBias(0) end
+			end
+		end
+	end
+	if frame.GetChildren then
+		for _, child in ipairs({ frame:GetChildren() }) do smoothContentTextures(child) end
+	end
+end
+ns:OnSignal("VIEW_LAYOUT", function(view)
+	if not ns.db or ns.db.skin == "classic" then restoreContentSnapping(); return end
+	if view.child then smoothContentTextures(view.child) end
+end)
+ns:OnSignal("SETTINGS_CHANGED", function(key)
+	if (key == nil or key == "skin") and ns.db and ns.db.skin == "classic" then restoreContentSnapping() end
+end)
