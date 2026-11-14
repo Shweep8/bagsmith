@@ -47,6 +47,11 @@ BagSmith's tests run outside the game against a mock WoW client. You need Python
 Run them from the repository root (the folder holding `BagSmith/`). Mock results show the code's behaviour, not
 the real game client's.
 
+## Contributing
+
+Pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first: ask before changing how BagSmith
+behaves for everyone, keep each pull request to one change, and run the tests.
+
 ## Support and feedback
 
 - Bugs and requests: open an issue here, or comment on CurseForge.

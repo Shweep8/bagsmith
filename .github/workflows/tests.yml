@@ -1,0 +1,23 @@
+# BagSmith's test suite on every pull request, and on every push to main and dev.
+# It runs the same command as on a desktop: python3 tools/run_tests.py (about ten minutes).
+# Mock results: they show the code's behaviour against a mock client, not the real game.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install lupa (Lua 5.1 for Python)
+        run: pip install "lupa>=2.8,<3"
+      - name: Run the suite
+        run: python3 tools/run_tests.py
