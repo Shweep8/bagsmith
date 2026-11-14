@@ -71,16 +71,20 @@ function Buttons.SetSlotArt(tex)
 	return false
 end
 
--- Modern skin: a shaded dark square with a faint edge behind every icon.
+-- Modern items use a cropped icon and four edges aligned to physical pixels.
 -- Classic skin: Blizzard's own empty-slot art in cell mode, nothing in rows.
+local function updateModernBorder(b)
+	if b.modernBorderActive then Buttons:UpdateModernBorderGeometry(b) end
+end
+
 function Buttons.AddFrame(b)
+	b:HookScript("OnUpdate", updateModernBorder)
 	b.frameBG = b:CreateTexture(nil, "BACKGROUND", nil, -2)
 	b.frameBG:SetTexture("Interface\\Buttons\\WHITE8X8")
 	b.frameEdge = b:CreateTexture(nil, "BACKGROUND", nil, -1)
 	b.frameEdge:SetTexture("Interface\\Buttons\\WHITE8X8")
 	b.frameBG:Hide(); b.frameEdge:Hide()
-	-- Rarity: modern is a crisp 1px colored ring under the icon's edge;
-	-- classic is the old additive glow border that classic-era bags used.
+	-- Classic list rows retain their original quality ring.
 	b.qRing = b:CreateTexture(nil, "BACKGROUND", nil, 0)
 	b.qRing:SetTexture("Interface\\Buttons\\WHITE8X8")
 	b.qRing:Hide()
@@ -92,6 +96,14 @@ function Buttons.AddFrame(b)
 	b.qFrame = b:CreateTexture(nil, "OVERLAY", nil, 2)
 	b.qFrame:SetTexture("Interface\\Common\\WhiteIconFrame")
 	b.qFrame:Hide()
+	b.modernBorder = {}
+	for i = 1, 4 do
+		local edge = b:CreateTexture(nil, "OVERLAY", nil, -1)
+		edge:SetTexture("Interface\\Buttons\\WHITE8X8")
+		if edge.SetRoundLayoutToNearestPixel then edge:SetRoundLayoutToNearestPixel(false) end
+		edge:Hide()
+		b.modernBorder[i] = edge
+	end
 end
 
 Buttons.NEUTRAL_FRAME = { 0.28, 0.27, 0.25 }
@@ -118,11 +130,50 @@ end
 
 -- Applies the rarity border for the current skin and setting. Blizzard's own
 -- IconBorder is hidden so both skins draw the same way for every cell kind.
+local function placeBorderEdge(edge, icon, x, y, width, height)
+	edge:ClearAllPoints()
+	edge:SetPoint("BOTTOMLEFT", icon, "BOTTOMLEFT", x, y)
+	edge:SetSize(width, height)
+end
+
+function Buttons:UpdateModernBorderGeometry(b)
+	local x, y, width, height = b.icon:GetRect()
+	if not (x and y and width and height) then return end
+	local pixel = PixelUtil.GetPixelToUIUnitFactor() / b:GetEffectiveScale()
+	if b.borderX == x and b.borderY == y and b.borderW == width and b.borderH == height and b.borderPixel == pixel then return end
+	b.borderX, b.borderY, b.borderW, b.borderH, b.borderPixel = x, y, width, height, pixel
+	local left = math.floor(x / pixel + 0.5) * pixel
+	local bottom = math.floor(y / pixel + 0.5) * pixel
+	local x0, y0 = left - x, bottom - y
+	local w = math.max(2 * pixel, math.floor((x + width) / pixel + 0.5) * pixel - left)
+	local h = math.max(2 * pixel, math.floor((y + height) / pixel + 0.5) * pixel - bottom)
+	-- Side strips exclude corners, so translucent borders never double up.
+	placeBorderEdge(b.modernBorder[1], b.icon, x0, y0 + h - pixel, w, pixel)
+	placeBorderEdge(b.modernBorder[2], b.icon, x0, y0, w, pixel)
+	placeBorderEdge(b.modernBorder[3], b.icon, x0, y0 + pixel, pixel, h - 2 * pixel)
+	placeBorderEdge(b.modernBorder[4], b.icon, x0 + w - pixel, y0 + pixel, pixel, h - 2 * pixel)
+end
+
+function Buttons:DrawModernBorder(b, r, g, bl)
+	b.modernBorderActive = true
+	self:UpdateModernBorderGeometry(b)
+	for _, edge in ipairs(b.modernBorder) do
+		edge:SetVertexColor(r, g, bl, 0.95)
+		edge:Show()
+	end
+end
+
 function Buttons:ApplyQuality(b, rec)
+	b.modernBorderActive = nil
+	for _, edge in ipairs(b.modernBorder or {}) do edge:Hide() end
 	if b.IconBorder then b.IconBorder:Hide() end
 	if not b.qRing then return end
 	-- No item, no frame: empty slots and blank rows keep their own look.
-	if not rec then b.qRing:Hide(); b.qFrame:Hide(); return end
+	if not rec then
+		b.qRing:Hide(); b.qFrame:Hide()
+		if (ns.db and ns.db.skin or "modern") == "modern" then self:ApplyFrame(b) end
+		return
+	end
 	local q = rec.quality or 1
 	local setting = ns.db and ns.db.border or "all"
 	local colored = setting == "all" or (setting == "unc" and q >= 2)
@@ -134,7 +185,10 @@ function Buttons:ApplyQuality(b, rec)
 	b.qNeutral = not colored
 	local icon = b.icon
 	local classicCell = (ns.db and ns.db.skin or "modern") == "classic" and b.mode == "cell"
-	if classicCell then
+	if (ns.db and ns.db.skin or "modern") == "modern" then
+		b.qRing:Hide(); b.qFrame:Hide(); b.frameEdge:Hide(); b.frameBG:Hide()
+		self:DrawModernBorder(b, r, g, bl)
+	elseif classicCell then
 		-- Blizzard's rarity frame, 2 px larger than the icon on every side so its
 		-- rounded corners cover the icon's square corners (icons whose art runs
 		-- to the edge, such as capes, showed a corner outside the frame).
@@ -143,7 +197,7 @@ function Buttons:ApplyQuality(b, rec)
 		b.qFrame:SetVertexColor(r, g, bl, 1)
 		b.qFrame:Show(); b.qRing:Hide()
 	else
-		-- A one-pixel ring in the item's color (rows in both skins, modern cells).
+		-- Classic rows retain the original ring.
 		b.qRing:ClearAllPoints()
 		b.qRing:SetPoint("TOPLEFT", icon, "TOPLEFT", -1, 1); b.qRing:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 1, -1)
 		b.qRing:SetVertexColor(r, g, bl, 0.95)
@@ -151,7 +205,29 @@ function Buttons:ApplyQuality(b, rec)
 	end
 end
 
+local function near(a, b) return math.abs(a - b) < 0.00001 end
+function Buttons:ApplyIconCrop(b)
+	if not b.icon then return end
+	if (ns.db and ns.db.skin or "modern") == "modern" then
+		local a, c, d, e, f, g, h, i = b.icon:GetTexCoord()
+		if not (near(a, 0.08) and near(c, 0.08) and near(d, 0.08) and near(e, 0.92)
+			and near(f, 0.92) and near(g, 0.08) and near(h, 0.92) and near(i, 0.92)) then
+			-- Item updates reset the crop; retain those coordinates for Classic.
+			local coords = b.classicIconCoords or {}
+			coords[1], coords[2], coords[3], coords[4] = a, c, d, e
+			coords[5], coords[6], coords[7], coords[8] = f, g, h, i
+			b.classicIconCoords = coords
+			b.modernCropActive = true
+			b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		end
+	elseif b.modernCropActive then
+		b.icon:SetTexCoord(unpack(b.classicIconCoords))
+		b.modernCropActive = nil
+	end
+end
+
 function Buttons:ApplyFrame(b)
+	self:ApplyIconCrop(b)
 	if not b.frameBG then return end
 	local modern = (ns.db and ns.db.skin or "modern") == "modern"
 	local icon, cell = b.icon, b.mode == "cell"
@@ -1175,6 +1251,7 @@ function Buttons:Fill(b, rec, opts)
 	if ns.Pawn then ns.Pawn:Decorate(b, rec) end
 	b.inFill = nil
 	if ns.Corners then ns.Corners:Apply(b, true) end   -- (1.5.0) icon corners: which mark shows where
+	self:ApplyIconCrop(b)
 end
 
 
