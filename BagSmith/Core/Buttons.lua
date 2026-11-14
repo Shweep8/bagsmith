@@ -135,6 +135,8 @@ local function pixelSize(b)
 	return factor / scale
 end
 
+Buttons.PixelSize = pixelSize   -- (1.7.3-beta3) also the resize outline's line
+
 function Buttons.AddFrame(b)
 	b.frameBG = b:CreateTexture(nil, "BACKGROUND", nil, -2)
 	b.frameBG:SetTexture("Interface\\Buttons\\WHITE8X8")

@@ -1200,9 +1200,13 @@ local function bottomPosition(p, height)
 	return { bottomAnchor(p[1]), "UIParent", p[3], p[4], p[5] - shift }
 end
 
--- (1.7.3-beta2) The resize outline: a thin box in the accent color, the window's size and place when the grip is
--- pressed, sized by the client while the button is held. It is anchored to the screen (a frame anchored to another
--- frame leaps when sized on this client), at the window's scale, with the window's size limits.
+-- (1.7.3-beta2) The resize outline: the window's size and place when the grip is pressed, sized by the client while
+-- the button is held. It is anchored to the screen (a frame anchored to another frame leaps when sized on this
+-- client), at the window's scale, with the window's size limits.
+-- (1.7.3-beta3, Shweep) Its look: a white line 3 screen pixels wide with a 1-pixel dark edge outside it, so it shows on
+-- any background, whatever the accent color (beta2 drew it in the accent, 2 UI units: about 3 to 4 pixels, varying
+-- with the screen and scale); a faint white fill shows the area the window will take. The same in both skins.
+local OUTLINE_PX, OUTLINE_EDGE_PX = 3, 1
 function View:ResizeOutline()
 	local o = self.outline
 	if o then return o end
@@ -1212,22 +1216,42 @@ function View:ResizeOutline()
 	o:SetMovable(true)
 	o:SetResizable(true)
 	o:EnableMouse(false)
-	o.fill = o:CreateTexture(nil, "BACKGROUND")
-	o.fill:SetAllPoints()
-	o.fill:SetTexture("Interface\\Buttons\\WHITE8X8")
-	o.edges = {}
-	for i = 1, 4 do
-		local t = o:CreateTexture(nil, "BORDER")
+	local function tex(layer)
+		local t = o:CreateTexture(nil, layer)
 		t:SetTexture("Interface\\Buttons\\WHITE8X8")
-		o.edges[i] = t
+		return t
 	end
-	o.edges[1]:SetPoint("TOPLEFT"); o.edges[1]:SetPoint("TOPRIGHT"); o.edges[1]:SetHeight(2)
-	o.edges[2]:SetPoint("BOTTOMLEFT"); o.edges[2]:SetPoint("BOTTOMRIGHT"); o.edges[2]:SetHeight(2)
-	o.edges[3]:SetPoint("TOPLEFT"); o.edges[3]:SetPoint("BOTTOMLEFT"); o.edges[3]:SetWidth(2)
-	o.edges[4]:SetPoint("TOPRIGHT"); o.edges[4]:SetPoint("BOTTOMRIGHT"); o.edges[4]:SetWidth(2)
+	o.fill = tex("BACKGROUND")
+	o.fill:SetAllPoints()
+	o.fill:SetVertexColor(1, 1, 1, 0.06)
+	o.lines, o.edges = {}, {}
+	for i = 1, 4 do
+		o.lines[i] = tex("ARTWORK"); o.lines[i]:SetVertexColor(1, 1, 1, 0.9)
+		o.edges[i] = tex("BORDER"); o.edges[i]:SetVertexColor(0, 0, 0, 0.8)
+	end
+	-- the white lines, inside the box: top, bottom, left, right
+	o.lines[1]:SetPoint("TOPLEFT"); o.lines[1]:SetPoint("TOPRIGHT")
+	o.lines[2]:SetPoint("BOTTOMLEFT"); o.lines[2]:SetPoint("BOTTOMRIGHT")
+	o.lines[3]:SetPoint("TOPLEFT"); o.lines[3]:SetPoint("BOTTOMLEFT")
+	o.lines[4]:SetPoint("TOPRIGHT"); o.lines[4]:SetPoint("BOTTOMRIGHT")
 	o:Hide()
 	self.outline = o
 	return o
+end
+
+-- Line widths in screen pixels at the outline's scale (set each time: the scale can change between drags).
+function View:SizeOutlineLines(o)
+	local px = ns.Buttons and ns.Buttons.PixelSize and ns.Buttons.PixelSize(o) or 1
+	local line, edge = OUTLINE_PX * px, OUTLINE_EDGE_PX * px
+	o.lineWidth, o.edgeWidth = line, edge
+	o.lines[1]:SetHeight(line); o.lines[2]:SetHeight(line); o.lines[3]:SetWidth(line); o.lines[4]:SetWidth(line)
+	-- the dark edge, just outside the box, its corners closed
+	local e = o.edges
+	for _, t in ipairs(e) do t:ClearAllPoints() end
+	e[1]:SetPoint("BOTTOMLEFT", o, "TOPLEFT", -edge, 0); e[1]:SetPoint("BOTTOMRIGHT", o, "TOPRIGHT", edge, 0); e[1]:SetHeight(edge)
+	e[2]:SetPoint("TOPLEFT", o, "BOTTOMLEFT", -edge, 0); e[2]:SetPoint("TOPRIGHT", o, "BOTTOMRIGHT", edge, 0); e[2]:SetHeight(edge)
+	e[3]:SetPoint("TOPRIGHT", o, "TOPLEFT"); e[3]:SetPoint("BOTTOMRIGHT", o, "BOTTOMLEFT"); e[3]:SetWidth(edge)
+	e[4]:SetPoint("TOPLEFT", o, "TOPRIGHT"); e[4]:SetPoint("BOTTOMLEFT", o, "BOTTOMRIGHT"); e[4]:SetWidth(edge)
 end
 
 function View:StartOutlineResize()
@@ -1239,10 +1263,7 @@ function View:StartOutlineResize()
 	o:SetScale((us and us > 0) and f:GetEffectiveScale() / us or 1)
 	local minW = self.minWidth or View.MinWidthFor(self.isBank)
 	if o.SetResizeBounds then o:SetResizeBounds(minW, 300, 1400, 1200) end
-	local ar, ag, ab = 1, 0.82, 0
-	if ns.Skins and ns.Skins.Accent then ar, ag, ab = ns.Skins:Accent() end
-	for _, t in ipairs(o.edges) do t:SetVertexColor(ar, ag, ab, 0.95) end
-	o.fill:SetVertexColor(ar, ag, ab, 0.08)
+	self:SizeOutlineLines(o)
 	o:ClearAllPoints()
 	o:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", L, T)
 	o:SetSize(w, h)

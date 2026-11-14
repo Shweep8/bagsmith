@@ -1,5 +1,5 @@
 ;(function()
-	-- ======== 1.7.3-beta2: resizing drags an outline (Shweep's choice, 14 Nov) ========
+	-- ======== 1.7.3-beta2: resizing drags an outline (Shweep's choice, 14 Nov); beta3: its look ========
 	-- 1.7.3-beta1 laid the window out up to 20 times a second while its corner was dragged (Jeor's #4) and it flickered,
 	-- worst in Classic. Now the grip sizes a thin outline anchored to the screen; the window keeps its size, spot and
 	-- contents until the button is let go, then takes the outline's size and lays out once.
@@ -31,6 +31,20 @@
 		check(o.resizeBounds and o.resizeBounds[1] == (main.minWidth or n.View.MinWidthFor(false)) and o.resizeBounds[2] == 300
 			and o.resizeBounds[3] == 1400 and o.resizeBounds[4] == 1200, S .. "with the window's size limits")
 		check(o.clamped ~= false and o.strata == "TOOLTIP", S .. "kept on screen, drawn above everything")
+		-- (1.7.3-beta3) white, 3 screen pixels, a 1-pixel dark edge outside, a faint white fill; not the accent
+		local px = (768 / 1080) / o:GetEffectiveScale()
+		check(math.abs(o.lineWidth - 3 * px) < 1e-9 and math.abs(o.edgeWidth - px) < 1e-9, S .. "the line is 3 screen pixels, its dark edge 1")
+		local white, dark = true, true
+		for i = 1, 4 do
+			local c, d = o.lines[i].color, o.edges[i].color
+			white = white and c and c[1] == 1 and c[2] == 1 and c[3] == 1 and c[4] == 0.9
+			dark = dark and d and d[1] == 0 and d[2] == 0 and d[3] == 0 and d[4] == 0.8
+		end
+		check(white and dark, S .. "white lines with a dark edge, whatever the accent color")
+		local fc = o.fill.color
+		check(fc and fc[1] == 1 and fc[4] == 0.06, S .. "and a faint white fill")
+		local e1 = o.edges[1].points and o.edges[1].points[1]
+		check(e1 and e1[1] == "BOTTOMLEFT" and e1[3] == "TOPLEFT" and math.abs(e1[4] + px) < 1e-9, S .. "the dark edge sits just outside the box")
 
 		-- the drag: only the outline changes; nothing is laid out, whatever asks
 		o:SetSize(640, 430)
