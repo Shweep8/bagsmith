@@ -25,8 +25,9 @@ QUICK = ["tests/core_scroll_1_0_1_tests.lua", "tests/core_classic_dialogs_1_0_2_
          "tests/plugins_probeB_tests.lua", "tests/plugins_nav_tests.lua", "tests/plugins_browse_tests.lua", "tests/plugins_example_tests.lua"]
 
 QUICK.append("tests/core_auto_anchor_tests.lua")
-QUICK.extend(['tests/core_resize_movement_tests.lua', 'tests/core_resize_finish_tests.lua', 'tests/core_resize_live_tests.lua', 'tests/core_resize_placement_tests.lua', 'tests/core_resize_canvas_tests.lua'])
+QUICK.extend(['tests/core_resize_movement_tests.lua', 'tests/core_resize_finish_tests.lua'])
 QUICK.append("tests/core_1_7_3_beta1_tests.lua")
+QUICK.append("tests/core_1_7_3_beta2_tests.lua")
 QUICK.extend(['tests/core_modern_border_tests.lua', 'tests/core_modern_crop_tests.lua', 'tests/core_modern_texture_tests.lua'])
 
 def run_file(path, prelude=True, quiet=False):

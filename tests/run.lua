@@ -6422,7 +6422,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.7%.3%-beta1\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.7.3-beta1, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.7%.3%-beta2\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.7.3-beta2, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -6638,7 +6638,9 @@ end)()
 	local f = main.frame
 	main.grip:GetScript("OnMouseDown")(main.grip)
 	check(main.sizing, "dragging the corner: the window knows it's being resized")
-	f:SetSize(660, 420)   -- the drag, part way
+	-- (1.7.3-beta2) the drag, part way: the outline is sized, not the window (which keeps its size and contents)
+	check(main.outline and main.outline:IsShown() and main.outline.w == 900 and main.outline.h == 700, "the outline starts at the window's size")
+	main.outline:SetSize(660, 420)
 	local points = #f.points
 	-- A scrollbar change mid-drag queues nothing; a refresh mid-drag leaves the size and spot alone.
 	local gh = main.scroll.GetHeight
@@ -6648,7 +6650,7 @@ end)()
 	main:UpdateBarSpace()
 	check(main.barHidden == before, "mid-drag: the scrollbar check waits")
 	n:RefreshViews(true); M.runTimers()
-	check(f:GetWidth() == 660 and f:GetHeight() == 420 and #f.points == points, "mid-drag: a refresh doesn't reset the window's size or spot")
+	check(f:GetWidth() == 900 and f:GetHeight() == 700 and #f.points == points, "mid-drag: the window keeps its size and spot (the outline is what moves), a refresh included")
 	main.scroll.GetHeight = gh
 	-- Refresh requests mid-drag (a tidy-up, a bag update) do no layout; they wait.
 	local rebuilt = 0
@@ -6667,7 +6669,8 @@ end)()
 	main.Layout = realLayout
 	local shown = 0
 	for _, b in ipairs(main.used or {}) do if b:IsShown() and b.hasItem then shown = shown + 1 end end
-	check(not main.sizing and n.db.fixW == 660 and n.db.fixH == 420 and f:GetWidth() == 660, "after the drag: the new size is saved and kept")
+	check(not main.sizing and n.db.fixW == 660 and n.db.fixH == 420 and f:GetWidth() == 660, "after the drag: the window takes the outline's size, saved and kept")
+	check(not main.outline:IsShown(), "and the outline is gone")
 	check(shown == 6, "and the items are laid out")
 end)()
 
@@ -10864,7 +10867,7 @@ end)()
 ;(function()
 	-- 0.15.0 (prod): one clean 0.15.0 changelog section; the sword-and-shield replaces the helmet everywhere.
 	local log = io.open("BagSmith/CHANGELOG.md"):read("*a")
-	check(log:find("^## 1%.7%.3\n") and log:find("\n## 1%.7%.2\n") and log:find("\n## 1%.7%.1\n") and log:find("\n## 1%.7%.0\n") and log:find("\n## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.7.3 (the release in progress; 1.7.3-beta1, by design), then 1.7.2, 1.7.1, 1.7.0, 1.6.3, 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
+	check(log:find("^## 1%.7%.3\n") and log:find("\n## 1%.7%.2\n") and log:find("\n## 1%.7%.1\n") and log:find("\n## 1%.7%.0\n") and log:find("\n## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.7.3 (the release in progress; 1.7.3-beta2, by design), then 1.7.2, 1.7.1, 1.7.0, 1.6.3, 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
 	local section = log:match("(## 0%.15%.0\n.-)\n## ") or ""
 	local bad = false
 	for _, w in ipairs({ "colour", "favourite", "behaviour", "cancelled", "helmet", "\226\128\148" }) do if section:find(w) then bad = true end end

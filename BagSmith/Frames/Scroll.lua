@@ -90,12 +90,12 @@ end
 -- Re-attaching the child and nudging its size makes the client lay it out
 -- again. That moves a parent of secure item buttons, so never in combat
 -- (deferred until combat ends). /bs debug logs what it found.
-function View:RefreshCanvas(why, afterPreview)
-	if self.sizing and not afterPreview then return end
+function View:RefreshCanvas(why)
+	if self.sizing then return end
 	local sf, child = self.scroll, self.child
 	if not (sf and child and sf.SetScrollChild and self.frame:IsShown()) then return end
 	ns:Safely("canvas" .. self.name, function()
-		if (self.sizing and not afterPreview) or not self.frame:IsShown() then return end
+		if self.sizing or not self.frame:IsShown() then return end
 		-- (the log line can never stop the fix: it's shielded)
 		if ns.db and ns.db.debug then pcall(function()
 			local function rect(f)
@@ -275,28 +275,6 @@ function View:FinishResizeLayout()
 	end)
 end
 
--- Reflow at most 20 times per second; native sizing still owns window geometry.
-function View:UpdateResizePreview(elapsed)
-	if not self.sizing or not self.frame:IsShown() then
-		self.resizeElapsed, self.resizeWidth, self.resizeHeight = nil, nil, nil
-		return
-	end
-	if InCombatLockdown() then return end
-	self.resizeElapsed = (self.resizeElapsed or 0) + elapsed
-	if self.resizeElapsed < 0.05 then return end
-	self.resizeElapsed = 0
-	local w, h = self.frame:GetWidth(), self.frame:GetHeight()
-	-- Native sizing can invalidate the viewport without hiding its children.
-	local needsPlacement = self.scroll and unplaced(self.scroll)
-	if w == self.resizeWidth and h == self.resizeHeight and not needsPlacement then return end
-	if needsPlacement then
-		self:PlaceScroll()
-		if unplaced(self.scroll) then return end
-	end
-	self.resizeWidth, self.resizeHeight = w, h
-	local ok = ns:Guard("Resize preview " .. self.name, self.Refresh, self, true, "resize preview")
-	if ok then self:RefreshCanvas("resize preview", true) end
-end
 -- Keep scroll-content textures from snapping independently during Modern resizing.
 local contentSnapping = setmetatable({}, { __mode = "k" })
 local function restoreContentSnapping()

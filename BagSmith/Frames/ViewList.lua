@@ -718,8 +718,9 @@ ns.WatchHeld = watchHeld
 
 function View:Refresh(force, reason)
 	if not self.frame:IsShown() or not Buttons.created then return end
-	-- Only the throttled resize preview lays out while the grip is held.
-	if self.sizing and reason ~= "resize preview" then self.refreshWanted = true; return end
+	-- No layout while the grip is held (1.7.3-beta2: the outline is being sized, not the window); letting go lays
+	-- out once, then again when sizes settle.
+	if self.sizing then self.refreshWanted = true; return end
 	local shown, total, all, bagInfo, bank = self:Filtered()
 	local cached = self:IsCached()
 

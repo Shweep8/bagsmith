@@ -865,13 +865,18 @@ function View:Build()
 	grip.tex = grip:CreateTexture(nil, "ARTWORK")
 	grip.tex:SetAllPoints()
 	grip.tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+	-- (1.7.3-beta2, Shweep's choice) Resizing drags an outline, not the window: the window keeps its size and contents
+	-- until the button is let go, then takes the outline's size and lays out once. Resizing the window itself
+	-- re-laid the contents while the size passed through (1.7.3-beta1 did it 20 times a second: it flickered, worst in
+	-- Classic), or left them stale or blank (1.7.2).
 	grip:SetScript("OnMouseDown", function()
 		if ns:WindowsLocked() then self.lockedPress = true; return end   -- (1.7.0-beta2) Lock Windows
-		self.sizing = true; f:StartSizing("BOTTOMRIGHT"); ns.Buttons:WakeModernBorders()
+		self.sizing = true
+		self:StartOutlineResize()
 	end)
 	grip:SetScript("OnMouseUp", function()
 		if self.lockedPress then self.lockedPress = nil; return end
-		f:StopMovingOrSizing()
+		self:EndOutlineResize()
 		self.sizing = false
 		-- Dragging never changes the size mode: in Fit to Items it sets the
 		-- largest size; in Scalable it sets the size. Values are rounded.
@@ -891,10 +896,9 @@ function View:Build()
 		-- Once more on the next frame: the client can settle the new size a
 		-- frame after the drag ends, and the layout should use the final one.
 		ns:NextFrame("settle:" .. self.name, function() self:FinishResizeLayout() end)
+		ns.Buttons:WakeModernBorders()
 	end)
-	grip:SetScript("OnUpdate", function(_, elapsed) self:UpdateResizePreview(elapsed) end)
 	self.grip = grip
-	f:HookScript("OnHide", function() self.sizing = false; self.refreshWanted = nil end)   -- a drag cut short never leaves it waiting
 
 	if self.kind == "main" then
 		f:SetScript("OnSizeChanged", function() ns:NextFrame("panels", function() ns:RepositionPanels() end) end)
@@ -925,6 +929,9 @@ function View:Build()
 		if self.ScheduleListPlaced then self:ScheduleListPlaced() end
 	end)
 	f:SetScript("OnHide", function()
+		-- A drag cut short never leaves it waiting, nor its outline on screen. (1.7.3-beta2: this was a HookScript on
+		-- the grip's side, added before this SetScript, which replaced it, so it never ran.)
+		self.sizing = false; self.refreshWanted = nil; self:CancelOutlineResize()
 		if ns.ready then PlaySound(SOUNDKIT.IG_BACKPACK_CLOSE) end
 		if self.isBank and ns.Bank then ns.Bank:OnWindowHidden() end
 		if self.isMain then ns:OnMainHidden() end
@@ -1191,6 +1198,79 @@ local function bottomPosition(p, height)
 	if p[1]:find("BOTTOM") then return p end
 	local shift = p[1]:find("TOP") and height or height / 2
 	return { bottomAnchor(p[1]), "UIParent", p[3], p[4], p[5] - shift }
+end
+
+-- (1.7.3-beta2) The resize outline: a thin box in the accent color, the window's size and place when the grip is
+-- pressed, sized by the client while the button is held. It is anchored to the screen (a frame anchored to another
+-- frame leaps when sized on this client), at the window's scale, with the window's size limits.
+function View:ResizeOutline()
+	local o = self.outline
+	if o then return o end
+	o = CreateFrame("Frame", nil, UIParent)
+	o:SetFrameStrata("TOOLTIP")
+	o:SetClampedToScreen(true)
+	o:SetMovable(true)
+	o:SetResizable(true)
+	o:EnableMouse(false)
+	o.fill = o:CreateTexture(nil, "BACKGROUND")
+	o.fill:SetAllPoints()
+	o.fill:SetTexture("Interface\\Buttons\\WHITE8X8")
+	o.edges = {}
+	for i = 1, 4 do
+		local t = o:CreateTexture(nil, "BORDER")
+		t:SetTexture("Interface\\Buttons\\WHITE8X8")
+		o.edges[i] = t
+	end
+	o.edges[1]:SetPoint("TOPLEFT"); o.edges[1]:SetPoint("TOPRIGHT"); o.edges[1]:SetHeight(2)
+	o.edges[2]:SetPoint("BOTTOMLEFT"); o.edges[2]:SetPoint("BOTTOMRIGHT"); o.edges[2]:SetHeight(2)
+	o.edges[3]:SetPoint("TOPLEFT"); o.edges[3]:SetPoint("BOTTOMLEFT"); o.edges[3]:SetWidth(2)
+	o.edges[4]:SetPoint("TOPRIGHT"); o.edges[4]:SetPoint("BOTTOMRIGHT"); o.edges[4]:SetWidth(2)
+	o:Hide()
+	self.outline = o
+	return o
+end
+
+function View:StartOutlineResize()
+	local f = self.frame
+	local L, T, w, h = f:GetLeft(), f:GetTop(), f:GetWidth(), f:GetHeight()
+	if not (L and T and w and h) then self.sizing = false; return end
+	local o = self:ResizeOutline()
+	local us = UIParent:GetEffectiveScale()
+	o:SetScale((us and us > 0) and f:GetEffectiveScale() / us or 1)
+	local minW = self.minWidth or View.MinWidthFor(self.isBank)
+	if o.SetResizeBounds then o:SetResizeBounds(minW, 300, 1400, 1200) end
+	local ar, ag, ab = 1, 0.82, 0
+	if ns.Skins and ns.Skins.Accent then ar, ag, ab = ns.Skins:Accent() end
+	for _, t in ipairs(o.edges) do t:SetVertexColor(ar, ag, ab, 0.95) end
+	o.fill:SetVertexColor(ar, ag, ab, 0.08)
+	o:ClearAllPoints()
+	o:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", L, T)
+	o:SetSize(w, h)
+	o:Show()
+	o:StartSizing("BOTTOMRIGHT")
+	self.outlineFrom = { L, T }
+end
+
+-- The window takes the outline's size, its top-left corner staying where it was (as the client's own sizing from
+-- the bottom-right corner did). The caller saves the size and place, then lays out once.
+function View:EndOutlineResize()
+	local o, from = self.outline, self.outlineFrom
+	self.outlineFrom = nil
+	if not (o and from and o:IsShown()) then return end
+	o:StopMovingOrSizing()
+	local w, h = o:GetWidth(), o:GetHeight()
+	o:Hide()
+	if not (w and h and w > 0 and h > 0) then return end
+	local f = self.frame
+	f:ClearAllPoints()
+	f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", from[1], from[2])
+	f:SetSize(w, h)
+end
+
+function View:CancelOutlineResize()
+	local o = self.outline
+	self.outlineFrom = nil
+	if o and o:IsShown() then o:StopMovingOrSizing(); o:Hide() end
 end
 
 function View:ApplySize()

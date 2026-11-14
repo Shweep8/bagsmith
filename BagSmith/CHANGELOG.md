@@ -8,9 +8,9 @@ Fixed:
 - With Fit to Items, switching to a smaller sheet no longer moves the bottom tabs out from under your pointer after
   you've dragged the window: the window keeps its bottom edge and grows or shrinks upward. If you moved your window
   before, it may settle a little lower once, the first time you open it after updating. Thanks to Jeor.
-- Resizing a window by its corner keeps your items in view the whole time, instead of leaving it blank until you let
-  go, and moving it by its title bar no longer briefly pulls it back. Thanks to Jeor.
-- Less flicker on icon edges, corner marks and section bars in Modern while you resize. Thanks to Jeor.
+- Resizing the bags or bank window by its corner now drags an outline of the new size; the window takes that size
+  when you let go. No more flicker, or a blank window, while you resize. Moving a window by its title bar no longer
+  briefly pulls it back. Thanks to Jeor.
 
 ## 1.7.2
 
