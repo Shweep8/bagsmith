@@ -13,6 +13,8 @@ Fixed:
 - Resizing the bags or bank window, or the Disenchant Helper, by its corner now drags an outline of the new size; the
   window takes that size when you let go. No more flicker, or a blank window, while you resize. Moving a window by its
   title bar no longer briefly pulls it back. Thanks to Jeor.
+- With Settings open, the bags window's Width and Height (or Max Width and Max Height) follow along as you resize it,
+  and show the new size when you let go, instead of the old one until Settings is reopened.
 
 ## 1.7.2
 

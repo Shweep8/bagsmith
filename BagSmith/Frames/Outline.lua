@@ -42,6 +42,11 @@ local function build()
 	o.lines[2]:SetPoint("BOTTOMLEFT"); o.lines[2]:SetPoint("BOTTOMRIGHT")
 	o.lines[3]:SetPoint("TOPLEFT"); o.lines[3]:SetPoint("BOTTOMLEFT")
 	o.lines[4]:SetPoint("TOPRIGHT"); o.lines[4]:SetPoint("BOTTOMRIGHT")
+	-- (1.7.3-beta6) whoever started the drag can follow its size (the Settings panel's Width and Height)
+	o:SetScript("OnSizeChanged", function(self, w, h)
+		local fn = Outline.onSize
+		if fn and Outline.owner then fn(w or self:GetWidth(), h or self:GetHeight()) end
+	end)
 	o:Hide()
 	return o
 end
@@ -68,7 +73,8 @@ end
 
 -- Starts sizing the outline over window f, from f's bottom-right corner. Returns false (nothing shown) when f's
 -- place can't be read yet.
-function Outline:Start(f, minW, minH, maxW, maxH)
+-- onSize (optional): called with the outline's width and height as it's dragged, until it ends.
+function Outline:Start(f, minW, minH, maxW, maxH, onSize)
 	local L, T, w, h = f:GetLeft(), f:GetTop(), f:GetWidth(), f:GetHeight()
 	if not (L and T and w and h) then return false end
 	local o = self:Frame()
@@ -84,6 +90,7 @@ function Outline:Start(f, minW, minH, maxW, maxH)
 	o:Show()
 	o:StartSizing("BOTTOMRIGHT")
 	self.owner, self.from = f, { L, T }
+	self.onSize = onSize
 	return true
 end
 
@@ -94,7 +101,7 @@ function Outline:Active(f) return self.owner ~= nil and self.owner == f end
 function Outline:Finish(f)
 	if not self:Active(f) then return nil end
 	local o, from = self.frame, self.from
-	self.owner, self.from = nil, nil
+	self.owner, self.from, self.onSize = nil, nil, nil
 	o:StopMovingOrSizing()
 	local w, h = o:GetWidth(), o:GetHeight()
 	o:Hide()
@@ -104,7 +111,7 @@ end
 
 function Outline:Cancel(f)
 	if not self:Active(f) then return end
-	self.owner, self.from = nil, nil
+	self.owner, self.from, self.onSize = nil, nil, nil
 	self.frame:StopMovingOrSizing()
 	self.frame:Hide()
 end

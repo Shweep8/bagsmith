@@ -633,6 +633,16 @@ function Panel:Step(key, label, step, fmt, help, info)
 	self.y = self.y + s:GetHeight()
 end
 
+-- (1.7.3-beta6) Shows a number in a shown stepper's box without saving it (the bags window's size while its outline is
+-- dragged). A box being typed in is left alone.
+function Panel:ShowStepValue(key, value)
+	for _, w in ipairs(self.pools and self.pools.step or {}) do
+		if w:IsShown() and w.key == key and not (w.value.HasFocus and w.value:HasFocus()) then
+			w.value:SetText(tostring(value))
+		end
+	end
+end
+
 -- A color setting: swatch opens the game's color picker; hex box for exact values. Any six-hex-digit
 -- setting (the accent, the item-level color) uses the same row.
 local function applyColor(key, hex)

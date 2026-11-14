@@ -891,6 +891,7 @@ function View:Build()
 		-- Keep the window exactly where the resize left it (the saved spot
 		-- was from before, so re-applying it made the window jump).
 		self:SaveSizedPosition()
+		self:ShowSizeInSettings()   -- (1.7.3-beta6) an open Settings panel shows the size just saved
 		self.refreshWanted = nil
 		self:ApplySize(); self:Refresh(true)
 		-- Once more on the next frame: the client can settle the new size a
@@ -1203,7 +1204,9 @@ end
 -- (1.7.3) Resizing drags the shared outline (Frames/Outline.lua); the window takes its size on release.
 function View:StartOutlineResize()
 	local minW = self.minWidth or View.MinWidthFor(self.isBank)
-	if not ns.Outline:Start(self.frame, minW, 300, 1400, 1200) then self.sizing = false; return end
+	-- (1.7.3-beta6, Shweep) the bags window's size is in Settings: an open panel shows the outline's size as it's dragged
+	local onSize = self.isMain and function(w, h) self:ShowSizeInSettings(w, h) end or nil
+	if not ns.Outline:Start(self.frame, minW, 300, 1400, 1200, onSize) then self.sizing = false; return end
 	self.outline = ns.Outline.frame
 end
 
@@ -1218,7 +1221,24 @@ function View:EndOutlineResize()
 	f:SetSize(w, h)
 end
 
-function View:CancelOutlineResize() ns.Outline:Cancel(self.frame) end
+function View:CancelOutlineResize()
+	if not ns.Outline:Active(self.frame) then return end
+	ns.Outline:Cancel(self.frame)
+	self:ShowSizeInSettings()   -- back to the saved size
+end
+
+-- (1.7.3-beta6) The Settings panel's Width and Height (Max Width and Max Height in Fit to Items) for the bags window:
+-- with a size, show it (the drag in progress; nothing is saved); without, show the saved values again.
+function View:ShowSizeInSettings(w, h)
+	local P = ns.SettingsPanel
+	if not (self.isMain and P and P.frame and P.frame:IsShown()) then return end
+	if not w then P:Refresh(); return end
+	local auto = ns.db.sizeMode == "auto"
+	if P.ShowStepValue then
+		P:ShowStepValue(auto and "maxW" or "fixW", math.floor(w + 0.5))
+		P:ShowStepValue(auto and "maxH" or "fixH", math.floor(h + 0.5))
+	end
+end
 
 function View:ApplySize()
 	-- Native dragging owns size and position until the gesture is saved.
