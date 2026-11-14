@@ -1479,7 +1479,11 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 			local shardHere = false
 			if not lane.recent and not cached and ns.MakeRoom and ns.MakeRoom:IsWarlock() then
 				for _, r in ipairs(lane.items) do
-					if r.itemID == 6265 and r.bag and ns.MakeRoom:BagFamily(r.bag) == 0 then shardHere = true; break end
+					-- (1.7.2-beta1) a merged row of shards counts any of its members in an ordinary bag
+					for _, s in ipairs(r.itemID == 6265 and (r.members or { r }) or {}) do
+						if s.bag and ns.MakeRoom:BagFamily(s.bag) == 0 then shardHere = true; break end
+					end
+					if shardHere then break end
 				end
 				if shardHere then local _, can = ns.MakeRoom:Shards(); shardHere = can > 0 end
 			end
