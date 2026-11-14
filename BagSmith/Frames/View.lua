@@ -889,8 +889,9 @@ function View:Build()
 		self:ApplySize(); self:Refresh(true)
 		-- Once more on the next frame: the client can settle the new size a
 		-- frame after the drag ends, and the layout should use the final one.
-		ns:NextFrame("settle:" .. self.name, function() if f:IsShown() and not self.sizing then self:Refresh(true) end end)
+		ns:NextFrame("settle:" .. self.name, function() self:FinishResizeLayout() end)
 	end)
+	grip:SetScript("OnUpdate", function(_, elapsed) self:UpdateResizePreview(elapsed) end)
 	self.grip = grip
 	f:HookScript("OnHide", function() self.sizing = false; self.refreshWanted = nil end)   -- a drag cut short never leaves it waiting
 
@@ -1179,9 +1180,8 @@ end
 
 
 function View:ApplySize()
-	-- Never while the corner is being dragged: re-applying the saved size and
-	-- spot mid-drag made the window jump back (the drag's end saves both).
-	if self.sizing then return end
+	-- Native dragging owns size and position until the gesture is saved.
+	if self.sizing or self.dragMoving then return end
 	local f, db = self.frame, ns.db
 	f:SetScale(db.scale)
 	if self.isMain then
