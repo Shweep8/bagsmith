@@ -1,3 +1,17 @@
+## 1.7.3
+
+Changed:
+- Modern icons look cleaner: each item's icon is trimmed of its old beveled edge, with a thin, even border in its
+  rarity color (or the neutral border, as Rarity Borders sets). Empty slots keep their look, and Classic is unchanged.
+  Thanks to Jeor.
+Fixed:
+- With Fit to Items, switching to a smaller sheet no longer moves the bottom tabs out from under your pointer after
+  you've dragged the window: the window keeps its bottom edge and grows or shrinks upward. If you moved your window
+  before, it may settle a little lower once, the first time you open it after updating. Thanks to Jeor.
+- Resizing a window by its corner keeps your items in view the whole time, instead of leaving it blank until you let
+  go, and moving it by its title bar no longer briefly pulls it back. Thanks to Jeor.
+- Less flicker on icon edges, corner marks and section bars in Modern while you resize. Thanks to Jeor.
+
 ## 1.7.2
 
 Changed:
