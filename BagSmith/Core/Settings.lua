@@ -181,6 +181,7 @@ local DEFAULTS = {
 }
 local CHAR_DEFAULTS = { version = 1, firstSeen = {}, seen = {}, seenSlots = {}, recentSince = 0, recentSticky = {}, junkMarks = {}, makeRoomNever = {}, makeRoomProtect = {}, professionMats = {},
 	deNever = {}, deResults = {}, deResultsVersion = 0, deOfferDeclined = false,
+	deMaterials = {},   -- (1.8.0) the Disenchant Helper's learned materials: item ID -> true
 	blizzPicksSeen = {} }   -- (1.7.0-beta14) currency ID -> true: the game's Show on Backpack picks already pinned once   -- the Disenchant Helper's per-character data (1.2.0): the never list, learned results and their schema version, the declined offer   -- recentSince: start of the Recent section's session (0 = not set)   -- seen: guid -> count at dismissal; seenSlots: "bag:slot" -> "itemID:count"
 
 local function clamp(v, lo, hi) if v < lo then return lo elseif v > hi then return hi end return v end
@@ -272,8 +273,17 @@ local function deResultsValidator(v)
 	end
 	return out
 end
+-- (1.8.0) The Disenchant Helper's learned materials: whole positive item IDs marked true; anything else is dropped.
+local function deMaterialsValidator(v)
+	if type(v) ~= "table" then return nil end
+	local out = {}
+	for id, on in pairs(v) do
+		if type(id) == "number" and id > 0 and id < 10000000 and id == math.floor(id) and on == true then out[id] = true end
+	end
+	return out
+end
 local validators = {
-	deNever = deNeverValidator, deResults = deResultsValidator,
+	deNever = deNeverValidator, deResults = deResultsValidator, deMaterials = deMaterialsValidator,
 	makeRoomProtect = deNeverValidator,   -- (1.7.0-beta1) the Loot Helper's Protected Items: item ID -> true, like the DE list
 	blizzPicksSeen = deNeverValidator,   -- (1.7.0-beta14) currency ID -> true
 	blizzUnpinned = deNeverValidator,    -- (1.7.1-beta1) currency ID -> true, per profile

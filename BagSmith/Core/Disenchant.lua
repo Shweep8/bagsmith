@@ -16,6 +16,8 @@ local ADDON, ns = ...
 	  tables. Every cast's actual loot is recorded locally per bracket, and once
 	  a bracket has enough of your own results (CALIBRATE_AT), those take over
 	  for that bracket; the window says which it is using.
+	- (1.8.0) Materials the table doesn't list are learned by item ID from the cast's own loot window (DE:LearnMaterial),
+	  and gear past the table's item levels learns from your own results alone (DE:FallbackKey).
 	- Prices come from the price addon BagSmith already reads (Core/AH.lua: Auctionator or, 1.6.0, Blackthornes Tradeskills):
 	  the item's own AH price on the "sell it" side, the materials' prices on the
 	  "disenchant it" side. No price addon: dashes and the install note, and no
@@ -89,14 +91,30 @@ function DE.SkillFor(ilvl) for _, s in ipairs(DE.SKILL) do if ilvl <= s[1] then 
 function DE.IsWeapon(rec) return rec.classID == 2 end
 function DE.IsGear(rec) return rec.classID == 2 or rec.classID == 4 end
 
+-- (1.8.0) Gear the shipped table doesn't reach (uncommon, rare or epic, past its item levels): no typical results, but a
+-- bracket key of its own, so its casts are recorded and your own results take over once there are CALIBRATE_AT of them.
+-- Bands of 5 item levels on the game's own edges (101 to 105 is "101"); uncommon weapons and armor count apart, as in
+-- the table. The key starts with "f:", so it can't be mistaken for the table's "2:...", "3:..." and "4:..." keys.
+DE.LEARN_BAND = 5
+function DE:FallbackKey(rec)
+	if type(rec) ~= "table" or not self.IsGear(rec) then return nil end
+	local q, ilvl = tonumber(rec.quality) or 0, tonumber(rec.ilvl) or 0
+	if q < 2 or q > 4 then return nil end
+	if ilvl < 5 then ilvl = 5 end
+	local lo = math.floor((math.floor(ilvl) - 1) / self.LEARN_BAND) * self.LEARN_BAND + 1
+	if q == 2 then return ("f:2:%d:%s"):format(lo, self.IsWeapon(rec) and "w" or "a") end
+	return ("f:%d:%d"):format(q, lo)
+end
+
 -- The shipped expectation: a list of { id, chance, min, max }, and the bracket key for the log.
+-- (1.8.0) No bracket in the table: no list, and the fallback key (DE:FallbackKey) when the item has one.
 function DE:Expectation(rec)
 	if type(rec) ~= "table" then return nil end
 	local q, ilvl = rec.quality or 0, rec.ilvl or 0
 	if ilvl < 5 then ilvl = 5 end
 	if q == 2 then
 		local i, b = bracket(self.UNCOMMON, ilvl)
-		if not b then return nil end
+		if not b then return nil, self:FallbackKey(rec) end
 		local weapon = self.IsWeapon(rec)
 		local out = {
 			{ b[3], weapon and 0.20 or 0.75, b[4], b[5] },   -- dust
@@ -106,12 +124,12 @@ function DE:Expectation(rec)
 		return out, ("2:%d:%s"):format(i, weapon and "w" or "a")
 	elseif q == 3 then
 		local i, b = bracket(self.SHARD, ilvl)
-		if not b then return nil end
+		if not b then return nil, self:FallbackKey(rec) end
 		return { { b[3], 1, 1, 1 } }, ("3:%d"):format(i)
 	elseif q == 4 then
 		if ilvl >= self.EPIC_CRYSTAL_FROM then return { { M.nexusCrystal, 1, 1, 1 } }, "4:crystal" end
 		local i, b = bracket(self.SHARD, ilvl)
-		if not b then return nil end
+		if not b then return nil, self:FallbackKey(rec) end
 		return { { b[3], 1, 1, 1 } }, ("4:%d"):format(i)
 	end
 	return nil
@@ -159,11 +177,67 @@ DE.LOOT_WINDOW = 5   -- seconds after a cast during which loot lines belong to i
 local MATERIAL = {}
 for _, id in pairs(M) do MATERIAL[id] = true end
 DE.MATERIAL = MATERIAL
+-- (1.8.0) Materials the table doesn't list (a server can add new ones), learned by item ID from the cast's own loot
+-- window and kept per character beside the learned results (ns.cdb.deMaterials: item ID -> true). From then on the loot
+-- chat counts them too. Forgetting the learned results keeps them: they say what a material is, not what to expect.
+function DE:LearnedMaterials()
+	if not ns.cdb then return {} end
+	if type(ns.cdb.deMaterials) ~= "table" then ns.cdb.deMaterials = {} end
+	return ns.cdb.deMaterials
+end
+function DE:LearnMaterial(id)
+	id = tonumber(id)
+	if not id or id <= 0 or id ~= math.floor(id) or MATERIAL[id] then return false end
+	local learned = self:LearnedMaterials()
+	if learned[id] then return false end
+	learned[id] = true
+	-- ask the game for its name and quality now, so the likely results can show them (nothing waits on it)
+	if C_Item and type(C_Item.RequestLoadItemDataByID) == "function" then pcall(C_Item.RequestLoadItemDataByID, id) end
+	ns:Debug("Disenchant Helper: learned a new material, %s", self.MatName(id))
+	return true
+end
+function DE:IsMaterial(id) return MATERIAL[id] == true or self:LearnedMaterials()[id] == true end
+-- (1.8.0) An item's class and subclass by ID, from the game's instant item info; nil when the client can't say.
+local function classOf(id)
+	local f = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+	if type(f) ~= "function" then return nil end
+	local ok, _, _, _, _, _, classID, subClassID = pcall(f, id)
+	if not ok then return nil end
+	return tonumber(classID), tonumber(subClassID)
+end
+DE.ClassOf = classOf
+-- (1.8.0) Whether the game calls the item an enchanting reagent, by its own named item classes (never by their numbers,
+-- which this client might number its own way). A client that can't say answers no.
+function DE.EnchantingReagent(id)
+	local E = type(Enum) == "table" and Enum or nil
+	local tradeGoods = E and type(E.ItemClass) == "table" and E.ItemClass.Tradegoods
+	local enchanting = E and type(E.ItemTradeGoodsSubclass) == "table" and E.ItemTradeGoodsSubclass.Enchanting
+	if type(tradeGoods) ~= "number" or type(enchanting) ~= "number" then return false end
+	local classID, subClassID = classOf(id)
+	return classID ~= nil and classID == tradeGoods and subClassID == enchanting
+end
+-- (1.8.0) Whether a material reported outside the cast's own loot window (a loot chat line, or a window that can't be
+-- the cast's) is the cast's: a material BagSmith knows (shipped, learned, or an enchanting reagent by the game's word),
+-- and one this cast can produce. A material is one it can produce when the table says so, when it's one the table
+-- can't know about (learned, or a reagent the table doesn't list), or when this bracket's own results have had it.
+-- A shipped material the table puts in other brackets, never seen in this one, stays somebody else's.
+function DE:Attributable(c, id)
+	if not (c and id) then return false end
+	local shipped, learned = MATERIAL[id] == true, self:LearnedMaterials()[id] == true
+	local reagent = not (shipped or learned) and self.EnchantingReagent(id)
+	if not (shipped or learned or reagent) then return false end   -- somebody else's loot, or a pickup: not the cast's
+	if not c.allowed or c.allowed[id] or learned or reagent then return true end
+	local e = c.key and self:Log()[c.key]
+	return type(e) == "table" and type(e.seen) == "table" and (tonumber(e.seen[id]) or 0) > 0
+end
 -- One tally per cast, whichever source reports first: a second report of the same material adds only what
 -- exceeds the first (the loot chat and the loot window describe the same materials).
+-- (1.8.0) "window" is the cast's own loot window (DE:OnLootOpened sets aside one that can't be): whatever it holds is
+-- the cast's, and a material the table doesn't list is learned. Every other report must be DE:Attributable.
 function DE:Tally(c, id, count, source)
-	if not (c and id and MATERIAL[id]) then return false end
-	if c.allowed and not c.allowed[id] then return false end   -- not a material this cast can produce
+	if not (c and id) then return false end
+	if source == "window" then self:LearnMaterial(id)
+	elseif not self:Attributable(c, id) then return false end
 	count = tonumber(count) or 1
 	-- the chat reports receipts, which add up (two lines of 1 and 2 are 3); the loot window reports a snapshot of
 	-- what it holds, and the game may show the same window more than once (LOOT_READY, then LOOT_OPENED), so a
@@ -219,21 +293,25 @@ function DE:OnLootChat(msg)
 	if (GetTime() - c.at) > self.LOOT_WINDOW then self:CloseCast("window passed"); return end
 	local id, count = self.ParseLootLine(msg)
 	if not id then return end
-	if not MATERIAL[id] then return end   -- somebody else's loot, or a pickup: not the cast's
+	if not self:Attributable(c, id) then return end   -- somebody else's loot, or a pickup: not the cast's (1.8.0: learned materials count)
 	if self:Tally(c, id, count, "chat") and self.frame and self.frame:IsShown() then self:Paint() end
 end
 -- Expected quantity of each material per cast: the shipped chances, or your own averages once a bracket
 -- has enough casts. Returns a list of { id, perCast } and "estimate" or "yours" with the count.
+-- (1.8.0) An item with no table but a fallback key: your own results once that key has enough casts; before then no list,
+-- "learning", the count so far and the key (so the cast is still recorded, and the prices and verdict stay as with no
+-- table: no materials value).
 function DE:Expected(rec)
 	local shipped, key = self:Expectation(rec)
-	if not shipped then return nil end
-	local e = key and self:Log()[key]
+	if not key then return nil end
+	local e = self:Log()[key]
 	if type(e) == "table" and (e.n or 0) >= self.CALIBRATE_AT then
 		local out = {}
 		for id, total in pairs(e.mats or {}) do out[#out + 1] = { id, total / e.n, seen = (e.seen and e.seen[id]) or 0 } end
 		table.sort(out, function(a, b) return a[2] > b[2] end)
 		return out, "yours", e.n, key
 	end
+	if not shipped then return nil, "learning", type(e) == "table" and (e.n or 0) or 0, key end
 	local out = {}
 	for _, m in ipairs(shipped) do out[#out + 1] = { m[1], m[2] * (m[3] + m[4]) / 2, chance = m[2], min = m[3], max = m[4] } end
 	return out, "estimate", type(e) == "table" and e.n or 0, key
@@ -242,7 +320,13 @@ end
 ------------------------------------------------------------------------
 -- Prices and verdicts
 ------------------------------------------------------------------------
-local function itemInfo(id) if C_Item and C_Item.GetItemInfo then return C_Item.GetItemInfo(id) end return GetItemInfo and GetItemInfo(id) end
+-- (1.8.0) Guarded: a client whose item info throws for an item it doesn't know answers nothing, like an item not loaded yet.
+local function infoResult(ok, ...) if ok then return ... end end
+local function itemInfo(id)
+	local f = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+	if type(f) ~= "function" then return nil end
+	return infoResult(pcall(f, id))
+end
 function DE.MatName(id) local name = itemInfo(id); return name or ("item " .. tostring(id)) end
 function DE.Money(v) if ns.Money then local s = ns.Money(v); if s ~= "" then return s end end return (GetCoinTextureString and GetCoinTextureString(v)) or tostring(v) end
 
@@ -321,8 +405,14 @@ end
 DE.VERDICT_TEXT = { de = "Disenchant", ah = "Sell at AH", vendor = "Vendor", sell = "Sell", unknown = "No price yet", call = "Your call" }
 -- One line per material: a range and rough odds from the shipped table, or your own averages and how often
 -- the material showed up. The heading says which it is.
+-- (1.8.0) An item with no table, still short of enough of your own results: one line saying how far along it is, no
+-- result rows, "learning" as the basis.
+function DE:LearningText(n)
+	return ("Still learning: %d of %d disenchants in this range."):format(tonumber(n) or 0, self.CALIBRATE_AT)
+end
 function DE:LikelyLines(rec)
 	local list, basis, n = self:Expected(rec)
+	if basis == "learning" then return { self:LearningText(n) }, "learning from your results", basis, n, {} end
 	if not list then return nil end
 	local lines, parts = {}, {}
 	for _, m in ipairs(list) do
@@ -724,19 +814,53 @@ function DE:OnSpellSucceeded(unit, spellID)
 	self.session.done = self.session.done + 1
 end
 -- The loot window, for players with auto-loot off: its slots are the same materials, tallied once per cast.
+-- (1.8.0) The window that opens right after the cast is the cast's own, so everything in it counts, materials the table
+-- doesn't list included (and those are learned). Unless the game says it can't be a disenchant: fishing loot, coin, loot
+-- from a creature or an object, or a weapon or armor (a disenchant gives none of those). Then only what the loot chat
+-- would count from it counts (DE:Attributable), as before. What the client can't say doesn't count against the window.
+local NOT_A_DISENCHANT = { Creature = true, GameObject = true, Vehicle = true, Pet = true, Corpse = true }
+local function fishing()
+	if type(IsFishingLoot) ~= "function" then return false end
+	local ok, v = pcall(IsFishingLoot)
+	return ok and v == true
+end
+local function slotRulesOut(i, id)
+	local money = (type(LOOT_SLOT_MONEY) == "number" and LOOT_SLOT_MONEY)
+		or (type(Enum) == "table" and type(Enum.LootSlotType) == "table" and Enum.LootSlotType.Money)
+	if type(money) == "number" and type(GetLootSlotType) == "function" then
+		local ok, kind = pcall(GetLootSlotType, i)
+		if ok and kind == money then return true end
+	end
+	if type(GetLootSourceInfo) == "function" then
+		local ok, guid = pcall(GetLootSourceInfo, i)
+		local kind = ok and type(guid) == "string" and guid:match("^(%a+)%-")
+		if kind and NOT_A_DISENCHANT[kind] then return true end
+	end
+	if id then
+		local classID = classOf(id)
+		if classID and DE.IsGear({ classID = classID }) then return true end
+	end
+	return false
+end
+DE.SlotRulesOut = slotRulesOut
 function DE:OnLootOpened()
 	local c = self.castOpen
 	if not c or (GetTime() - c.at) > self.LOOT_WINDOW then return end
 	local n = (GetNumLootItems and GetNumLootItems()) or 0
 	local sums = {}   -- a material in two slots is one count
+	local castOwn = not fishing()
 	for i = 1, n do
 		local link = GetLootSlotLink and GetLootSlotLink(i)
-		local id = link and tonumber(link:match("item:(%d+)"))
+		local id = type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil
 		local qty
 		if GetLootSlotInfo then local _, _, q = GetLootSlotInfo(i); qty = q end
-		if id and MATERIAL[id] then sums[id] = (sums[id] or 0) + (tonumber(qty) or 1) end
+		if id then sums[id] = (sums[id] or 0) + (tonumber(qty) or 1) end
+		if castOwn and slotRulesOut(i, id) then castOwn = false end
 	end
-	for id, total in pairs(sums) do self:Tally(c, id, total, "window") end
+	for id, total in pairs(sums) do
+		-- (a window that can't be the cast's: only the materials the chat would count, and nothing is learned from it)
+		if castOwn or (self:IsMaterial(id) and self:Attributable(c, id)) then self:Tally(c, id, total, "window") end
+	end
 end
 -- The loot window closing ends the cast's attribution: nothing after it is the cast's.
 function DE:OnLootClosed()
@@ -1276,10 +1400,11 @@ function DE:Paint()
 		if cur.basis then vt = vt .. (cur.basis == "yours" and ("  (from %d of your results)"):format(cur.n or 0) or "  (DE estimate)") end
 		if cur.verdict == "unknown" and cur.missing then vt = ("No price yet for %s"):format(self.MatName(cur.missing)) end
 		f.cur.verdict:SetText(vt)
-		local lines, head, _, _, parts = self:LikelyLines(cur.rec)
+		local lines, head, likelyBasis, _, parts = self:LikelyLines(cur.rec)
 		f.cur.likelyHead:SetText("Likely results")
 		-- (1.7.3-beta5) one row per material, its name a link to the item's tooltip; the plain line only says there's no table
-		f.cur.likely:SetText(lines and "" or "No table for this item.")
+		-- (1.8.0) or, for an item with no table that's learning from your results, how far along it is
+		f.cur.likely:SetText(not lines and "No table for this item." or likelyBasis == "learning" and lines[1] or "")
 		self:PaintLikely(parts)
 		f.cur.basis:SetText(head and (head:sub(1, 1):upper() .. head:sub(2)) or "")
 		f.cur.rule:Show(); f.cur.likelyHead:Show(); f.cur.likely:Show(); f.cur.basis:Show(); f.cur.info:SetShown(head ~= nil)
