@@ -1,8 +1,8 @@
 -- 1.7.1: the 1.7.1-beta4 audit's own probe (routes/beta4_routes.lua). Its two race advisories, A (a cancel over the
 -- game's bag slot claimed by an empty click in the same frame) and B (a newer pick-up of the same item before the
 -- queued start), were accepted for 1.7.1 by Shweep (13 Nov: "we can go to prod and handle these in next build"): their
--- two checks are turned round to record today's behavior (marked), to turn back when the next build fixes them. The
--- other eleven are as delivered. Evidence and the report: docs/plugins/audit-1.7.1-beta4/.
+-- two checks were turned round in 1.7.1 to record that behavior; 1.7.2-beta1 fixes both and turns them back to the
+-- auditor's own checks (marked). The other eleven are as delivered. Evidence and the report: docs/plugins/audit-1.7.1-beta4/.
 -- 1.7.1-beta4: the game's bag bar on Forever, from Shweep's /bs debug on beta3. The refusal comes inside the game's
 -- bag button handler (the bag's slot unlocks with the bag still on the cursor), and the handler returns with the
 -- cursor empty and the bag back in its slot; BagSmith's post-hook claims that refusal and swaps. The harness is
@@ -137,8 +137,8 @@
  check(r.M.cursorItem==nil and not r.n.SwapHint.swapping,'setup: canceled, no drop, cursor empty')
  r.b:GetScript('OnClick')(r.b,'LeftButton');r.run()
  print('CANCEL THEN SAME-FRAME EMPTY CLICK: equipped='..r.equipped[20]..' puts='..#r.st.puts..' '..r.log())
- -- (1.7.1, advisory A accepted for this release, marked: records the residual; the next build turns it back)
- check(r.equipped[20]==MAGE and #r.st.puts==1,'residual A (accepted for 1.7.1): a same-frame empty click claims the canceled drag')
+ -- (1.7.2-beta1, advisory A fixed: the auditor's check, turned back)
+ check(r.equipped[20]==LINEN and #r.st.puts==0,'cancel plus empty bag-toggle click must not equip canceled bag')
  -- Delayed empty click serves as control and must not claim canceled drag.
  r=setup();pick(r);ClearCursor();r.M.fire('ITEM_LOCK_CHANGED',1,2);r.M.runTimers()
  r.b:GetScript('OnClick')(r.b,'LeftButton');r.run()
@@ -164,8 +164,8 @@
  r=setup();r.M.put(2,3,bagItem(MAGE));pick(r);r.b:GetScript('OnReceiveDrag')(r.b)
  r.grab(2,3);r.M.fire('ITEM_LOCK_CHANGED',2,3);r.run()
  print('NEWER SAME-ID DRAG: equipped='..r.equipped[20]..' puts='..#r.st.puts..' cursor='..tostring(r.M.cursorItem)..' newerSource='..tostring(r.M.bags[2][3] and r.M.bags[2][3].id))
- -- (1.7.1, advisory B accepted for this release, marked: records the residual; the next build turns it back)
- check(r.equipped[20]==MAGE and r.M.cursorItem==nil and r.M.bags[2][3] and r.M.bags[2][3].id==MAGE,'residual B (accepted for 1.7.1): the queued swap goes on, the newer bag back in its own slot, nothing lost')
+ -- (1.7.2-beta1, advisory B fixed: the auditor's check, turned back)
+ check(r.equipped[20]==LINEN and #r.st.puts==1 and r.M.cursorItem==MAGE and r.st.cur and r.st.cur.bag==2 and r.st.cur.slot==3,'newer same-ID cursor belongs to player and cancels prior deferred swap')
  -- Two actual drops in one frame: only the newest matching drop should proceed.
  r=setup();r.M.put(2,3,bagItem(MAGE));local b2=blizzButton(r,1);r.n.SwapHint:HookBagButtons()
  pick(r);r.b:GetScript('OnReceiveDrag')(r.b)

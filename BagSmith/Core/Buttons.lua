@@ -525,7 +525,9 @@ function Buttons.AddTooltipExtras(tip)
 	end
 	-- A live merged row at the bank: right-click moves every stack it shows.
 	-- (Saved rows, other characters' or the saved Bank sheet, can't move anything.)
-	if ns.atBank and rec.merged and (rec.stacks or 1) > 1 and not rec.cached and not owner.cached and rec.members and #rec.members > 1 then
+	-- (1.7.2, the 1.7.2-beta2 audit's F1) Nor items that never leave the bags (Soul Shards): the same check as the move.
+	if ns.atBank and rec.merged and (rec.stacks or 1) > 1 and not rec.cached and not owner.cached and rec.members and #rec.members > 1
+		and not (ns.CanMoveRest and not ns.CanMoveRest(rec.itemID)) then
 		ns.TipLine(tip, ("Right-click: move all %d stacks"):format(rec.stacks), 0.6, 0.85, 1)
 	end
 end

@@ -1,3 +1,13 @@
+## 1.7.2
+
+Changed:
+- Merge Stacks now shows your Soul Shards as one icon with the total, though the game keeps each shard in its own
+  slot.
+Fixed:
+- Swapping in a bag on the game's own bag bar is more careful in two rare split-second cases: canceling a drag and
+  clicking that bag's slot at the same moment, or picking up a second bag of the same kind right after a drop, no
+  longer swaps a bag in.
+
 ## 1.7.1
 
 Changed:

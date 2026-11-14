@@ -417,7 +417,20 @@ end
 -- stack (gear, and random-suffix pieces like "...of the Bear" / "...of the
 -- Eagle", which share an item ID) keep their own rows. Used for showing,
 -- totals, arrivals and dismissing "new", so they always agree.
+-- (1.7.2-beta1, a player's request via Shweep) Soul Shards join too: the game keeps one to a slot, but every one is
+-- the same (soulbound, no charges or states), so they show once with the total. Nothing wider: other one-to-a-slot
+-- items can differ while looking alike (a lockbox picked or not, charges, bound or not).
+local ALL_ALIKE = { [6265] = true }   -- Soul Shard
+ns.MERGE_ALIKE = ALL_ALIKE
+-- (1.7.2-beta2, Shweep) Items that never leave your bags: soulbound, and the bank won't take them either (Soul
+-- Shards). A merged row of them starts no follow-up at the bank, the mailbox or a trade: the game refuses the one
+-- clicked, and the rest would only report "nothing moved".
+ns.STAYS_IN_BAGS = { [6265] = true }   -- Soul Shard
+-- (1.7.2, the 1.7.2-beta2 audit's F1) The one check for "can a merged row's other stacks follow it": the follow-up
+-- (Drop:MoveRest) and the bank tooltip's "Right-click: move all" hint both ask it, so they can't disagree.
+function ns.CanMoveRest(itemID) return not ns.STAYS_IN_BAGS[itemID] end
 function ns.MergeKey(r)
+	if ALL_ALIKE[r.itemID] then return tostring(r.itemID) .. ":" .. tostring(r.quality) end
 	local stackable = (r.maxStack and r.maxStack > 1) or (r.maxStack == nil and (r.equipLoc == nil or r.equipLoc == ""))
 	if stackable then return tostring(r.itemID) .. ":" .. tostring(r.quality) end
 	return "slot:" .. tostring(r.bag) .. ":" .. tostring(r.slot) .. ":" .. tostring(r.itemID)

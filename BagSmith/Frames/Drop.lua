@@ -334,6 +334,11 @@ end)
 -- more moves, Drop.active is cleared, and chat says the rest stayed.
 local MOVE_LABEL = "Moving stacks"
 function Drop:MoveRest(job)
+	-- (1.7.2-beta2) items that never leave the bags (Soul Shards, merged since 1.7.2-beta1) have no rest to move
+	if job and ns.CanMoveRest and not ns.CanMoveRest(job.itemID) then
+		ns:Debug("Moving stacks: %s can't leave your bags; nothing follows", tostring(job.name or job.itemID))
+		return
+	end
 	local before = self.active
 	if not ns:Guard(MOVE_LABEL, self.MoveRestJob, self, job) then
 		-- (an error in the setup: a job it had started is over)

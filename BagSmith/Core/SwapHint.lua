@@ -405,6 +405,7 @@ end
 -- /bs debug on, each drop on those slots says what BagSmith saw and did.
 local REFUSE_WINDOW = 0.5   -- seconds (on Forever the refusal and the hook share a frame)
 local hookGen = 0
+local queued                -- (1.7.2-beta1) { bag, slot }: the source of the swap waiting for the next frame
 local hooked = {}
 -- Where the cursor's bag came from: its locked slot, or the pick-up just remembered (the game may unlock it first).
 local function sourceOf(id)
@@ -415,16 +416,26 @@ local function sourceOf(id)
 	end
 end
 -- The swap's start on the next frame, if this is still the newest drop and the bag is still the player's to give.
+-- (1.7.2-beta1, the 1.7.1-beta4 audit's advisory B) the start belongs to the very bag dropped: a newer pick-up from
+-- another slot cancels it (the lock handler below), and at the start a bag on the cursor must be that one, held from
+-- its own slot, not another of the same kind.
 local function startSoon(bag, inv, srcSlot, id)
 	hookGen = hookGen + 1
 	local mine = hookGen
+	queued = { bag = bag, slot = srcSlot }
 	lastShown = GetTime()   -- (the refusal's own notices say nothing meanwhile)
 	C_Timer.After(0, function()
 		if mine ~= hookGen or Hint.swapping then return end
+		queued = nil
 		ns:Guard(SWAP_LABEL, function()
 			local held = cursorItem()
 			if held and held ~= id then ns:Debug("Swap: another item is on the cursor now; not swapping"); return end
-			if not held and not located(id, bag, srcSlot) then ns:Debug("Swap: the bag isn't in its slot now; not swapping"); return end
+			-- a bag held from another slot isn't the one dropped; with none held (the game may unlock the dropped one
+			-- while it's still on the cursor), the dropped one must still be in its slot
+			local hb, hs = nil, nil
+			if held then hb, hs = heldBagSource() end
+			if hb and (hb ~= bag or hs ~= srcSlot) then ns:Debug("Swap: the bag on the cursor isn't the one dropped; not swapping"); return end
+			if not hb and not located(id, bag, srcSlot) then ns:Debug("Swap: the bag isn't in its slot now; not swapping"); return end
 			if not Hint:SwapIn(bag, inv, srcSlot, id) then lastShown = -math.huge; Hint:Show() end
 		end)
 	end)
@@ -442,7 +453,7 @@ function Hint:OnBagButton(btn, how)
 	local id = cursorItem()
 	local p = pickup and GetTime() - pickup.t <= WINDOW and pickup or nil
 	local pi = p and info(p.bag, p.slot)
-	local r = refused and refused.bag == bag and not refused.taken and GetTime() - refused.t <= REFUSE_WINDOW and refused or nil
+	local r = refused and refused.bag == bag and refused.claim and not refused.taken and GetTime() - refused.t <= REFUSE_WINDOW and refused or nil
 	ns:Debug("Swap: %s on the game's slot for bag %d; cursor %s; bag last picked up: %s; refused just now: %s", how or "a drop", bag, describe(id),
 		p and ("%s from bag %d slot %d, %s"):format(itemName(p.itemID), p.bag, p.slot,
 			not (pi and pi.itemID == p.itemID) and "gone from that slot" or (pi.isLocked and "still held" or "back, not held")) or "none",
@@ -459,7 +470,14 @@ function Hint:OnBagButton(btn, how)
 		return startSoon(bag, inv, srcSlot, id)
 	end
 	-- b. the cursor empty: the game's handler has refused the bag and put it back (Forever)
-	if not r then ns:Debug("Swap: the game refused nothing from bag %d just now: nothing to do", bag); return end
+	if not r then
+		if refused and refused.bag == bag and not refused.claim then
+			ns:Debug("Swap: bag %d's bag came back with the cursor empty (a cancel, not a refusal): nothing to do", bag)
+		else
+			ns:Debug("Swap: the game refused nothing from bag %d just now: nothing to do", bag)
+		end
+		return
+	end
 	if not seen(r.id, r.bag, r.slot) then ns:Debug("Swap: the refused bag isn't back in its slot: nothing to do"); return end
 	r.taken = true; refused = nil
 	ns:Debug("Swap: the game refused %s and put it back: swapping it in", itemName(r.id))
@@ -513,7 +531,10 @@ ns:On("ITEM_LOCK_CHANGED", function(bag, slot)
 			-- (1.7.1-beta4) On Forever this comes inside the game's bag button handler, just before the hook: the
 			-- refusal is noted for it, and the explanation waits one frame; if the hook claims it, none is shown.
 			if not Hint.swapping and (not held or held == pickup.itemID) and sameSlot(target, bag) then
-				local rec = { bag = bag, slot = slot, id = pickup.itemID, t = GetTime() }
+				-- (1.7.2-beta1, the 1.7.1-beta4 audit's advisory A) claimable only when the bag was still on the cursor as
+				-- its slot unlocked: Forever's refusal (Shweep's trace on 1.7.1-beta3). A cancel empties the cursor first,
+				-- so a click right after one can't claim it.
+				local rec = { bag = bag, slot = slot, id = pickup.itemID, t = GetTime(), claim = held == pickup.itemID }
 				refused = rec
 				C_Timer.After(0, function()
 					if refused == rec then refused = nil end
@@ -525,6 +546,12 @@ ns:On("ITEM_LOCK_CHANGED", function(bag, slot)
 	end
 	local held = cursorItem()
 	if held and held ~= i.itemID then return end      -- some other item locked; not the pickup
+	-- (1.7.2-beta1, advisory B) a pick-up from another slot (the item on the cursor: the game's own locks on other
+	-- items, the old bag's contents during a swap, aren't pick-ups) cancels a swap waiting for the next frame
+	if queued and held and not (queued.bag == bag and queued.slot == slot) then
+		hookGen = hookGen + 1; queued = nil
+		ns:Debug("Swap: another item was picked up; not swapping")
+	end
 	if isBag(i.itemID) then
 		pickup = { bag = bag, slot = slot, itemID = i.itemID, t = GetTime() }
 		ns:Debug("Swap hint: remembered the bag from bag %d slot %d", bag, slot)
