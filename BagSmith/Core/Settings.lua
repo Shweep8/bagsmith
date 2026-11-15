@@ -778,7 +778,10 @@ local function loadDB(saved)
 							for _, r in ipairs(data[key]) do
 								if type(r) == "table" and type(r.itemID) == "number" and type(r.bag) == "number" and type(r.slot) == "number" then
 									if r.gearSets ~= nil and type(r.gearSets) ~= "table" then r.gearSets = nil; repaired = true end
-									good[#good + 1] = r
+									-- (1.7.5-beta1) Before 1.7.5, Forever's keys were read as bank items (container -1, see
+									-- Init.lua): they leave the saved bank; each character's keys come back in its bags (the
+									-- keyring) the next time it logs in. Not a repair of bad data, so no message.
+									if not (key == "bank" and ns.KEYRING_WAS_BANK and r.bag == ns.KEYRING_WAS_BANK) then good[#good + 1] = r end
 								else repaired = true end
 							end
 							data[key] = good
@@ -787,6 +790,8 @@ local function loadDB(saved)
 					for _, key in ipairs({ "bags", "bankBags", "currencies" }) do
 						if data[key] ~= nil and type(data[key]) ~= "table" then data[key] = nil; repaired = true end
 					end
+					-- (1.7.5-beta1) and the keyring's slots leave the saved bank's space
+					if ns.KEYRING_WAS_BANK and type(data.bankBags) == "table" then data.bankBags[tostring(ns.KEYRING_WAS_BANK)] = nil end
 					db.cache[char] = data
 				end
 			end

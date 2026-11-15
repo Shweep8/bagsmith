@@ -382,6 +382,7 @@ function DE:NeverWindow()
 	f.scroll = CreateFrame("ScrollFrame", "BagSmithDisenchantNeverScroll", f, "UIPanelScrollFrameTemplate")
 	f.scroll:SetPoint("TOPLEFT", 10, -88); f.scroll:SetPoint("BOTTOMRIGHT", -30, 44)
 	f.child = CreateFrame("Frame", nil, f.scroll); f.child:SetSize(NW - 44, 1); f.scroll:SetScrollChild(f.child)
+	ns.WheelStep(f.scroll, NROW * ns.WHEEL_ROWS)   -- (1.7.5-beta1) the wheel: two rows a notch (Init.lua, ns.WheelStep)
 	f.rows = {}
 	f.empty = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.empty:SetPoint("TOPLEFT", 16, -96)
 	f.empty:SetWidth(NW - 32); f.empty:SetJustifyH("LEFT")
@@ -881,6 +882,7 @@ function DE:Frame()
 	f.rows = {}
 	f.scroll = CreateFrame("ScrollFrame", "BagSmithDisenchantScroll", f, "UIPanelScrollFrameTemplate")
 	f.child = CreateFrame("Frame", nil, f.scroll); f.child:SetSize(W - 44, 10); f.scroll:SetScrollChild(f.child)
+	ns.WheelStep(f.scroll, ROW * ns.WHEEL_ROWS)   -- (1.7.5-beta1) the wheel: two rows a notch (Init.lua, ns.WheelStep)
 	f.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.status:SetPoint("BOTTOMLEFT", 12, 36); f.status:SetWidth(W - 24); f.status:SetJustifyH("LEFT"); f.status:SetWordWrap(true)
 	f.close = ns.TextButton(f, "Close", 70, function() DE:Close() end); f.close:SetHeight(22); f.close:SetPoint("BOTTOMRIGHT", -12, 10)
 	-- consider skipped items again: a small undo arrow at the top right, only while something is skipped

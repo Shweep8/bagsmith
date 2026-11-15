@@ -199,7 +199,10 @@ _G.SetItemButtonTexture, _G.SetItemButtonCount, _G.SetItemButtonQuality, _G.SetI
 _G.NUM_TOTAL_EQUIPPED_BAG_SLOTS = 5
 _G.NUM_CONTAINER_FRAMES = 13
 _G.BACKPACK_TOOLTIP = "Backpack"
-_G.Enum = { BagIndex = { Backpack = 0, ReagentBag = 5, Keyring = -1 }, TooltipDataType = { Item = 0 } }
+-- (1.7.5-beta1) No Keyring here: this harness keeps an older layout, with the bank's own slots in container -1 (most
+-- sets put bank items there). Forever's real layout (-1 is the 32-slot keyring, the bank is its tabs, 6 onward) is
+-- modelled by tests/core_1_7_5_beta1_tests.lua, which sets Enum.BagIndex.Keyring = -1 before loading.
+_G.Enum = { BagIndex = { Backpack = 0, ReagentBag = 5 }, TooltipDataType = { Item = 0 } }
 -- The modern client's tooltip post-processing: setting an item tooltip (or
 -- rebuilding it, M.rebuildTooltip) runs every registered post-call.
 M.tipPost = {}

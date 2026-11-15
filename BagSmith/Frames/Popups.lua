@@ -695,6 +695,7 @@ function Popups:BuildCharacters(view)
 	local child = CreateFrame("Frame", nil, scroll)
 	child:SetSize(240, 1)
 	scroll:SetScrollChild(child)
+	ns.WheelStep(scroll, ROW_H * ns.WHEEL_ROWS)   -- (1.7.5-beta1) the wheel: two rows a notch (Init.lua, ns.WheelStep)
 	f.child, f.rows = child, {}
 	f:SetHeight(10 + 22 + 6 + ROW_H * VISIBLE + 10)
 end

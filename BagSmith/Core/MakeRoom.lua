@@ -150,6 +150,7 @@ local function listWindow(kind)
 	f.scroll = CreateFrame("ScrollFrame", spec.global .. "Scroll", f, "UIPanelScrollFrameTemplate")
 	f.scroll:SetPoint("TOPLEFT", 10, -88); f.scroll:SetPoint("BOTTOMRIGHT", -30, 44)
 	f.child = CreateFrame("Frame", nil, f.scroll); f.child:SetSize(NW - 44, 1); f.scroll:SetScrollChild(f.child)
+	ns.WheelStep(f.scroll, NROW * ns.WHEEL_ROWS)   -- (1.7.5-beta1) the wheel: two rows a notch (Init.lua, ns.WheelStep)
 	f.rows = {}
 	f.empty = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.empty:SetPoint("TOPLEFT", 16, -96)
 	f.empty:SetWidth(NW - 32); f.empty:SetJustifyH("LEFT")
@@ -1485,6 +1486,7 @@ function MR:Frame()
 	f.letGo = CreateFrame("ScrollFrame", "BagSmithMakeRoomLetGo", f, "UIPanelScrollFrameTemplate")
 	f.letGo.scrollBarHideable = true
 	f.letGo.child = CreateFrame("Frame", nil, f.letGo); f.letGo.child:SetSize(W - 12, 1); f.letGo:SetScrollChild(f.letGo.child)
+	ns.WheelStep(f.letGo, ROW_H * ns.WHEEL_ROWS)   -- (1.7.5-beta1) the wheel: two rows a notch (Init.lua, ns.WheelStep)
 	f.letGo:Hide()
 	-- (1.7.0-beta3) the footer's (i): how the list is ordered
 	f.footInfo = ns.Why.InfoButton(f); f.footInfo:Hide()

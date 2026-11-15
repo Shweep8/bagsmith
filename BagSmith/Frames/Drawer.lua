@@ -45,6 +45,7 @@ function Drawer:Create()
 	local child = CreateFrame("Frame", nil, scroll)
 	child:SetSize(WIDTH - 40, 1)
 	scroll:SetScrollChild(child)
+	ns.WheelStep(scroll, ROW_H * ns.WHEEL_ROWS)   -- (1.7.5-beta1) the wheel: two rows a notch (Init.lua, ns.WheelStep)
 	f.scroll, f.child, f.rows, f.heads = scroll, child, {}, {}
 
 	f.import = ns.TextButton(f, "Import Blizzard Picks", 150, function()

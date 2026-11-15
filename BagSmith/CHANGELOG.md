@@ -1,3 +1,13 @@
+## 1.7.5
+
+Fixed:
+- The mouse wheel scrolls at an easy pace in every BagSmith list again: two rows a notch in a list, one row of icons
+  in the icon view. It used to jump half a window at a time, skipping past items.
+- On WoW Forever, your keys are back with your bags, in their own Keys section and behind the bag bar's Keys slot.
+  They had been showing up in the bank instead, with the keyring's 32 slots counted as bank space. Keys already saved
+  as bank items are cleared from each character's saved bank, and come back with that character's bags the next time
+  you log in to it.
+
 ## 1.7.4
 
 Changed:

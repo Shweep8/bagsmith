@@ -927,6 +927,8 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 	local used, usedSet = {}, {}
 	local iconMode = self:Pref("view") == "icons" or self.kind == "bag"
 	local rowH, cell = db.dense and 22 or db.rowHeight, db.iconSize
+	-- (1.7.5-beta1) a mouse wheel notch: two rows of the list, or one row of icons (Scroll.lua)
+	self.wheelStep = iconMode and (cell + GAP) or (rowH * ns.WHEEL_ROWS)
 	local y = 0
 
 	-- Live bags: attach proxies to this host so the buttons draw and clip here.

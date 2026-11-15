@@ -84,7 +84,8 @@ local function decode(loc)
 	end
 	if d.isBags and d.bag and d.slot then return { bag = d.bag, slot = d.slot, bank = d.isBank and true or false } end
 	if d.isPlayer and d.slot then return { equipped = d.slot } end
-	if d.isBank and d.slot then return { bag = ns.BANK or -1, slot = d.slot, bank = true } end
+	-- (1.7.5-beta1) Only a client with the old bank container has bank slots outside its bags; on Forever -1 is the keyring.
+	if d.isBank and d.slot and ns.BANK then return { bag = ns.BANK, slot = d.slot, bank = true } end
 end
 GS.Decode = decode
 

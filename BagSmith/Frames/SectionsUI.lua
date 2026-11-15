@@ -578,6 +578,7 @@ function S:MovedWindow()
 	f.scroll = CreateFrame("ScrollFrame", "BagSmithMovedScroll", f, "UIPanelScrollFrameTemplate")
 	f.scroll:SetPoint("TOPLEFT", 10, -88); f.scroll:SetPoint("BOTTOMRIGHT", -30, 44)
 	f.child = CreateFrame("Frame", nil, f.scroll); f.child:SetSize(NW - 44, 1); f.scroll:SetScrollChild(f.child)
+	ns.WheelStep(f.scroll, NROW * ns.WHEEL_ROWS)   -- (1.7.5-beta1) the wheel: two rows a notch (Init.lua, ns.WheelStep)
 	f.rows = {}
 	f.empty = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); f.empty:SetPoint("TOPLEFT", 16, -96)
 	f.empty:SetWidth(NW - 32); f.empty:SetJustifyH("LEFT")

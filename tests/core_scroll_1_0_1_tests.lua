@@ -28,9 +28,12 @@
 	later()   -- (well past any earlier stamp)
 	-- the game's wheel handler is not modeled by the harness, so the sequence is played as the game plays it: the
 	-- handler starts (our stamp), then its own scroll fires OnVerticalScroll in the same frame, before any post-hook
-	wheel(sf, -1); gameScrolls(133)
+	-- (1.7.5-beta1, by design) BagSmith's own wheel handler now makes the move (two rows a notch, 52 px at the default
+	-- row height), inside the stamped handler as the game's did; the list then goes to 133 as before for the rest
+	wheel(sf, -1)
 	M.runTimers()
-	check(moves() == "0>133:you" and sf:GetVerticalScroll() == 133, "a wheel notch is the player's move: it stands, nothing is undone (" .. moves() .. ")")
+	check(moves() == "0>52:you" and sf:GetVerticalScroll() == 52, "a wheel notch is the player's move: it stands, nothing is undone (" .. moves() .. ")")
+	view:SetScrollTagged(133, "restore"); M.runTimers()
 	-- the former order (a post-hook stamp after the scroll) is what the log showed: the move counted as the game's and was undone
 	M.log = {}; later()
 	gameScrolls(266); view.userScrollAt = GetTime()

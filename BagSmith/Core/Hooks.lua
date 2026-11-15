@@ -23,7 +23,9 @@ local originalParent = ContainerFrameContainer or UIParent
 local function managed(bag)
 	if not ns.db or not ns.db.replaceBlizzardBags then return false end
 	for _, b in ipairs(ns.ALL_BAGS) do
-		if b == bag and b ~= ns.BANK then return true end
+		-- (1.7.5-beta1) Forever's keyring (-1) stays Blizzard's: its keyring button opens Blizzard's keyring window,
+		-- as it did when -1 was taken for the bank. The keys also show in BagSmith's bags, in Keys.
+		if b == bag and b ~= ns.BANK and not (ns.KEYRING_WAS_BANK and b == ns.KEYRING_WAS_BANK) then return true end
 	end
 	return false
 end

@@ -264,7 +264,7 @@ local commands = {
 		ns:Print("Item tooltip placement: %s", type(_G.ContainerFrameItemButton_CalculateItemTooltipAnchors) == "function"
 			and "Blizzard's anchor calculation" or "BagSmith's copy of Blizzard's rule (left of items on the right half of the screen)")
 		ns:Print("Item GUIDs available: %s   RemoveNewItem: %s", tostring(ns.hasGuids or false), tostring(C_NewItems and type(C_NewItems.RemoveNewItem) == "function"))
-		ns:Print("Bank bag %d, bank bags %d, keyring %s (candidate %s)", ns.BANK, ns.NUM_BANK_BAGS,
+		ns:Print("Bank bag %s, bank bags %d, keyring %s (candidate %s)", ns.BANK and tostring(ns.BANK) or "tabs only", ns.NUM_BANK_BAGS,
 			tostring(ns.KEYRING), tostring(ns.startup.keyringCandidate))
 		if ns.Bank then
 			local buy = ns.Bank.supported and ns.Bank:BlizzardPurchaseButton() or nil

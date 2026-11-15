@@ -33,6 +33,7 @@ QUICK.append("tests/core_1_7_3_beta5_tests.lua")
 QUICK.append("tests/core_1_7_3_beta6_tests.lua")
 QUICK.append("tests/core_1_7_4_beta1_tests.lua")
 QUICK.append("tests/core_1_7_4_beta2_tests.lua")
+QUICK.append("tests/core_1_7_5_beta1_tests.lua")
 QUICK.extend(['tests/core_modern_border_tests.lua', 'tests/core_modern_crop_tests.lua', 'tests/core_modern_texture_tests.lua'])
 
 def run_file(path, prelude=True, quiet=False):

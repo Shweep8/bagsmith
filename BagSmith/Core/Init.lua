@@ -36,17 +36,31 @@ ns.NUM_BANK_BAGS = NUM_BANKBAGSLOTS
 	or (Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumCharacterBankSlots)
 	or 6
 
--- Keyring. Only trust it when the client gives us a real, distinct bag ID:
--- on Forever, Enum.BagIndex.Keyring reads -1, which is the bank.
+-- Keyring. Only trust it when the client gives us a real bag ID.
+-- (1.7.5-beta1, Shweep's probe on Forever: container -1 has 32 slots and holds the keys; the bank's own slots are
+-- container 6, a placeholder tab bag, and its bags follow.) On Forever, Enum.BagIndex.Keyring reads -1, the old
+-- bank number, and until 1.7.5 that collision made BagSmith drop the keyring and read the keys as bank items (their
+-- 32 slots counted as bank space). When the bank is Forever's tabs (C_Bank), -1 is the keyring, not the bank:
+-- ns.BANK is then nil, so the bank is only its tabs (ns.BANK_BAGS) and nothing treats -1 as the bank.
+-- ns.KEYRING_WAS_BANK marks this, so data saved before 1.7.5 can drop the keys it filed under the bank.
 ns.KEYRING = nil
 do
 	local candidate = KEYRING_CONTAINER or (Enum.BagIndex and Enum.BagIndex.Keyring)
-	local usable = candidate and candidate ~= ns.BANK and candidate ~= ns.BACKPACK
-		and (type(GetKeyRingSize) == "function" or type(HasKey) == "function")
-	if usable then
+	local bankTabs = type(C_Bank) == "table" and type(C_Bank.FetchNumPurchasedBankTabs) == "function"
+		and type(C_Bank.PurchaseBankTab) == "function"
+	local answers = function(bag)
 		-- Final proof: the container API must answer for it.
-		local ok, slots = pcall(C_Container.GetContainerNumSlots, candidate)
-		if ok and type(slots) == "number" then ns.KEYRING = candidate end
+		local ok, slots = pcall(C_Container.GetContainerNumSlots, bag)
+		return ok and type(slots) == "number"
+	end
+	if candidate and candidate ~= ns.BACKPACK then
+		if candidate ~= ns.BANK then
+			if (type(GetKeyRingSize) == "function" or type(HasKey) == "function") and answers(candidate) then ns.KEYRING = candidate end
+		elseif bankTabs and answers(candidate) then
+			ns.KEYRING = candidate
+			ns.KEYRING_WAS_BANK = candidate
+			ns.BANK = nil
+		end
 	end
 	ns.startup.keyringCandidate = candidate
 end
@@ -55,7 +69,8 @@ ns.BAGS = {}
 for bag = ns.BACKPACK, ns.NUM_BAGS do ns.BAGS[#ns.BAGS + 1] = bag end
 if ns.KEYRING then ns.BAGS[#ns.BAGS + 1] = ns.KEYRING end
 
-ns.BANK_BAGS = { ns.BANK }
+ns.BANK_BAGS = {}
+if ns.BANK then ns.BANK_BAGS[1] = ns.BANK end
 for i = 1, ns.NUM_BANK_BAGS do ns.BANK_BAGS[#ns.BANK_BAGS + 1] = ns.NUM_BAGS + i end
 
 ns.ALL_BAGS = {}
@@ -90,6 +105,33 @@ function ns:BagName(bag)
 	if ns:IsReagentBag(bag) then return "Reagent bag" end
 	if ns:IsBankBag(bag) then return ("Bank bag %d"):format(bag - ns.NUM_BAGS) end
 	return ("Bag %d"):format(bag)
+end
+
+-- (1.7.5-beta1, Shweep's report: the wheel skipped past too much content) One mouse wheel notch moves every
+-- BagSmith list a set distance: two rows of a list, one row of icons. The game's scroll frames move half the visible
+-- height a notch, which in a tall window skipped past whole sections. step is pixels, or a function that returns
+-- them (for a list whose rows change height); range, when given, returns how far the list may scroll.
+ns.WHEEL_ROWS = 2
+function ns.WheelStep(sf, step, range)
+	if not (sf and sf.SetScript) then return end
+	if sf.EnableMouseWheel then sf:EnableMouseWheel(true) end
+	sf.bsWheelStep = step
+	sf:SetScript("OnMouseWheel", function(s, delta)
+		local px = type(step) == "function" and step(s) or step
+		px = math.max(1, tonumber(px) or 20)
+		local limit = range and range(s)
+		if limit == nil and s.GetVerticalScrollRange then limit = s:GetVerticalScrollRange() end
+		if limit == nil then
+			local child = s.GetScrollChild and s:GetScrollChild()
+			limit = child and child.GetHeight and s.GetHeight and ((child:GetHeight() or 0) - (s:GetHeight() or 0)) or 0
+		end
+		local now = s:GetVerticalScroll() or 0
+		local new = math.max(0, math.min(math.max(0, limit), now - (delta or 0) * px))
+		-- The template's scrollbar moves the list when its value changes; set both so they agree either way.
+		local bar = s.ScrollBar
+		if bar and bar.SetValue then bar:SetValue(new) end
+		if math.abs((s:GetVerticalScroll() or 0) - new) > 0.5 then s:SetVerticalScroll(new) end
+	end)
 end
 
 -- Forever characters have a first and a last name. The plain UnitName API

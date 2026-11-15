@@ -197,6 +197,11 @@ function View:OnScrollMoved(offset)
 	if not self.syncingBar then self:SyncScrollBar() end
 end
 
+-- (1.7.5-beta1) Pixels per wheel notch, from the last layout (before one, two rows at the default row height).
+function View:WheelStep()
+	return self.wheelStep or ((ns.db and ns.db.rowHeight or 20) * ns.WHEEL_ROWS)
+end
+
 -- Wraps one of our frames' handlers so the player's stamp is set before the handler moves the list.
 function View:StampInputFirst(frame, script)
 	if not (frame and frame.GetScript and frame.SetScript) then return end
@@ -210,6 +215,9 @@ function View:SetupScroll(scroll, child)
 	-- resulting OnVerticalScroll reaches OnScrollMoved before any post-hook runs; a post-hook stamp therefore
 	-- came too late, the move looked like the game's, and rule 4 undid it (1.0.1). The stamp is set first,
 	-- by wrapping those handlers on these frames of ours, then the original handler runs.
+	-- (1.7.5-beta1) The wheel's own step: two rows of the list or one row of icons a notch (the view's last layout
+	-- sets it), never past the end of the list (rule 1). The template's half a page skipped whole sections.
+	ns.WheelStep(scroll, function() return self:WheelStep() end, function() return self:ScrollRange() end)
 	self:StampInputFirst(scroll, "OnMouseWheel")
 	local sb = scroll.ScrollBar
 	if sb then
