@@ -407,7 +407,8 @@ end)()
 	check(#WN:Tabs()[1].patches == 5, "(running 1.9.5: no 1.9.6 entry yet)")
 	-- the changelog's section
 	local f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
-	local section = log:match("^(## 1%.9%.6\n.-)\n## 1%.9%.5\n") or ""
+	-- (by design on dev since 1.10.0-beta1: the 1.9.6 section comes after 1.10.0's, so it is found wherever it starts)
+	local section = ("\n" .. log):match("\n(## 1%.9%.6\n.-)\n## 1%.9%.5\n") or ""
 	check(section:find("Your other characters are back") and section:find("71037") and not section:find("\226\128\148"), "the changelog's 1.9.6 section says what happened, with no em dash")
 	check((n.errors or 0) == 0, "no errors")
 end)()
