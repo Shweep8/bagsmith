@@ -17,6 +17,10 @@ function Window:Create()
 	self.bank = View.New("BagSmithBankFrame", { kind = "bank", title = "Bank" })
 	-- Clean Up Bags When Opened: once per opening, never in combat, at the
 	-- bank, or while viewing another character's bags.
+	-- (1.9.7-beta1, Shweep: "we prob should not auto-cleanup bags when you visit a vendor and are selling junk
+	-- automatically"; "any vendor makes sense") Nor at a vendor: the bags open by themselves there, and a Clean Up
+	-- would move items under the pointer while you sell, and under Sell Junk Automatically, which skips an item that
+	-- is on the move (it checks each slot right before selling) and so left junk unsold.
 	-- 1.2.0: a window that comes up with items in the bags and nothing placed (seen once on the first open
 	-- after a character switch, in Icons view) gets one forced rebuild a moment later.
 	self.main.frame:HookScript("OnShow", function()
@@ -33,7 +37,7 @@ function Window:Create()
 		if not (ns.db and ns.db.cleanOnOpen) then return end
 		C_Timer.After(0.1, function()
 			local m = self.main
-			if m:IsShown() and not InCombatLockdown() and not ns.atBank and not ns.ui.owner and not UnitIsDead("player") and m.st.sheet ~= "Bank" then
+			if m:IsShown() and not InCombatLockdown() and not ns.atBank and not ns.ui.atVendor and not ns.ui.owner and not UnitIsDead("player") and m.st.sheet ~= "Bank" then
 				ns.cleanedOnOpen = (ns.cleanedOnOpen or 0) + 1
 				m:CleanUp()
 			end

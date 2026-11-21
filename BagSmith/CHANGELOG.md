@@ -1,3 +1,14 @@
+## 1.9.7
+
+Fixed:
+- Dim Junk: junk keeps its greyed look while your bags are being cleaned up. Before, it flashed back to full color
+  until the Clean Up finished, most of all with Clean Up Bags When Opened on.
+
+Changed:
+- Clean Up Bags When Opened no longer runs when your bags open at a vendor, so your items stay put while you sell.
+  Sell Junk Automatically also no longer misses junk that the Clean Up was moving at that moment. The Clean Up button
+  still works there.
+
 ## 1.9.6
 
 Fixed:
