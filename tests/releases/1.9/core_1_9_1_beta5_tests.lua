@@ -22,7 +22,8 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local n, M, P = boot(skin)
 	P:Show(); P:ShowPage("automation"); M.runTimers()
 	-- the three help lines
-	check(row(P, "check", "cleanOnOpen").help.text == "Tidies your bags each time you open them, except in combat or at the bank.", S .. "Clean Up Bags When Opened: the new help")
+	-- (by design since 1.9.7-beta1: "or at a vendor" joins the exceptions)
+	check(row(P, "check", "cleanOnOpen").help.text == "Tidies your bags each time you open them, except in combat, at the bank or at a vendor.", S .. "Clean Up Bags When Opened: the new help")
 	check(row(P, "check", "autoSellJunk").help.text == "Sells your grey and junk-marked items whenever you visit a vendor, grey favorites included. You can buy back the last 12.", S .. "Sell Junk Automatically: the new help")
 	check(row(P, "step", "shardKeep").help.text == "|cff8788eeWarlocks|r only. Soul Shards are only cleared when you click Clear Shards (on their section in your bags) or use the Loot Helper, and you always keep this many. Shards in your soul bag count toward it and are never cleared.",
 		S .. "Soul Shards to Keep: where Clear Shards is, nothing cleared on its own, the soul bag")

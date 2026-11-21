@@ -744,16 +744,27 @@ function ns:UpdateLock(bag, slot)
 	for _, list in ipairs({ ns.items or {}, ns.bankItems or {} }) do
 		for _, r in ipairs(list) do if r.bag == bag and r.slot == slot then r.isLocked = locked end end
 	end
+	-- (1.9.7-beta1) ...and a dimmed junk icon stays greyed when it unlocks (Junk:KeepDim says why)
+	local keep = ns.Junk and ns.Junk.KeepDim
 	local b = ns.Buttons and ns.Buttons:Get(bag, slot)
 	if b and b:IsShown() then
 		if b.secure then SetItemButtonDesaturated(b, locked) elseif b.icon then b.icon:SetDesaturated(locked) end
+		if keep then keep(ns.Junk, b) end
 	end
 	-- The Recent section's copy of the same slot dims with it.
 	for _, c in ipairs(ns.Buttons and ns.Buttons.recent or {}) do
-		if c:IsShown() and c.smithBag == bag and c:GetID() == slot then SetItemButtonDesaturated(c, locked) end
+		if c:IsShown() and c.smithBag == bag and c:GetID() == slot then
+			SetItemButtonDesaturated(c, locked)
+			if keep then keep(ns.Junk, c) end
+		end
 	end
 	for _, pool in pairs(ns.Buttons and ns.Buttons.mirrors or {}) do
-		for _, c in pairs(pool) do if c:IsShown() and c.bag == bag and c:GetID() == slot and c.icon then c.icon:SetDesaturated(locked) end end
+		for _, c in pairs(pool) do
+			if c:IsShown() and c.bag == bag and c:GetID() == slot and c.icon then
+				c.icon:SetDesaturated(locked)
+				if keep then keep(ns.Junk, c) end
+			end
+		end
 	end
 end
 
