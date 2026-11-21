@@ -23,7 +23,7 @@ Inv.COUNT_COLOR = { 0.55, 0.78, 1 }   -- the counts' soft blue (as the screensho
 
 local others, mine = nil, nil   -- itemID -> { [charKey] = { bags = n, bank = n, equipped = n } }
 
-local function realm() return GetRealmName and GetRealmName() or nil end
+local function realm() return ns:Realm() end   -- (1.9.6) the game's answer, or what stands in for it (Core/Init.lua)
 local function add(index, id, key, place, n)
 	id = tonumber(id)
 	if not id or (n or 0) <= 0 then return end

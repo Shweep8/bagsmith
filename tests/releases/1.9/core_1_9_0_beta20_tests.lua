@@ -18,7 +18,7 @@ end
 ;(function()
 	-- the card
 	local n = boot()
-	local e = n.WhatsNew.ENTRIES[6]   -- (by design since 1.9.5: five places down, after 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	local e = n.WhatsNew.ENTRIES[7]   -- (by design since 1.9.6: six places down, after 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	check(e.v == "1.9.0" and #e.items == 7, "the 1.9 card: still seven bullets")
 	check(e.items[1]:find("Click an item more than one character has to see how many each of them has, and the same goes for currencies in the currency drawer. Down at the bottom", 1, true),
 		"Global Inventory: currencies too, the rest as before")

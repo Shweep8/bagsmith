@@ -1,3 +1,14 @@
+## 1.9.6
+
+Fixed:
+- Your other characters are back. A recent game update (client build 71037) stopped telling addons which ruleset you
+  are on, so BagSmith lost track of your alts: they went missing from item tooltips, Global Inventory and your gold
+  totals, the Bank tab was empty away from the bank, and a character on its own profile fell back to Default. BagSmith
+  now works out your ruleset from what it already saved, so all of that returns the first time you log in. Nothing was
+  lost.
+- Each character shows what it had the last time you played it before the game update. Log in to it once and it is up
+  to date again.
+
 ## 1.9.5
 
 Changed:

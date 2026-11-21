@@ -19,13 +19,13 @@ end
 ;(function()
 	local n = boot({ whatsNewSeen = "1.9.4", whatsNewPatchSeen = { ["1.9.4"] = true, ["1.9.2"] = true, ["1.9.1"] = true }, whatsNewButtonSeen = "1.9.4" })
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[1]
-	check(e.v == "1.9.5" and e.heading == "BagSmith 1.9.5" and #e.items == 1, "the 1.9.5 entry leads, one bullet")
+	local e = WN.ENTRIES[2]   -- (by design since 1.9.6: one place down, after 1.9.6's entry)
+	check(e.v == "1.9.5" and e.heading == "BagSmith 1.9.5" and #e.items == 1, "the 1.9.5 entry, one bullet")
 	check(e.items[1] == "|cfffac775Faster and Lighter:|r Global Inventory searches and redraws faster, and BagSmith takes up about a third less space.", "Faster and Lighter, word for word as drafted")
 	check(not e.items[1]:find("\226\128\148") and not e.items[1]:find("\226\128\147"), "no em or en dashes")
 	local tabs = WN:Tabs()
 	check(tabs[1].v == "1.9.0" and #tabs[1].patches == 5 and tabs[1].patches[1].v == "1.9.5" and tabs[1].patches[2].v == "1.9.4" and tabs[1].patches[3].v == "1.9.3" and tabs[1].patches[4].v == "1.9.2", "the 1.9 tab: 1.9.5, 1.9.4, 1.9.3, 1.9.2, 1.9.1")
-	local e3 = WN.ENTRIES[3]
+	local e3 = WN.ENTRIES[4]   -- (by design since 1.9.6: one place down, after 1.9.6's entry)
 	check(e3.v == "1.9.3" and e3.heading == "BagSmith 1.9.3" and #e3.items == 1 and e3.items[1] == "|cfffac775Unusable Weapons Too:|r the red tint now also marks weapons, shields and librams, idols or totems your class can't use, like guns and swords on a priest.", "1.9.3's entry, word for word as drafted")
 	check(not e3.items[1]:find("\226\128\148") and not e3.items[1]:find("\226\128\147"), "(no dashes in it)")
 	check(not WN:Pending(), "from 1.9.4: no pop-up (an update)")
