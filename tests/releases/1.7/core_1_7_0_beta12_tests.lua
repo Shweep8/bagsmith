@@ -262,7 +262,7 @@ end)()
 		local WN = n.WhatsNew
 		-- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 		-- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
-		local e = WN.ENTRIES[8]   -- (by design since 1.9.5: five places down, after 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+		local e = WN.ENTRIES[9]   -- (by design since 1.9.6: six places down, after 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 		local heads = {}
 		for _, it in ipairs(e.items) do heads[#heads + 1] = it:match("^|cfffac775(.-):|r") end
 		if skin == "modern" then

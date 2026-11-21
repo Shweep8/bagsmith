@@ -316,6 +316,9 @@ local commands = {
 			for _, set in ipairs(ns.GearSets:Rebuild()) do names[#names + 1] = ("%s (%d)"):format(set.name, ns.GearSets:Count(set)) end
 			ns:Print("Gear sets: %d%s   Shown as sections: %s", #names, #names > 0 and (": " .. table.concat(names, ", ")) or "", ns.GearSets:Showing() and "yes" or "no")
 		end
+		-- (1.9.6) the realm this character is filed under, and whether the game or BagSmith's own records gave it
+		local realm, from = ns:RealmSource()
+		ns:Print("Realm: %s", realm and ("%s (from %s)"):format(realm, from or "?") or "not known yet")
 		ns:Print("Missing APIs: %s", #missing > 0 and table.concat(missing, ", ") or "none")
 		ns:Print("Events this client does not have: %s", #ns.skippedEvents > 0 and table.concat(ns.skippedEvents, ", ") or "none")
 		if not ns.ready then ns:Print("|cffff6060Not ready. Type /console scriptErrors 1 and /reload to see the error.|r") end

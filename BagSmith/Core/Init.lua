@@ -240,8 +240,17 @@ function ns:DisplayName(unit)
 	return first
 end
 
+-- What a character's saved data and profile are filed under: "Name - Realm". (1.9.6) The realm is ns:Realm()'s
+-- answer (below, after the events); while it has none, the game's own, as before, even an empty one.
 function ns:CharKey(name, realm)
-	return (name or UnitName("player") or "Unknown") .. " - " .. (realm or GetRealmName() or "Unknown")
+	if realm == nil then
+		realm = ns:Realm()
+		if realm == nil then
+			realm = GetRealmName and GetRealmName()
+			if type(realm) ~= "string" then realm = "Unknown" end
+		end
+	end
+	return (name or UnitName("player") or "Unknown") .. " - " .. realm
 end
 
 ------------------------------------------------------------------------
@@ -324,6 +333,223 @@ function ns:Fire(name, ...)
 	if not list then return end
 	for i = 1, #list do ns:Guard(name, list[i], ...) end
 end
+
+------------------------------------------------------------------------
+-- The realm (1.9.6)
+------------------------------------------------------------------------
+-- Which ruleset the character you're playing is on: what its saved data is filed under ("Name - Realm") and what
+-- decides which of your characters count as "this ruleset". The game's own answer whenever it gives one. Since client
+-- build 71037 GetRealmName() (and GetNormalizedRealmName()) answer "" (Jeor's check in game, 20 Nov), which hid every
+-- alt, stopped the saves and dropped profiles to Default. So, without the game's answer, in this order:
+--   1. what this character recorded for itself (BagSmithCharDB.realm: the game's own per-character file), unless the
+--      record was made by another character (realmFor, its GUID: a settings folder copied from one to another);
+--   2. the realm learned for its server number, the middle of its GUID ("Player-6925-04D3CC4C" is server 6925; the
+--      number differs by ruleset, Jeor's two characters: 6925 and 6935), kept for the account in BagSmithDB.servers;
+--   3. the realm a saved character of its name is filed under, when only one of them can be this character: the same
+--      class, not a higher level, not stamped with another character's GUID, not on a realm that belongs to another
+--      server number. With several left, the one whose saved gear is clearly what's worn now, or none;
+--   4. for a character with nothing saved (a new one, a new install), a label made from the server number: characters
+--      on one server still group together, and the label gives way to the real name the moment that's learned.
+-- nil when none of these answers (yet): nothing is ever filed under a guess, and BagSmith behaves as it did before.
+-- The realm is only compared, never shown.
+local realmKnown     -- this session's answer once worked out without the game (the game itself is asked every time)
+local realmStuck     -- no answer was found: not worked out again until RealmRetry (login, entering the world, a save)
+local realmTaught    -- the game's answer that was last recorded (once a session is enough)
+local realmSettled   -- the answer the rest of BagSmith was last told about
+local realmUnsure    -- worked out before the GUID was to be had (some clients have it only after loading): the answer
+                     -- serves for now, isn't recorded, and is worked out again once the GUID is there
+local function soundRealm(r) return type(r) == "string" and r ~= "" and #r <= 64 and r ~= "Unknown" end
+local function serverLabel(server) return "Realm " .. server end
+local function labelServer(realm) return type(realm) == "string" and realm:match("^Realm (%d+)$") or nil end
+ns.RealmLabelServer = labelServer
+-- The player's GUID and the server number inside it (nil when the client has none to give).
+local function playerGUID()
+	if type(UnitGUID) ~= "function" then return nil end
+	local ok, g = pcall(UnitGUID, "player")
+	if not ok or type(g) ~= "string" or #g > 64 then return nil end
+	return g, g:match("^Player%-(%d+)%-")
+end
+ns.PlayerGUID = playerGUID
+local function serverMap()
+	local db = rawget(_G, "BagSmithDB")
+	if type(db) ~= "table" then return nil end
+	if type(db.servers) ~= "table" then db.servers = {} end
+	return db.servers
+end
+local function serverOf(map, realm)
+	local s = labelServer(realm)
+	if s then return s end
+	for server, r in pairs(map or {}) do if r == realm then return server end end
+end
+-- A label made from a server number becomes that server's real name: saved characters and profile links are filed
+-- under the new key. Where the real key is already taken (the same character, saved both ways), the newer one stays.
+local function relabel(from, to)
+	local db = rawget(_G, "BagSmithDB")
+	if type(db) ~= "table" then return end
+	local suffix = " - " .. from
+	local function renamed(key)
+		if type(key) == "string" and #key > #suffix and key:sub(-#suffix) == suffix then return key:sub(1, #key - #from) .. to end
+	end
+	local moves = {}
+	for key, data in pairs(type(db.cache) == "table" and db.cache or {}) do
+		if type(data) == "table" and data.realm == from and renamed(key) then moves[#moves + 1] = key end
+	end
+	for _, key in ipairs(moves) do
+		local data, new = db.cache[key], renamed(key)
+		local there = db.cache[new]
+		db.cache[key] = nil
+		if type(there) ~= "table" or (tonumber(data.updated) or 0) >= (tonumber(there.updated) or 0) then
+			data.realm = to
+			db.cache[new] = data
+		end
+	end
+	moves = {}
+	for key in pairs(type(db.chars) == "table" and db.chars or {}) do if renamed(key) then moves[#moves + 1] = key end end
+	for _, key in ipairs(moves) do
+		local new = renamed(key)
+		if db.chars[new] == nil then db.chars[new] = db.chars[key] end
+		db.chars[key] = nil
+	end
+end
+-- This server number stands for this realm. One realm, one server: what the game itself said (sure) replaces an
+-- older pairing; anything worked out from saved data never does.
+local function learnServer(server, realm, sure)
+	local map = serverMap()
+	if not (map and server and soundRealm(realm)) or labelServer(realm) or map[server] == realm then return end
+	if map[server] and not sure then return end
+	for s, r in pairs(map) do
+		if r == realm and s ~= server then
+			if not sure then return end
+			map[s] = nil
+		end
+	end
+	map[server] = realm
+	relabel(serverLabel(server), realm)
+end
+-- The answer is in: this character records it for itself, and a profile it was given while the game had no realm
+-- (filed under "Name - ") moves to its real key. The counts kept under the old key are dropped.
+local function settleRealm(realm, unsure)
+	if ns.cdb and not unsure then
+		if ns.cdb.realm ~= realm then ns.cdb.realm = realm end
+		local guid = playerGUID()
+		if guid and ns.cdb.realmFor ~= guid then ns.cdb.realmFor = guid end
+	end
+	if realmSettled == realm then return end
+	realmSettled = realm
+	local db, name = rawget(_G, "BagSmithDB"), UnitName and UnitName("player")
+	if type(db) == "table" and type(db.chars) == "table" and type(name) == "string" and name ~= "" then
+		local blank, real = name .. " - ", name .. " - " .. realm
+		if db.chars[blank] ~= nil then
+			db.chars[real] = db.chars[blank]
+			db.chars[blank] = nil
+		end
+	end
+	if ns.Inventory and ns.Inventory.Invalidate then ns.Inventory:Invalidate(true) end
+end
+-- Step 3: the realm of the one saved character that can be this one, or nil.
+local function savedRealm(name, guid, server)
+	local db = rawget(_G, "BagSmithDB")
+	if type(db) ~= "table" or type(db.cache) ~= "table" then return nil end
+	local map = serverMap()
+	local class, level
+	if UnitClass then class = select(2, UnitClass("player")) end
+	if UnitLevel then level = UnitLevel("player") end
+	if type(level) ~= "number" or level < 1 then level = nil end
+	local found = {}
+	for key, data in pairs(db.cache) do
+		if type(data) == "table" and soundRealm(data.realm) and key == name .. " - " .. data.realm then
+			if guid and data.guid == guid then return data.realm end   -- its own stamp: no doubt
+			local ok = true
+			if type(class) == "string" and type(data.class) == "string" and data.class ~= class then ok = false end
+			if ok and level and type(data.level) == "number" and data.level > level then ok = false end
+			-- (another character's stamp; or this character's GUID isn't to be had yet, so it can't be told: later)
+			if ok and type(data.guid) == "string" then ok = false end
+			if ok and server then
+				local theirs = serverOf(map, data.realm)
+				if theirs and theirs ~= server then ok = false end
+			end
+			if ok then found[#found + 1] = data end
+		end
+	end
+	if #found == 1 then return found[1].realm end
+	if #found < 2 then return nil, #found end
+	-- several: the one wearing what this character wears (three items or more, and twice any other's), or none
+	local worn = {}
+	if type(GetInventoryItemID) == "function" then
+		for slot = 1, 19 do local id = GetInventoryItemID("player", slot); if id then worn[id] = true end end
+	end
+	local best, most, second = nil, 0, 0
+	for _, data in ipairs(found) do
+		local n, seen = 0, {}
+		for _, r in ipairs(type(data.equipped) == "table" and data.equipped or {}) do
+			if type(r) == "table" and r.itemID and worn[r.itemID] and not seen[r.itemID] then seen[r.itemID] = true; n = n + 1 end
+		end
+		if n > most then best, most, second = data, n, most elseif n > second then second = n end
+	end
+	if best and most >= 3 and most >= 2 * second then return best.realm end
+	return nil, #found
+end
+function ns:Realm()
+	local r = GetRealmName and GetRealmName()
+	if soundRealm(r) then
+		if realmTaught ~= r and ns.cdb then
+			realmTaught = r
+			local _, server = playerGUID()
+			learnServer(server, r, true)
+			settleRealm(r)
+		end
+		return r
+	end
+	if realmKnown then return realmKnown end
+	if realmStuck or not ns.cdb then return nil end   -- (saved data isn't loaded yet: asked again once it is)
+	local name = UnitName and UnitName("player")
+	if type(name) ~= "string" or name == "" then return nil end
+	local guid, server = playerGUID()
+	local map = serverMap()
+	local realm, from = nil, nil
+	realmUnsure = (not guid and type(UnitGUID) == "function") or nil
+	-- 1. its own record, if it is its own (a label from a server number gives way to that server's name once learned)
+	local own, ownFor = ns.cdb.realm, ns.cdb.realmFor
+	if soundRealm(own) and not (guid and type(ownFor) == "string" and ownFor ~= "" and ownFor ~= guid) then
+		local s = labelServer(own)
+		realm, from = (s and map and map[s]) or own, "its own record"
+		if not s then learnServer(server, own) end
+	end
+	-- 2. its server number
+	if not realm and server and map and map[server] then realm, from = map[server], "its server number" end
+	-- 3. a saved character of its name
+	local several
+	if not realm then
+		realm, several = savedRealm(name, guid, server)
+		if realm then
+			from = "its saved character"
+			if not labelServer(realm) then learnServer(server, realm) end
+		end
+	end
+	-- 4. nothing saved: a label from the server number
+	if not realm and server and (several or 0) == 0 then realm, from = serverLabel(server), "its server number, as a new character" end
+	if not realm then
+		realmStuck = true
+		return nil
+	end
+	realmKnown, ns.realmFrom = realm, from
+	settleRealm(realm, realmUnsure)
+	return realm
+end
+-- Worth asking again: the player's name, level, gear and GUID arrive as the game loads, and a save has to be right.
+function ns:RealmRetry()
+	realmStuck, realmTaught = nil, nil
+	if realmKnown and realmUnsure and playerGUID() then realmKnown, realmUnsure = nil, nil end
+end
+-- For /bs check: the realm in use and where it came from.
+function ns:RealmSource()
+	local r = GetRealmName and GetRealmName()
+	if soundRealm(r) then return r, "the game" end
+	local realm = ns:Realm()
+	return realm, realm and ns.realmFrom or nil
+end
+ns:On("PLAYER_LOGIN", function() ns:RealmRetry() end)
+ns:On("PLAYER_ENTERING_WORLD", function() ns:RealmRetry() end)
 
 ------------------------------------------------------------------------
 -- Combat-safe queue and next-frame coalescing
