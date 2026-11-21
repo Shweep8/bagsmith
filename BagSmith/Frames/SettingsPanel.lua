@@ -1809,7 +1809,7 @@ pages.automation = function(self, db)
 	-- Mode and then prompts") Bag Cleanup, Vendors, Clear Soul Shards, Auto Travel Mode, Prompts
 	self:Head("Bag Cleanup")
 	-- (1.9.1-beta5, Shweep: "can we cleanup these descriptions") the three help lines, shorter
-	self:Check("cleanOnOpen", "Clean Up Bags When Opened", "Tidies your bags each time you open them, except in combat or at the bank.")
+	self:Check("cleanOnOpen", "Clean Up Bags When Opened", "Tidies your bags each time you open them, except in combat, at the bank or at a vendor.")
 	self:Head("Vendors")
 	self:Check("autoSellJunk", "Sell Junk Automatically at Vendors", "Sells your grey and junk-marked items whenever you visit a vendor, grey favorites included. You can buy back the last 12.")
 	self:Head("Clear Soul Shards")

@@ -181,6 +181,17 @@ function J:Decorate(b, rec)
 		end
 	end
 end
+-- (1.9.7-beta1, Shweep: with Clean Up Bags When Opened, the junk "color ... don't show up at first") A dimmed junk
+-- icon stays greyed whatever its lock says. The game locks and unlocks an item as it moves, every item a Clean Up
+-- touches, and the unlock used to give the icon its color back until the next redraw; during a Clean Up redraws are
+-- spaced out on purpose (Core/Scanner.lua), so junk showed in full color on and off for as long as the sort took.
+-- Color and fade are set again too: on some clients the game's own helper resets them along with the grey.
+function J:KeepDim(b)
+	if not (b and b.dimmedJunk and b.icon) then return end
+	b.icon:SetDesaturated(true)
+	b.icon:SetVertexColor(SEPIA[1], SEPIA[2], SEPIA[3])
+	b.icon:SetAlpha(DIM_ALPHA)
+end
 function J:RowHover(b, on) b.rowHover = on and true or false; J:PaintCell(b) end
 function J:CellEnter(jc)
 	jc.hover = true
