@@ -199,7 +199,7 @@ local DEFAULTS = {
 	minimapAngle = 220,
 	minimapFade = false,   -- show the minimap button only while the pointer is over the minimap
 }
-local CHAR_DEFAULTS = { version = 1, own = {}, firstSeen = {}, seen = {}, seenSlots = {}, recentSince = 0, recentSticky = {}, junkMarks = {}, makeRoomNever = {}, makeRoomProtect = {}, professionMats = {},
+local CHAR_DEFAULTS = { version = 1, realm = "", realmFor = "", own = {}, firstSeen = {}, seen = {}, seenSlots = {}, recentSince = 0, recentSticky = {}, junkMarks = {}, makeRoomNever = {}, makeRoomProtect = {}, professionMats = {},
 	deNever = {}, deResults = {}, deResultsVersion = 0, deOfferDeclined = false,
 	deMaterials = {},   -- (1.8.0) the Disenchant Helper's learned materials: item ID -> true
 	blizzPicksSeen = {} }   -- (1.7.0-beta14) currency ID -> true: the game's Show on Backpack picks already pinned once   -- the Disenchant Helper's per-character data (1.2.0): the never list, learned results and their schema version, the declined offer   -- recentSince: start of the Recent section's session (0 = not set)   -- seen: guid -> count at dismissal; seenSlots: "bag:slot" -> "itemID:count"
@@ -908,6 +908,19 @@ local function loadDB(saved)
 		end
 		db.newSeen = keep
 	end
+	-- (1.9.6) the realm each server number stands for ("6925" -> "Forever"), learned as characters log in: see
+	-- ns:Realm in Core/Init.lua. One realm, one server: a realm listed twice is forgotten and learned again.
+	if type(saved) == "table" and type(saved.servers) == "table" then
+		local keep, times, n = {}, {}, 0
+		for server, realm in pairs(saved.servers) do
+			if n < 64 and type(server) == "string" and #server <= 12 and server:find("^%d+$") and type(realm) == "string"
+				and realm ~= "" and #realm <= 64 and realm ~= "Unknown" and not ns.RealmLabelServer(realm) then
+				keep[server] = realm; times[realm] = (times[realm] or 0) + 1; n = n + 1
+			end
+		end
+		for server, realm in pairs(keep) do if times[realm] > 1 then keep[server] = nil end end
+		db.servers = keep
+	end
 	if type(saved) == "table" and type(saved.profiles) == "table" then
 		for name, prof in pairs(saved.profiles) do
 			local n = cleanName(name)
@@ -954,6 +967,8 @@ local function loadDB(saved)
 					for _, key in ipairs({ "bags", "bankBags", "currencies" }) do
 						if data[key] ~= nil and type(data[key]) ~= "table" then data[key] = nil; repaired = true end
 					end
+					-- (1.9.6) the character's GUID, as the game gave it
+					if data.guid ~= nil and (type(data.guid) ~= "string" or #data.guid > 64 or not data.guid:find("^Player%-")) then data.guid = nil; repaired = true end
 					-- (1.7.5-beta1) and the keyring's slots leave the saved bank's space
 					if ns.KEYRING_WAS_BANK and type(data.bankBags) == "table" then data.bankBags[tostring(ns.KEYRING_WAS_BANK)] = nil end
 					db.cache[char] = data

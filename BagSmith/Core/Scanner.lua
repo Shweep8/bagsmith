@@ -569,7 +569,7 @@ function ns:IsOwnKey(key)
 	if key == ns:CharKey() then return true end
 	local data = BagSmithDB and BagSmithDB.cache and BagSmithDB.cache[key]
 	if not data then return false end
-	local realm = GetRealmName()
+	local realm = ns:Realm()   -- (1.9.6) the game's answer, or what stands in for it (Core/Init.lua)
 	local myName = ns:DisplayName("player")
 	return data.name == myName and (data.realm == realm or data.realm == "Unknown" or data.realm == nil)
 end
@@ -596,13 +596,18 @@ function ns:SaveCache(atLogout)
 	if not BagSmithDB or not BagSmithDB.cache then return end
 	-- Right after login the realm can still be missing; saving then would
 	-- create a second, stale entry for this character under "Unknown".
-	local realm, name = GetRealmName(), UnitName("player")
-	if not realm or realm == "" or not name or name == "" then return end
+	-- (1.9.6) Since client build 71037 the game gives no realm at all: ns:Realm() answers in its place (asked afresh
+	-- here: what it goes by arrives as the game loads). Still nothing saved while there's no answer.
+	ns:RealmRetry()
+	local realm, name = ns:Realm(), UnitName("player")
+	if not realm or not name or name == "" then return end
 	local key = ns:CharKey()
 	local entry = BagSmithDB.cache[key] or {}
 	local _, class = UnitClass("player")
 	entry.name = ns:DisplayName("player")
-	entry.realm = GetRealmName() or "Unknown"
+	entry.realm = realm
+	-- (1.9.6) and the character's own GUID, so its saved data can't be taken for another character's of the same name
+	entry.guid = ns.PlayerGUID() or entry.guid
 	entry.class = class
 	entry.level = UnitLevel("player") or 0
 	local nowGold = GetMoney and GetMoney() or 0
