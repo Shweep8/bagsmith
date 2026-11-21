@@ -33,7 +33,7 @@ for _, scale in ipairs({0.64,0.8,1,1.25,1.5}) do
   -- (1.7.3) realigned by the border driver (Buttons:RealignModernBorders), not a per-button OnUpdate
   ns.Buttons:RealignModernBorders()
   assert(b.modernBorder and #b.modernBorder==4,'Modern must have four explicit border edges')
-  assert(not b.qRing.shown and not b.qFrame.shown and not b.frameEdge.shown and not b.frameBG.shown,'No doubled frame behind Modern border')
+  assert(not b.qRing and not b.qFrame.shown and not b.frameEdge.shown and not b.frameBG.shown,'No doubled frame behind Modern border')
   for i,t in ipairs(b.modernBorder) do
     local thickness=(i<=2 and t.height or t.width)*scale/PixelUtil.GetPixelToUIUnitFactor()
     assert(math.abs(thickness-1)<0.00001,'Every side must be one physical pixel at any scale')
@@ -65,7 +65,7 @@ for _, scale in ipairs({0.64,0.8,1,1.25,1.5}) do
   for _,t in ipairs(b.modernBorder) do assert(not t.shown,'Empty slots stay unoutlined on update') end
   ns.db.skin='classic'; ns.db.border='unc'
   ns.Buttons:ApplyQuality(b,{quality=2})
-  assert((mode=='cell' and b.qFrame.shown) or (mode=='row' and b.qRing.shown),'Classic keeps original frame for its view')
+  assert(b.qFrame.shown,'Classic keeps original frame for its view')
   for _,t in ipairs(b.modernBorder) do assert(not t.shown,'Modern strips cannot leak into Classic') end
   ns.Buttons:RealignModernBorders()
   for _,t in ipairs(b.modernBorder) do assert(not t.shown,'Classic update must not restore Modern edges') end
