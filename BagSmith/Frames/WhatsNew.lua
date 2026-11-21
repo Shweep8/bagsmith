@@ -26,8 +26,8 @@ ns.WhatsNew = WN
 WN.ENTRIES = {
 	-- (1.9.2-beta1, Shweep) a release's updates have entries of their own, shown under its tab: 1.9.2 (Jeor's red tint)
 	-- and 1.9.1 (which had no card), as Shweep approved them
-	-- (1.9.6-beta1, Shweep: "do we need to warn players to relog into all alts or anything with our what's new?") no
-	-- warning needed, a reassurance: client build 71037 stopped giving the realm, which hid every alt (Core/Init.lua)
+	-- (1.9.6-beta1; Shweep asked whether What's New should warn players to log into every alt) no warning needed, a
+	-- reassurance: client build 71037 stopped giving the realm, which hid every alt (Core/Init.lua)
 	{ v = "1.9.6", heading = "BagSmith 1.9.6", items = {
 		"|cfffac775Your Characters Are Back:|r a recent game update hid your other characters from tooltips, Global Inventory and your gold totals. That's fixed, and nothing was lost.",
 		"|cfffac775Catching Up:|r each character shows what it had the last time you played it before the update. Log in to it once and it's up to date again.",
