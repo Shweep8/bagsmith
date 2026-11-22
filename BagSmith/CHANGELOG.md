@@ -7,10 +7,12 @@ Fixed:
   so its bank is saved fresh.
 - A character can no longer be taken for a new one when the game is slow to report its level at login, which would
   have hidden its other characters. One that was finds its saved data again the next time it logs in.
+- What's New: the row of update buttons wraps onto a second line instead of running off the window.
 
 Changed:
 - What's New opens by itself once for this update, which patches don't usually do, so the note above about characters
   who share a first name reaches you sooner.
+- What's New: closing the window clears the NEW tags on its updates, so NEW means "since you last looked".
 
 ## 1.9.7
 

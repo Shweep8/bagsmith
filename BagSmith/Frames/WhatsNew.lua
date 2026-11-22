@@ -476,6 +476,7 @@ end
 -- A tab per release (BagSmith's choice buttons; Blizzard's red buttons in Classic).
 local TAB_H = 22
 local SUB_H = 18   -- (1.9.2-beta1) an update's button, under its release's tab
+local SUB_GAP = 6   -- between update buttons, and between their lines (1.9.8-beta3)
 local function tab(f, i)
 	return pooled(f, f.tabs, i, function()
 		local b = ns.TextButton(f, "", 56, function(btn) WN:Select(btn.index) end)
@@ -622,35 +623,66 @@ function WN:Fill(entries, sel, sub)
 	if #entries > 0 then top = top + TAB_H + 10 end
 	-- (1.9.2-beta1) the open release's updates, newest first, on a second row; its height kept on every tab (when any
 	-- release shown has updates), so switching tabs doesn't jump. An update not opened yet says NEW.
-	local anyPatches = false
-	for _, g in ipairs(entries) do if g.patches and #g.patches > 0 then anyPatches = true end end
+	-- (1.9.8-beta3, Shweep: "all the new tags are causing the patch buttons to go outside the window", eight updates
+	-- under 1.9, seven saying NEW) The row wraps: a button, with its NEW, that wouldn't fit starts the next line. The
+	-- tallest it gets while the card is open is kept on every tab, so neither a tab nor a click moves what's below.
 	f.subTabs = f.subTabs or {}
-	local sx = PAD
-	for j, p in ipairs(patches) do
+	local function subButton(j)
 		local b = f.subTabs[j]
 		if not b then
 			b = ns.TextButton(f, "", 48, function(btn) WN:SelectPatch(btn.index) end)
 			b:SetHeight(SUB_H)
 			f.subTabs[j] = b
 		end
+		return b
+	end
+	local SP = ns.SettingsPanel
+	local right = WIDTH - PAD
+	local function tagRoom(b) return 4 + ((b.newTag and SP and SP.NewTagWidth and SP.NewTagWidth(b.newTag)) or 30) end
+	-- how many lines a release's updates take (the first button's label measures the others')
+	local function linesFor(list)
+		if #list == 0 then return 0 end
+		local m = subButton(1)
+		if m.SetClassic then m:SetClassic(classic) end
+		local was = m.label:GetText()
+		local x, lines = PAD, 1
+		for _, p in ipairs(list) do
+			m.label:SetText(tabLabel(p))
+			local need = math.max(48, math.ceil(m.label:GetStringWidth()) + 18) + (WN:PatchNew(p) and tagRoom(m) or 0)
+			if x > PAD and x + need > right then lines = lines + 1; x = PAD end
+			x = x + need + SUB_GAP
+		end
+		m.label:SetText(was or "")
+		return lines
+	end
+	local lines = 0
+	for _, g in ipairs(entries) do lines = math.max(lines, linesFor(g.patches or {})) end
+	f.subLines = math.max(f.subLines or 0, lines)
+	local sx, row = PAD, 0
+	for j, p in ipairs(patches) do
+		local b = subButton(j)
 		b.index = j
 		b.label:SetText(tabLabel(p))
 		local w = math.max(48, math.ceil(b.label:GetStringWidth()) + 18)
 		b:SetWidth(w)
-		b:ClearAllPoints(); b:SetPoint("TOPLEFT", f, "TOPLEFT", sx, -(top - 4))
 		if b.SetClassic then b:SetClassic(classic) end
 		b:SetActive(j == f.sub)
 		b.tip = p.heading or ("BagSmith " .. tostring(p.v))
-		b:Show()
 		local new = WN:PatchNew(p)
-		if ns.SettingsPanel and ns.SettingsPanel.NewTag then ns.SettingsPanel.NewTag(b, new, b, w + 4) end
-		sx = sx + w + 6 + (new and 30 or 0)
+		if SP and SP.NewTag then SP.NewTag(b, new, b, w + 4) end
+		local need = w + (new and tagRoom(b) or 0)
+		if sx > PAD and sx + need > right then row = row + 1; sx = PAD end
+		b:ClearAllPoints(); b:SetPoint("TOPLEFT", f, "TOPLEFT", sx, -(top - 4 + row * (SUB_H + SUB_GAP)))
+		b.row, b.left, b.need = row, sx, need
+		b:Show()
+		sx = sx + need + SUB_GAP
 	end
 	for j = #patches + 1, #f.subTabs do
 		f.subTabs[j]:Hide()
 		if f.subTabs[j].newTag then f.subTabs[j].newTag:Hide() end
 	end
-	if anyPatches then top = top + SUB_H + 6 end
+	if #patches > 0 then f.subLines = math.max(f.subLines, row + 1) end   -- (never less than what was just laid out)
+	top = top + f.subLines * (SUB_H + SUB_GAP)
 	-- The intro line, then the body below it.
 	f.intro:SetWidth(textW)
 	f.intro:SetText(WN.INTRO)
@@ -790,6 +822,7 @@ end
 
 function WN:Open(entries, sel)
 	local f = create()
+	f.subLines = nil   -- (1.9.8-beta3) the update buttons' lines are measured afresh each time the card opens
 	self:Fill(entries, sel)
 	-- Beside whatever it was opened from: Settings if that's showing (so the
 	-- two don't overlap), otherwise the bags window.
@@ -811,11 +844,22 @@ function WN:Tabs()
 	for i = 1, math.min(#list, self.MAX_SHOWN) do out[i] = list[i] end
 	return out
 end
-function WN:ShowLatest() self:Open(self:Tabs(), 1) end
+function WN:ShowLatest()
+	self:Open(self:Tabs(), 1)
+	-- (1.9.8-beta3) an update that opens the card and hasn't been read is what it opens on, from Settings too
+	local opener, j = self:UnseenOpener()
+	if opener then self:SelectPatch(j) end
+end
 
+-- (1.9.8-beta3, Shweep) Closing it, by Got It, the X or Escape, also counts every update listed as seen: NEW then
+-- means "arrived since you last had this open", so the tags no longer pile up for someone who never clicks them.
 function WN:Close()
+	local shown = card and card:IsShown()
 	if card then card:Hide() end
 	self:MarkSeen()
+	if shown then
+		for _, e in ipairs(self:Latest()) do if parse(e.v)[3] > 0 then self:MarkPatchSeen(e) end end
+	end
 end
 
 -- The first bag open after updating.

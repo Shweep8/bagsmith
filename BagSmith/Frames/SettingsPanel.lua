@@ -221,6 +221,7 @@ local function newTag(owner, show, anchor, x)
 	t:Show()
 end
 Panel.NewTag = newTag
+Panel.NewTagWidth = tagWidth   -- (1.9.8-beta3) What's New wraps its update buttons by their real widths
 
 local PARENT, HAS_SUBS = {}, {}
 for _, p in ipairs(PAGES) do if p[3] then PARENT[p[1]] = p[3]; HAS_SUBS[p[3]] = true end end
