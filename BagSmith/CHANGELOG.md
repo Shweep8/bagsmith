@@ -1,3 +1,13 @@
+## 1.9.8
+
+Fixed:
+- Characters who share a first name on the same ruleset no longer write over each other. They were saved as one
+  character, so each saw only itself in Global Inventory and item tooltips, and could show the other's bank as its
+  own. Each now has its own saved record. If you have characters like that, log in to each and visit the bank once,
+  so its bank is saved fresh.
+- A character can no longer be taken for a new one when the game is slow to report its level at login, which would
+  have hidden its other characters. One that was finds its saved data again the next time it logs in.
+
 ## 1.9.7
 
 Fixed:

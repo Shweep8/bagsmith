@@ -166,7 +166,8 @@ end)()
 	-- then an older character of that server logs in: the label becomes the real name everywhere
 	local saved = { cache = db.cache, chars = db.chars }
 	saved.cache["Newbie - Realm 6925"].updated = 50
-	local n2 = boot({ cache = saved.cache, chars = saved.chars })
+	-- (by design since 1.9.8-beta1: each character its own GUID, as in the game; a record's stamp now says whose it is)
+	local n2 = boot({ cache = saved.cache, chars = saved.chars, guid = "Player-6925-0A0A0A0A" })
 	local db2 = BagSmithDB
 	check(n2:CharKey() == "Aldren - Forever" and db2.servers["6925"] == "Forever", "an older character logs in: 6925 is Forever")
 	check(db2.cache["Newbie - Realm 6925"] == nil and db2.cache["Newbie - Forever"] and db2.cache["Newbie - Forever"].realm == "Forever" and db2.cache["Newbie - Forever"].updated == 50, "the new character's saved data moves to \"Newbie - Forever\"")
@@ -202,8 +203,10 @@ end)()
 	local function two(a, b) local c = usual(); c["Aldren - Forever"] = char("Aldren Thorne", "Forever", a); c["Aldren - Elsewhere"] = char("Aldren Thorne", "Elsewhere", b); return c end
 	local n = boot({ cache = two({}, { class = "MAGE" }) })
 	check(n:CharKey() == "Aldren - Forever", "two of its name, another class: the one of its class")
+	-- (by design since 1.9.8-beta1: a higher saved level no longer rules a saved character out; the level can read
+	-- low while the addon loads, and the character was then taken for a new one)
 	n = boot({ cache = two({}, { level = 40 }) })
-	check(n:CharKey() == "Aldren - Forever", "two of its name and class, one a higher level than it is: the other")
+	check(n:Realm() == nil and n:CharKey() == "Aldren - ", "two of its name and class, one a higher level than it is: the level doesn't decide, nothing is guessed")
 	local wearing = { 501, 502, 503, 504, 505 }
 	n = boot({ cache = two({ equipped = worn(501, 502, 503, 504, 999) }, { equipped = worn(501, 777, 778) }), worn = wearing })
 	check(n:CharKey() == "Aldren - Forever", "two of its name, class and level: the one wearing what it wears (4 of 5 against 1)")
@@ -393,8 +396,8 @@ end)()
 	local n = boot({ realm = "Forever" })
 	BagSmithDB.whatsNewSeen, BagSmithDB.whatsNewPatchSeen, BagSmithDB.whatsNewButtonSeen = "1.9.5", { ["1.9.5"] = true, ["1.9.4"] = true, ["1.9.3"] = true, ["1.9.2"] = true, ["1.9.1"] = true }, "1.9.5"
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[1]
-	check(e.v == "1.9.6" and e.heading == "BagSmith 1.9.6" and #e.items == 2, "the 1.9.6 entry leads, two bullets")
+	local e = WN.ENTRIES[3]   -- (by design since 1.9.8: two places down, after 1.9.8's and 1.9.7's entries)
+	check(e.v == "1.9.6" and e.heading == "BagSmith 1.9.6" and #e.items == 2, "the 1.9.6 entry, two bullets")
 	check(e.items[1] == "|cfffac775Your Characters Are Back:|r a recent game update hid your other characters from tooltips, Global Inventory and your gold totals. That's fixed, and nothing was lost.", "Your Characters Are Back, word for word")
 	check(e.items[2] == "|cfffac775Catching Up:|r each character shows what it had the last time you played it before the update. Log in to it once and it's up to date again.", "Catching Up, word for word")
 	local text = table.concat(e.items, " ")

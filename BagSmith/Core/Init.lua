@@ -242,14 +242,18 @@ end
 
 -- What a character's saved data and profile are filed under: "Name - Realm". (1.9.6) The realm is ns:Realm()'s
 -- answer (below, after the events); while it has none, the game's own, as before, even an empty one.
+-- (1.9.8) The name is the first name, as it always was, unless that key is another character's: see ns:OwnKey.
 function ns:CharKey(name, realm)
+	local own = name == nil and realm == nil
 	if realm == nil then
 		realm = ns:Realm()
 		if realm == nil then
 			realm = GetRealmName and GetRealmName()
 			if type(realm) ~= "string" then realm = "Unknown" end
+			own = false   -- (no realm yet: nothing is filed, and nothing is worked out)
 		end
 	end
+	if own then return ns:OwnKey(realm) end
 	return (name or UnitName("player") or "Unknown") .. " - " .. realm
 end
 
@@ -346,8 +350,9 @@ end
 --   2. the realm learned for its server number, the middle of its GUID ("Player-6925-04D3CC4C" is server 6925; the
 --      number differs by ruleset, Jeor's two characters: 6925 and 6935), kept for the account in BagSmithDB.servers;
 --   3. the realm a saved character of its name is filed under, when only one of them can be this character: the same
---      class, not a higher level, not stamped with another character's GUID, not on a realm that belongs to another
---      server number. With several left, the one whose saved gear is clearly what's worn now, or none;
+--      class, not another full name (1.9.8; a higher saved level no longer rules one out), not stamped with another
+--      character's GUID, not on a realm that belongs to another server number. With several left, the one whose
+--      saved gear is clearly what's worn now, or none;
 --   4. for a character with nothing saved (a new one, a new install), a label made from the server number: characters
 --      on one server still group together, and the label gives way to the real name the moment that's learned.
 -- nil when none of these answers (yet): nothing is ever filed under a guess, and BagSmith behaves as it did before.
@@ -451,17 +456,32 @@ local function savedRealm(name, guid, server)
 	local db = rawget(_G, "BagSmithDB")
 	if type(db) ~= "table" or type(db.cache) ~= "table" then return nil end
 	local map = serverMap()
-	local class, level
+	local class
 	if UnitClass then class = select(2, UnitClass("player")) end
-	if UnitLevel then level = UnitLevel("player") end
-	if type(level) ~= "number" or level < 1 then level = nil end
+	-- (1.9.8) its own stamp, under whatever key (a character that shares its first name has a key of its own). A
+	-- stamp on a record filed under a server-number label is kept in hand: a saved character on a real realm that
+	-- can be this one is the better answer, and brings the labelled records over (learnServer).
+	local label
+	if guid then
+		for _, data in pairs(db.cache) do
+			if type(data) == "table" and data.guid == guid and soundRealm(data.realm) then
+				if not labelServer(data.realm) then return data.realm end
+				label = data.realm
+			end
+		end
+	end
+	local full = ns:DisplayName("player")
 	local found = {}
 	for key, data in pairs(db.cache) do
 		if type(data) == "table" and soundRealm(data.realm) and key == name .. " - " .. data.realm then
-			if guid and data.guid == guid then return data.realm end   -- its own stamp: no doubt
 			local ok = true
 			if type(class) == "string" and type(data.class) == "string" and data.class ~= class then ok = false end
-			if ok and level and type(data.level) == "number" and data.level > level then ok = false end
+			-- (1.9.8) Forever's names are a first and a last name, and two characters can share the first: a saved
+			-- character with another full name isn't this one.
+			if ok and ns.OtherName(data.name, full) then ok = false end
+			-- (1.9.8) The level no longer rules a saved character out: read while the addon loads on a fresh login it
+			-- can be too low (the mock: 1, then the real level by PLAYER_LOGIN), and the character was then taken for
+			-- a new one, filed for good under a label made from its server number, and cut off from its alts.
 			-- (another character's stamp; or this character's GUID isn't to be had yet, so it can't be told: later)
 			if ok and type(data.guid) == "string" then ok = false end
 			if ok and server then
@@ -472,7 +492,7 @@ local function savedRealm(name, guid, server)
 		end
 	end
 	if #found == 1 then return found[1].realm end
-	if #found < 2 then return nil, #found end
+	if #found < 2 then return label, #found end
 	-- several: the one wearing what this character wears (three items or more, and twice any other's), or none
 	local worn = {}
 	if type(GetInventoryItemID) == "function" then
@@ -487,7 +507,66 @@ local function savedRealm(name, guid, server)
 		if n > most then best, most, second = data, n, most elseif n > second then second = n end
 	end
 	if best and most >= 3 and most >= 2 * second then return best.realm end
-	return nil, #found
+	return label, #found
+end
+-- (1.9.8-beta1, Shweep: "some items are not showing up in global / tooltips"; his Shweepy Thyme showed Shweepy
+-- Dreamshade's bank as its own, and neither saw the other) Forever's characters have a first and a last name, the
+-- game's UnitName gives the first alone, and two characters on one ruleset can share it. Filed under "First - Realm",
+-- they shared one saved record, each login writing over the other's bags, bank and gold: so since saved characters
+-- began, not since 1.9.6. A character now takes the usual key only when that record isn't another character's, told
+-- by the GUID each save stamps on it (1.9.6) or, for a record with no stamp, by its full name; otherwise it gets a
+-- key of its own under its full name, and its profile comes along. Nobody else's key changes.
+local function twoWords(n) return type(n) == "string" and n:find("^%S+ %S") ~= nil end
+-- Is a saved character's name another character's than this full name? Only two full names can tell.
+function ns.OtherName(saved, full) return twoWords(saved) and twoWords(full) and saved ~= full end
+local ownKey, ownKeyRealm, ownKeyTold
+function ns:OwnKey(realm)
+	local first = (UnitName and UnitName("player")) or "Unknown"
+	local usual = first .. " - " .. realm
+	local db = rawget(_G, "BagSmithDB")
+	if not ns.cdb or type(db) ~= "table" or type(db.cache) ~= "table" then return usual end   -- (saved data not loaded yet)
+	if ownKey and ownKeyRealm == realm then return ownKey end
+	local guid = playerGUID()
+	local full = ns:DisplayName("player")
+	local function others(data)
+		if type(data) ~= "table" then return false end
+		if guid and type(data.guid) == "string" then return data.guid ~= guid end
+		return ns.OtherName(data.name, full)   -- (no stamp, or no GUID to hold against it yet: the full names)
+	end
+	local key
+	-- 1. the record stamped as this character's, wherever it is filed (the usual key first, then by name)
+	if guid then
+		local mine = {}
+		for k, data in pairs(db.cache) do
+			if type(k) == "string" and type(data) == "table" and data.guid == guid and data.realm == realm then mine[#mine + 1] = k end
+		end
+		table.sort(mine)
+		for _, k in ipairs(mine) do if k == usual then key = k end end
+		key = key or mine[1]
+	end
+	-- 2. the usual key, unless that record is another character's
+	if not key and not others(db.cache[usual]) then key = usual end
+	-- 3. a key of its own: its full name, or its first name and the end of its GUID
+	if not key then
+		local tail = guid and guid:match("%-(%x+)$")
+		local names = { twoWords(full) and full or nil, tail and (first .. " " .. tail) or nil, tail and (full .. " " .. tail) or nil }
+		for i = 1, 3 do
+			local k = names[i] and (names[i] .. " - " .. realm)
+			if k and k ~= usual and not others(db.cache[k]) then key = k; break end
+		end
+		-- its profile comes along the first time (the two shared the usual key's)
+		if key and type(db.chars) == "table" and db.cache[key] == nil and db.chars[key] == nil and db.chars[usual] ~= nil then db.chars[key] = db.chars[usual] end
+	end
+	key = key or usual   -- (nothing tells it apart: as before)
+	-- Kept for the session once the GUID has had its say (or the client has none to give).
+	if guid or type(UnitGUID) ~= "function" then ownKey, ownKeyRealm = key, realm end
+	-- The key can change once, when the GUID arrives after loading: the counts kept under the old one are dropped.
+	if ownKeyTold ~= key then
+		local was = ownKeyTold
+		ownKeyTold = key
+		if was and ns.Inventory and ns.Inventory.Invalidate then ns.Inventory:Invalidate(true) end
+	end
+	return key
 end
 function ns:Realm()
 	local r = GetRealmName and GetRealmName()
@@ -517,13 +596,16 @@ function ns:Realm()
 	end
 	-- 2. its server number
 	if not realm and server and map and map[server] then realm, from = map[server], "its server number" end
-	-- 3. a saved character of its name
+	-- 3. a saved character of its name. (1.9.8) Also when all there is so far is a label: a character that was taken
+	-- for a new one (1.9.6 and 1.9.7 could, see savedRealm) finds its saved self again, and learning the server's
+	-- real name moves everything filed under the label.
 	local several
-	if not realm then
-		realm, several = savedRealm(name, guid, server)
-		if realm then
-			from = "its saved character"
-			if not labelServer(realm) then learnServer(server, realm) end
+	if not realm or labelServer(realm) then
+		local saved
+		saved, several = savedRealm(name, guid, server)
+		if saved and (not realm or not labelServer(saved)) then
+			realm, from = saved, "its saved character"
+			if not labelServer(saved) then learnServer(server, saved) end
 		end
 	end
 	-- 4. nothing saved: a label from the server number
@@ -539,6 +621,7 @@ end
 -- Worth asking again: the player's name, level, gear and GUID arrive as the game loads, and a save has to be right.
 function ns:RealmRetry()
 	realmStuck, realmTaught = nil, nil
+	ownKey, ownKeyRealm = nil, nil   -- (1.9.8) and whose record is whose, read again
 	if realmKnown and realmUnsure and playerGUID() then realmKnown, realmUnsure = nil, nil end
 end
 -- For /bs check: the realm in use and where it came from.

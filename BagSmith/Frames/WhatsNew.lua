@@ -26,6 +26,17 @@ ns.WhatsNew = WN
 WN.ENTRIES = {
 	-- (1.9.2-beta1, Shweep) a release's updates have entries of their own, shown under its tab: 1.9.2 (Jeor's red tint)
 	-- and 1.9.1 (which had no card), as Shweep approved them
+	-- (1.9.8-beta1, after Shweep's "this should have had a card in what's new" on 1.9.7: an entry is drafted for every
+	-- release a player can notice) two characters sharing a first name shared one saved record
+	{ v = "1.9.8", heading = "BagSmith 1.9.8", items = {
+		"|cfffac775Shared First Names:|r two characters with the same first name, like Mara Swift and Mara Stone, no longer write over each other's saved bags, bank and gold. Each shows on its own in Global Inventory and tooltips.",
+		"|cfffac775One Thing to Do:|r if you have characters like that, log in to each and visit the bank once, so its bank is saved fresh.",
+	} },
+	-- (1.9.8-beta1) 1.9.7's entry, added afterwards as Shweep asked (1.9.7 was already published without one)
+	{ v = "1.9.7", heading = "BagSmith 1.9.7", items = {
+		"|cfffac775No Clean Up at Vendors:|r Clean Up Bags When Opened no longer runs when your bags open at a vendor, so your items stay put while you sell. The Clean Up button still works there.",
+		"|cfffac775Junk Stays Dimmed:|r with Dim Junk on, junk keeps its greyed look while your bags are being cleaned up.",
+	} },
 	-- (1.9.6-beta1; Shweep asked whether What's New should warn players to log into every alt) no warning needed, a
 	-- reassurance: client build 71037 stopped giving the realm, which hid every alt (Core/Init.lua)
 	{ v = "1.9.6", heading = "BagSmith 1.9.6", items = {

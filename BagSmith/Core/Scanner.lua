@@ -570,6 +570,9 @@ function ns:IsOwnKey(key)
 	local data = BagSmithDB and BagSmithDB.cache and BagSmithDB.cache[key]
 	if not data then return false end
 	local realm = ns:Realm()   -- (1.9.6) the game's answer, or what stands in for it (Core/Init.lua)
+	-- (1.9.8) a record stamped with a GUID is that character's and nobody else's, whatever its name says
+	local guid = ns.PlayerGUID()
+	if guid and type(data.guid) == "string" then return data.guid == guid and (data.realm == realm or data.realm == "Unknown" or data.realm == nil) end
 	local myName = ns:DisplayName("player")
 	return data.name == myName and (data.realm == realm or data.realm == "Unknown" or data.realm == nil)
 end
@@ -603,6 +606,12 @@ function ns:SaveCache(atLogout)
 	if not realm or not name or name == "" then return end
 	local key = ns:CharKey()
 	local entry = BagSmithDB.cache[key] or {}
+	-- (1.9.8) never over another character's record: ns:OwnKey keeps the two apart, and this is the last check
+	local guid = ns.PlayerGUID()
+	if guid and type(entry.guid) == "string" and entry.guid ~= guid then
+		ns:Debug("not saved: %s is another character's record", key)
+		return
+	end
 	local _, class = UnitClass("player")
 	entry.name = ns:DisplayName("player")
 	entry.realm = realm

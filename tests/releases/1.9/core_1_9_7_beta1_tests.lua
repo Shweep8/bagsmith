@@ -142,7 +142,9 @@ end)()
 	local row
 	for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == "cleanOnOpen" then row = w end end
 	check(row and row.help.text == "Tidies your bags each time you open them, except in combat, at the bank or at a vendor.", "the setting's description names the vendor, word for word")
-	check(n.WhatsNew.ENTRIES[1].v == "1.9.6", "no What's New entry for 1.9.7 (a small fix; 1.9.6's still leads)")
+	-- (by design since 1.9.8-beta1: 1.9.7 was published without a What's New entry, which Shweep wanted; 1.9.8 adds
+	-- it, so this set, running as 1.9.7, sees none newer than 1.9.6's, and the entry itself is checked in 1.9.8's set)
+	check(n.WhatsNew:Latest()[1].v == "1.9.7" and n.WhatsNew.ENTRIES[2].v == "1.9.7", "1.9.7's What's New entry (added in 1.9.8) is the newest this version sees")
 	local f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.9%.7\n.-)\n## 1%.9%.6\n") or ""
 	check(section:find("Dim Junk") and section:find("at a vendor") and not section:find("\226\128\148") and not section:find("\226\128\147"), "the changelog's 1.9.7 section covers both, with no dashes")
