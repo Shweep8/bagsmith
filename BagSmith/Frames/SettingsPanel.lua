@@ -1537,6 +1537,11 @@ function Panel:CustomSectionRow(c)
 	local at, count = ns.Sections:Priority(c.id) or 1, #ns.Sections:Customs()
 	w.up:SetAlpha(at > 1 and 1 or 0.3); w.down:SetAlpha(at < count and 1 or 0.3)
 	local summary = (c.rules and ns.Rules) and ns.Rules:Summary(c.rules) or ""
+	-- (1.10.0-beta5) and where it shows, when that isn't every sheet
+	if c.sheets and ns.Sections.SheetsText then
+		local where = ns.Sections:SheetsText(c.sheets)
+		if where ~= "" then summary = summary ~= "" and ("%s (only on %s)"):format(summary, where) or ("Only on %s"):format(where) end
+	end
 	w.sub:SetText(summary); w.sub:SetTextColor(Skins:Color("muted")); w.sub:SetShown(summary ~= "")
 	self.y = self.y + 28 + (summary ~= "" and 14 or 0)
 end

@@ -259,7 +259,7 @@ function J:ProtectReason(r)
 	if ns.Marks and r.itemID and ns.Marks:IsFavorite(r.itemID) then parts[#parts + 1] = "favorite" end
 	local S = ns.Sections
 	if S then
-		local sec = S:EffectiveSection(r)
+		local sec = S:EffectiveSection(r, ns.ui and ns.ui.sheet)   -- (1.10.0-beta5) as the bags window shows it
 		if sec and not S:Shown(sec, "vendor") then parts[#parts + 1] = ("hidden at vendors: %s"):format(S:Label(sec)) end
 	end
 	if #parts > 0 then return table.concat(parts, "; ") end

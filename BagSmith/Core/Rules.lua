@@ -90,11 +90,19 @@ R.KEYS.sec = {
 	label = "Section", filterOnly = true,
 	valid = function(v) return type(v) == "string" and v ~= "" and #v <= 40 end,
 	-- its section, and the section that one is a part of (Potions is part of Consumables)
-	of = function(rec)
-		if type(rec.cat) ~= "string" then return nil end
-		local parent = ns.PARENT_CAT and ns.PARENT_CAT[rec.cat]
-		if parent then return { rec.cat, parent } end
-		return { rec.cat }
+	-- (1.10.0-beta5) and, on the tab the filter is for, the section it's in there too: one that only shows on some
+	-- sheets. Both count, so a sheet filtered by Trade Goods keeps its cloth when a Cloth section splits that sheet.
+	of = function(rec, ctx)
+		local cat = rec.cat
+		if type(cat) ~= "string" then return nil end
+		local out = { cat }
+		local parent = ns.PARENT_CAT and ns.PARENT_CAT[cat]
+		if parent then out[#out + 1] = parent end
+		if type(ctx) == "table" and ctx.sheet and ns.Sections then
+			local here = ns.Sections:CatOn(rec, ctx.sheet)
+			if type(here) == "string" and here ~= cat then out[#out + 1] = here end
+		end
+		return out
 	end,
 }
 R.KEYS.bag = {
@@ -124,7 +132,7 @@ local function rowFits(row, rec, filter)
 	local def = R.KEYS[row.k]
 	if not def then return false end
 	if def.filterOnly and not filter then return false end   -- (1.10.0-beta4) a filter's key in a section's rules
-	local have = def.of(rec)
+	local have = def.of(rec, filter)
 	if have == nil then return false end
 	if def.number then
 		local lo, hi = row.v[1], row.v[2]
@@ -139,7 +147,8 @@ end
 local function usable(row) return type(row) == "table" and type(row.k) == "string" and type(row.v) == "table" and #row.v > 0 end
 
 -- Does the item fit these rules? Rows with no values are skipped; rules with no usable row fit nothing.
--- filter (1.10.0-beta4): true when a filter asks, so the keys that are only a filter's count too.
+-- filter (1.10.0-beta4): true when a filter asks, so the keys that are only a filter's count too. (1.10.0-beta5) Or
+-- a table, { sheet = the tab the filter is for }, which a Section rule needs.
 function R:Fits(rules, rec, filter)
 	if type(rules) ~= "table" or type(rules.rows) ~= "table" or type(rec) ~= "table" then return false end
 	local any, used = rules.mode == "any", 0

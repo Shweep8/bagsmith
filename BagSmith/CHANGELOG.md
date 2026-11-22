@@ -15,7 +15,12 @@ New:
   see how many items are left. Three rules are just for filters: Section, Bag and Time in Bags.
 - Save as Section... in the Filters window opens the section editor with the rules you've set, so a filter you like
   can become a section.
+- A section can show on every sheet, or only on some. In the section editor, set Show this section on to only some
+  sheets and tick the tabs. Everywhere else its items stay in their usual section, so Cloth, Leather and Herbs can
+  split up your Trade Goods tab while All keeps one Trade Goods section.
 Changed:
+- The Gear, Consumables, Trade Goods, Quest and Junk tabs show every item of their kind, grouped under your own
+  sections where you have them. Before, an item in one of your sections left its tab.
 - The boxes the Filters window used to have (Type / Sections, Bind, Where and Age) are rules now. Sheets you saved
   before show them as rules and filter the same.
 - An item you move back to its usual section by hand stays there, even when one of your sections would take it.

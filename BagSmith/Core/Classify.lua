@@ -432,18 +432,26 @@ function ns.UnfoldFilters(f)
 	out.rules = ns.Rules.Clean(rules)
 	return out
 end
-function ns:FilterPredicate(f)
+-- sheet (1.10.0-beta5): the tab the filters are for. A filter by section takes an item's section everywhere and, on
+-- that tab, the section it's in there (one that only shows on some sheets): either one counts.
+function ns:FilterPredicate(f, sheet)
 	local text = ns:ParseSearch(f.text)
 	local hasQ, hasCat, hasT, hasBd, hasW = next(f.q) ~= nil, next(f.cat) ~= nil, next(f.t) ~= nil, next(f.bd) ~= nil, next(f.w) ~= nil
 	-- (1.10.0-beta4) the same rules a custom section has, asked as a filter; and "Usable by Me"
 	local Rules = ns.Rules
 	local rules = Rules and Rules:HasRules(f.rules) and f.rules or nil
 	local usable = f.usable and ns.Usability or nil
+	local ctx = sheet and { sheet = sheet } or true
+	local S = ns.Sections
 	return function(r)
 		if usable and usable:IsUnusable(r) then return false end
-		if rules and not Rules:Fits(rules, r, true) then return false end
+		if rules and not Rules:Fits(rules, r, ctx) then return false end
 		if hasQ and not f.q[r.quality] then return false end
-		if hasCat and not (f.cat[r.cat] or (ns.PARENT_CAT[r.cat] and f.cat[ns.PARENT_CAT[r.cat]])) then return false end
+		if hasCat and not (f.cat[r.cat] or (ns.PARENT_CAT[r.cat] and f.cat[ns.PARENT_CAT[r.cat]])) then
+			-- (1.10.0-beta5) or the section it's in on this tab, when that is one that only shows on some sheets
+			local here = (sheet and S) and S:CatOn(r, sheet) or nil
+			if not (here and f.cat[here]) then return false end
+		end
 		if hasT and not f.t[r.itemSubType or ""] then return false end
 		if hasBd and not f.bd[ns:BindText(r) ~= "" and ns:BindText(r) or "None"] then return false end
 		if hasW and not f.w[r.where or ""] then return false end
@@ -531,7 +539,11 @@ function ns:LaneOf(rec, grp, opts)
 	-- Keys: their own section in By Type always (at their Section Order place);
 	-- in All and By Bag only with Keys in Their Own Section.
 	if rec.cat == "Keys" and (ns.db.keys or grp == "type") then return "~ky", "Keys", true end
-	if grp == "type" then return rec.cat, (ns.Sections and ns.Sections:Label(rec.cat)) or ns.CAT_LABEL[rec.cat] or rec.cat, false end
+	if grp == "type" then
+		-- (1.10.0-beta5) its section on the tab being drawn (opts.sheet)
+		local cat = (opts.sheet and ns.Sections) and ns.Sections:CatOn(rec, opts.sheet) or rec.cat
+		return cat, (ns.Sections and ns.Sections:Label(cat)) or ns.CAT_LABEL[cat] or cat, false
+	end
 	if grp == "bag" then return "bag:" .. tostring(rec.bag), rec.where or tostring(rec.bag), false end
 	return "", "", false
 end

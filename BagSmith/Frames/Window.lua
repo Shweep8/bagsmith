@@ -422,6 +422,8 @@ function ns:UpdateSheet(oldName, newName, view)
 			local prefs = ns.db.sheetPrefs and ns.db.sheetPrefs[view.isBank and "bank" or "bags"]
 			if prefs and oldName ~= newName then prefs[newName], prefs[oldName] = prefs[oldName], nil end
 			if view.st.sheet == oldName then view.st.sheet = newName end
+			-- (1.10.0-beta5) sections set to show on this sheet follow its new name
+			if ns.Sections and ns.Sections.SheetRenamed then ns.Sections:SheetRenamed(oldName, newName) end
 			ns:RefreshViews(true)
 			return true
 		end
@@ -440,6 +442,8 @@ function ns:DeleteSheet(name, view)
 	local prefs = ns.db.sheetPrefs and ns.db.sheetPrefs[view.isBank and "bank" or "bags"]
 	if prefs then prefs[name] = nil end
 	if view.st.sheet == name then view.st.sheet = "All"; view.st.filters = ns.EmptyFilters(); if view.search then view.search:SetText("") end end
+	-- (1.10.0-beta5) sections set to show on this sheet let go of it
+	if ns.Sections and ns.Sections.SheetDeleted then ns.Sections:SheetDeleted(name) end
 	ns:RefreshViews(true)
 end
 

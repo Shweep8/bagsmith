@@ -436,6 +436,8 @@ local validators = {
 				if c.showEmpty == false then entry.showEmpty = false end
 				-- (1.10.0-beta1) its rules, cleaned (Core/Rules.lua): a saved or imported profile is never trusted as it comes
 				if c.rules ~= nil and ns.Rules and ns.Rules.Clean then entry.rules = ns.Rules.Clean(c.rules) end
+				-- (1.10.0-beta5) the sheets it's set to show on: sound names only; none means every sheet
+				if c.sheets ~= nil and ns.Sections and ns.Sections.CleanSheets then entry.sheets = ns.Sections.CleanSheets(c.sheets) end
 				out[#out + 1] = entry
 			end
 		end
@@ -789,6 +791,24 @@ local function validateProfile(saved)
 	for _, key in ipairs({ "sheets", "bankSheets" }) do
 		for _, sh in ipairs(type(out[key]) == "table" and out[key] or {}) do
 			if type(sh) == "table" and ns.PruneFilterCategories then ns.PruneFilterCategories(sh.f, out.customSections) end
+		end
+	end
+	-- (1.10.0-beta5) A section's sheets are checked against THIS profile's tabs the same way: a name that is neither
+	-- one of BagSmith's tabs nor one of the profile's sheets is dropped (a section left with none shows on every sheet).
+	do
+		local have = {}
+		for id in pairs(ns.TAB_LABEL) do have[id] = true end
+		for _, key in ipairs({ "sheets", "bankSheets" }) do
+			for _, sh in ipairs(type(out[key]) == "table" and out[key] or {}) do
+				if type(sh) == "table" and type(sh.n) == "string" then have[sh.n] = true end
+			end
+		end
+		for _, c in ipairs(type(out.customSections) == "table" and out.customSections or {}) do
+			if type(c) == "table" and type(c.sheets) == "table" then
+				local kept = {}
+				for _, name in ipairs(c.sheets) do if have[name] then kept[#kept + 1] = name end end
+				c.sheets = #kept > 0 and kept or nil
+			end
 		end
 	end
 	-- Section numbers are never reused: start this profile's counter above

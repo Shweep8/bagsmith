@@ -69,6 +69,14 @@ function E:Window()
 	f.add = ns.TextButton(f.rulesChild, "+ Add a Rule", 104, function(b) E:AddMenu(b) end); f.add:SetHeight(22)
 	f.hint = text(f.rulesChild, nil, RULES_W - 4); f.hint:SetText("Pick two or more on one line and either one counts.")
 	f.order = text(f.rulesChild, nil, RULES_W - 4)
+	-- (1.10.0-beta5) Show this section on [every sheet] [only some sheets], then the tabs to tick
+	f.scopeLabel = text(f.rulesChild); f.scopeLabel:SetText("Show this section on")
+	f.scopeAll = ns.TextButton(f.rulesChild, "every sheet", 84, function() E:SetScoped(false) end); f.scopeAll:SetHeight(20)
+	f.scopeSome = ns.TextButton(f.rulesChild, "only some sheets", 116, function() E:SetScoped(true) end); f.scopeSome:SetHeight(20)
+	f.scopeAll.tip = "This section is on every tab."
+	f.scopeSome.tip = "This section is only on the tabs you tick. Everywhere else, its items stay in their usual section."
+	f.sheetChips = {}
+	f.scopeNote = text(f.rulesChild, nil, RULES_W - 4)
 	-- the line between the two sides
 	f.divider = f:CreateTexture(nil, "ARTWORK"); f.divider:SetSize(1, H - 40 - BOTTOM)
 	f.divider:SetPoint("TOPLEFT", PAD + LW + GAP / 2, -40)
@@ -97,7 +105,7 @@ function E:Window()
 		Skins:ApplyBackdrop(fr); local s = Skins:Current(); fr:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1)
 		fr.title:SetTextColor(unpack(s.heading)); fr.shownTitle:SetTextColor(unpack(s.heading))
 		for _, t in ipairs({ fr.nameLabel, fr.shownSub, fr.hint, fr.order, fr.foot }) do t:SetTextColor(unpack(s.muted)) end
-		fr.ask:SetTextColor(unpack(s.text))
+		fr.ask:SetTextColor(unpack(s.text)); fr.scopeLabel:SetTextColor(unpack(s.text))
 		fr.divider:SetColorTexture(s.line[1], s.line[2], s.line[3], 1)
 		fr.box:SetBackdropColor(0, 0, 0, 0); fr.box:SetBackdropBorderColor(s.line[1], s.line[2], s.line[3], 1)
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
@@ -122,6 +130,27 @@ function E:Window()
 	return f
 end
 
+-- (1.10.0-beta5) every sheet, or only some; and a tab ticked or unticked
+function E:SetScoped(on)
+	local d = self.draft
+	if not d then return end
+	d.scoped = on and true or false
+	self:Changed()
+end
+function E:ToggleSheet(id)
+	local d = self.draft
+	if not (d and id) then return end
+	d.sheets = d.sheets or {}
+	local at
+	for i, name in ipairs(d.sheets) do if name == id then at = i end end
+	if at then table.remove(d.sheets, at) else d.sheets[#d.sheets + 1] = id end
+	self:Changed()
+end
+-- The tabs the draft is set to show on, or nil for every sheet.
+function E:Sheets()
+	local d = self.draft
+	return d and d.scoped and S.CleanSheets(d.sheets) or nil
+end
 function E:SetMode(mode)
 	if not self.draft then return end
 	self.draft.mode = mode == "any" and "any" or "all"
@@ -171,7 +200,9 @@ function E:RefreshShown(s)
 	local f, d = self.frame, self.draft
 	local R = ns.Rules
 	local rules = R.Clean(self:Rules())
-	local here, elsewhere = S:PreviewRules(rules, d.id)
+	local sheets = self:Sheets()
+	local here, elsewhere = S:PreviewRules(rules, d.id, sheets)
+	f.shownSub:SetText(sheets and ("Looking at your bags and bank, on %s"):format(S:SheetsText(sheets)) or "Looking at your bags and bank")
 	table.sort(here, byName)
 	table.sort(elsewhere, function(a, b) return byName(a.rec, b.rec) end)
 	self.shown = { here = here, elsewhere = elsewhere, rules = rules }
@@ -272,6 +303,47 @@ function E:Refresh()
 	y = y + 30
 	f.hint:SetShown(lists > 0)
 	if lists > 0 then f.hint:ClearAllPoints(); f.hint:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", 0, -y); y = y + 16 end
+	-- (1.10.0-beta5) where the section shows
+	y = y + 8
+	f.scopeLabel:ClearAllPoints(); f.scopeLabel:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", 0, -(y + 4))
+	f.scopeAll:ClearAllPoints(); f.scopeAll:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", 124, -y)
+	f.scopeSome:ClearAllPoints(); f.scopeSome:SetPoint("LEFT", f.scopeAll, "RIGHT", 6, 0)
+	f.scopeAll:SetActive(not d.scoped); f.scopeSome:SetActive(d.scoped and true or false)
+	y = y + 26
+	local used = 0
+	if d.scoped then
+		local choices, covered = S:TabChoices(), {}
+		for _, t in ipairs(choices) do covered[t.id] = true end
+		-- (a sheet it names that isn't one of your tabs any more can still be unticked)
+		for _, id in ipairs(d.sheets or {}) do if not covered[id] then choices[#choices + 1] = { id = id, label = S:TabLabel(id) } end end
+		local x = 0
+		for i, t in ipairs(choices) do
+			local c = f.sheetChips[i]
+			if not c then
+				c = ns.TextButton(f.rulesChild, "", 40, function(b) E:ToggleSheet(b.sheet) end); c:SetHeight(20)
+				f.sheetChips[i] = c
+			end
+			local on = false
+			for _, name in ipairs(d.sheets or {}) do if name == t.id then on = true end end
+			c.sheet = t.id
+			c.label:SetText(t.label)
+			c:SetActive(on)
+			local w = math.min(RULES_W - 4, math.max(30, math.ceil(c.label:GetStringWidth() or 0) + 16))
+			c:SetWidth(w)
+			if x > 0 and x + w > RULES_W - 4 then x = 0; y = y + 24 end
+			c:ClearAllPoints(); c:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", x, -y); c:Show()
+			x = x + w + 4
+			used = i
+		end
+		y = y + 26
+		local sheets = self:Sheets()
+		f.scopeNote:SetText(sheets and "On your other sheets, these items stay in their usual section." or "Tick at least one, or this section shows on every sheet.")
+		if sheets then f.scopeNote:SetTextColor(unpack(s.muted)) else f.scopeNote:SetTextColor(0.95, 0.6, 0.45) end
+		f.scopeNote:ClearAllPoints(); f.scopeNote:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", 0, -y)
+		y = y + 4 + math.max(13, math.ceil(f.scopeNote:GetStringHeight() or 13))
+	end
+	f.scopeNote:SetShown(d.scoped and true or false)
+	for i = used + 1, #f.sheetChips do f.sheetChips[i]:Hide() end
 	local note = orderNote(d)
 	f.order:SetShown(note ~= "")
 	if note ~= "" then
@@ -301,6 +373,12 @@ function E:Open(id, start)
 	if c then start = nil end
 	local d = self:DraftFrom(c and c.rules or (start and start.rules))
 	d.id = c and c.id or nil
+	-- (1.10.0-beta5) the sheets it's set to show on
+	d.sheets, d.scoped = {}, false
+	if c and c.sheets then
+		for i, name in ipairs(c.sheets) do d.sheets[i] = name end
+		d.scoped = true
+	end
 	self.draft = d
 	self:ClearBoxes()
 	f.title:SetText(c and "Edit Section" or "New Section")
@@ -331,6 +409,10 @@ function E:Save()
 		if not id then return self:Error(why) end
 	end
 	if rules or S:Rules(id) then S:SetRules(id, rules) end
+	-- (1.10.0-beta5) where it shows: only written when it changes
+	local sheets = self:Sheets()
+	local now = S:Sheets(id)
+	if table.concat(sheets or {}, "\1") ~= table.concat(now or {}, "\1") then S:SetSheets(id, sheets) end
 	f:Hide()
 	return id
 end

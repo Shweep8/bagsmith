@@ -380,7 +380,16 @@ function S:ItemMenu(rec, owner)
 	local function guard(fn) return function() if ns.db == db then fn() end end end
 	local moved = S:MovedTo(id)
 	local own = rec.ownCat or ns:Categorize(rec)
-	local current = moved or S:RuleSection(rec, own) or own   -- (1.10.0-beta1) or the section whose rules it fits
+	-- (1.10.0-beta5) the section it's in on the tab the menu was opened from (a section can show on some tabs only)
+	local sheet
+	do
+		local x, depth = owner, 0
+		while x and depth < 10 do
+			if type(x.view) == "table" and x.view.st then sheet = x.view.st.sheet; break end
+			x = x.GetParent and x:GetParent(); depth = depth + 1
+		end
+	end
+	local current = S:Apply(rec, own, sheet)   -- (1.10.0-beta1) where you put it, or the section whose rules it fits
 	local q = rec.quality or 1
 	local qc = (ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]) or nil
 	local items = { { text = rec.name or ("Item " .. id), title = true, big = true, gap = not moved, color = qc and { qc.r, qc.g, qc.b } or nil } }
@@ -400,6 +409,9 @@ function S:ItemMenu(rec, owner)
 	for _, sec in ipairs(S:Targets()) do
 		-- The item's default section is marked; picking it moves the item back.
 		local label = S:Label(sec) .. (sec == own and " (default)" or "")
+		-- (1.10.0-beta5) a section that isn't shown on this tab says where it is
+		local sc = S:Custom(sec)
+		if sc and sc.sheets and not S:OnSheet(sc, sheet) then label = ("%s (on %s)"):format(label, S:SheetsText(sc.sheets)) end
 		items[#items + 1] = { text = "   " .. label, checked = sec == current, group = true, onClick = guard(function() S:Move(id, sec) end) }
 	end
 	items[#items + 1] = { text = "   New Section...", onClick = guard(function() S:PromptNew(id) end) }

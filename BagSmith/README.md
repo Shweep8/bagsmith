@@ -23,6 +23,8 @@ Spreadsheet-style bags for World of Warcraft: Forever.
 - Search shortcuts: plain words, `boe`, `bop`, `new`, `q:rare`, `t:herb`, `il>20`.
 - Filters window (quality, quick picks, and rules such as type, slot, binding, section or bag) and "Save as Sheet": your own tabs.
   "Save as Section" turns the rules into one of your sections.
+- Custom Sections: your own sections, filled by hand (drag an item onto a title) or by rules (type, slot, quality,
+  binding, item level, vendor value), in the order you rank them, on every sheet or only on some.
 - Sheet tabs: reorder by dragging, hide in Settings. Optionally, each sheet remembers its own view.
 - What's New: a short card after notable updates, with a tab for each recent release; reopen it from Settings or `/bs new`.
 - Sell Junk + Mark as Junk: mark items as junk (Junk column or a keybinding) and they're sold with Blizzard's Sell All Junk. Optional Dim Junk Items.
