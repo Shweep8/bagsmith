@@ -39,7 +39,7 @@ for _,skin in ipairs({'modern','classic'}) do
    if skin=='modern' then
     assert(b.modernBorder[1]:IsShown() and b.borderThickness==n.Buttons.PixelSize(b)*(weight=='bold' and 2 or 1),'Every pool updates Modern weight')
    else
-    assert((weight=='bold' and b.classicBold[1]:IsShown() and b.qFrame:IsShown()) or (weight=='normal' and b.qFrame:IsShown() and not (b.classicBold and b.classicBold[1]:IsShown())),'Every pool switches Classic artwork')
+    assert(b.qFrame:IsShown() and not b.classicBold, 'Classic uses one frame regardless of saved border weight')
    end
   end
  end

@@ -547,11 +547,11 @@ ns:Set("skin", "modern")
 if not main:IsShown() then ToggleAllBags() end
 ns:Set("skin", "modern"); ns:Set("border", "all")
 local rb = ns.Buttons:Get(0, 1)  -- rare staff
-check(M.modernFrame(rb) and not rb.qRing:IsShown() and not rb.qFrame:IsShown() and not rb.frameBG:IsShown(), "modern list: one four-edge outline without the old frame")
+check(M.modernFrame(rb) and not rb.qRing and not rb.qFrame:IsShown() and not rb.frameBG:IsShown(), "modern list: one four-edge outline without the old frame")
 ns:Set("skin", "classic")
-check(rb.qRing:IsShown() and not rb.qFrame:IsShown() and not rb.frameBG:IsShown() and not rb.slotBG:IsShown(), "classic list: plain icon with a thin ring, no slot art")
+check(rb.qFrame:IsShown() and not rb.qRing and not rb.frameBG:IsShown() and not rb.slotBG:IsShown(), "classic list: masked icon with a textured frame, no slot art")
 ns:Set("view", "icons")
-check(rb.qFrame:IsShown() and not rb.qRing:IsShown() and rb.slotBG:IsShown(), "classic icon cells: Blizzard slot art and Blizzard's rarity frame")
+check(rb.qFrame:IsShown() and not rb.qRing and rb.slotBG:IsShown(), "classic icon cells: Blizzard slot art and the textured rarity frame")
 ns:Set("skin", "modern")
 check(M.modernFrame(rb) and not rb.frameBG:IsShown() and not rb.slotBG:IsShown(), "modern icon cells: four-edge outline without slot art")
 ns:Set("view", "list")
@@ -568,7 +568,7 @@ check(rb.IconBorder and not rb.IconBorder:IsShown(), "Blizzard's own border stay
 ns:Set("dense", true); ns:Set("skin", "classic"); ns:RefreshViews(true)
 local drb = ns.Buttons:Get(0, 1)
 check(drb.h == 22 and drb.icon.w == 16, "compact rows shrink the icon with the row: " .. tostring(drb.icon.w))
-check(drb.qRing:IsShown() and not drb.qFrame:IsShown(), "classic compact rows keep the thin ring")
+check(drb.qFrame:IsShown() and not drb.qRing, "classic compact rows share the textured frame")
 ns:Set("skin", "modern")
 check(M.modernFrame(drb) and not drb.frameBG:IsShown(), "modern outline follows the smaller icon")
 ns:Set("dense", false)
@@ -1369,7 +1369,7 @@ ns:Set("debug", true)   -- before the hold: a settings change ends a hold, as it
 main.frame.IsMouseOver = function() return true end
 local keep01 = M.bags[0][1]; M.bags[0][1] = nil
 M.fire("BAG_UPDATE_DELAYED"); M.runTimers()
-check(gr.rec.empty and not gr.frameBG:IsShown() and not gr.frameEdge:IsShown() and not gr.qRing:IsShown(), "a gap row leaves no ghost of the icon frame")
+check(gr.rec.empty and not gr.frameBG:IsShown() and not gr.frameEdge:IsShown() and not gr.qFrame:IsShown() and not gr.defaultFrame:IsShown(), "a gap row leaves no ghost of the icon frame")
 -- pin: a move nobody asked for is undone while held
 local o1, o2, o3 = main.scroll.GetVerticalScroll, main.scroll.SetVerticalScroll, main.scroll.GetHeight
 local o4 = main.child.GetHeight
@@ -2088,14 +2088,13 @@ end)()
 				for slot, q in pairs({ [1] = 3, [2] = 1, [3] = 0 }) do
 					local b = n6.Buttons:Get(0, slot)
 					local colored = setting == "all" or (setting == "unc" and q >= 2)
-					local frame = M.modernFrame(b) or (b.qRing:IsShown() and b.qRing) or (b.qFrame:IsShown() and b.qFrame)
-					local both = (b.qRing:IsShown() and b.qFrame:IsShown()) or (M.modernFrame(b) and (b.qRing:IsShown() or b.qFrame:IsShown()))
+					local frame = M.modernFrame(b) or (b.qFrame:IsShown() and b.qFrame) or (b.defaultFrame:IsShown() and b.defaultFrame)
+					local both = (b.defaultFrame:IsShown() and b.qFrame:IsShown()) or (M.modernFrame(b) and (b.defaultFrame:IsShown() or b.qFrame:IsShown()))
 					local neutralColor = frame and frame.color and frame.color[1] == N[1] and frame.color[2] == N[2]
 					local defaultSlot = skin == "classic" and (q < 2 or not colored)
-					local defaultRow = defaultSlot and view == "list"
-					local invalid = (defaultSlot and not defaultRow and frame) or (defaultRow and
-						(not frame or not b.qRing:IsShown() or frame.color[1] ~= .72 or frame.color[2] ~= .72 or both)) or (not defaultSlot and
-						(not frame or both or (colored and neutralColor) or (not colored and not neutralColor)))
+					local invalid = not frame or both or (defaultSlot and
+						(not b.defaultFrame:IsShown() or frame.color[1] ~= .72 or frame.color[2] ~= .72)) or (not defaultSlot and
+						((colored and neutralColor) or (not colored and not neutralColor)))
 					if invalid then
 						ok = false; why = ("%s/%s/%s q%d"):format(skin, view, setting, q)
 					end
@@ -2109,7 +2108,7 @@ end)()
 	for _, b in ipairs(n6.Buttons.all) do if not b.hasItem then empty = b; break end end
 	n6.Buttons:SetMode(empty, "cell"); n6.Buttons:Blank(empty, { bag = 0, slot = 9 })
 	n6.Buttons:RefreshSkin()
-	check(empty and not M.modernFrame(empty) and not empty.qRing:IsShown() and not empty.qFrame:IsShown(), "empty slots get no frame, also after a skin refresh")
+	check(empty and not M.modernFrame(empty) and not empty.defaultFrame:IsShown() and not empty.qFrame:IsShown(), "empty slots get no frame, also after a skin refresh")
 	n6.ui.bagWindows = false; n6:Set("view", "list"); n6:Set("border", "all"); n6:RefreshViews(true)
 
 	-- Filter's right edge = the end of the toolbar (the View group), any skin, any width.
@@ -6954,8 +6953,8 @@ end)()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	ToggleAllBags(); M.runTimers()
 	local b = n.Buttons:Get(0, 1)
-	check(b.qFrame:IsShown() and b.qFrame.points[1][2] == b.icon and b.qFrame.points[1][4] == -2 * n.Buttons.PixelSize(b) and b.qFrame.points[2][4] == 2 * n.Buttons.PixelSize(b) and b.icon.points[1][2] == b and b.icon.points[1][4] == 0 and b.icon.points[2][4] == 0,
-		"Classic: full-slot icon retains a two-screen-pixel frame margin")
+	check(b.qFrame:IsShown() and b.qFrame.points[1][2] == b.icon and b.qFrame.points[1][4] == 0 and b.qFrame.points[2][4] == 0 and b.icon.points[1][2] == b and b.icon.points[1][4] == 0 and b.icon.points[2][4] == 0,
+		"Classic: frame matches the full-slot icon bounds")
 end)()
 
 ;(function()
