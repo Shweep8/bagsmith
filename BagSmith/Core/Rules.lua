@@ -13,6 +13,11 @@
 	the item waits in its usual section.
 
 	This file decides nothing about which section wins: Core/Sections.lua asks Rules:Fits in priority order.
+
+	(1.10.0-beta3) Number rules (Item Level, Vendor Value): the row's values are a range, v = { lo, hi }, whole numbers
+	from 0 to the key's top. "At least 30" is 30 to the top; "at most 30" is 0 to 30. The row has the same shape as the
+	others, so nothing else that reads or saves rules needs to know. Also the lists the rule editor offers: R:TypeGroups
+	(the game's own item types) and R:Options (slots, qualities, bindings).
 --]]
 local ADDON, ns = ...
 local R = {}
@@ -63,7 +68,18 @@ R.KEYS = {
 		end,
 	},
 }
-R.KEY_ORDER = { "type", "slot", "quality", "bind" }
+-- (1.10.0-beta3) Number rules: one answer (not a list), and a row's two values are the range it must be inside.
+local function wholeTo(top) return function(v) return type(v) == "number" and v >= 0 and v <= top and v == math.floor(v) end end
+R.KEYS.ilvl = {
+	label = "Item Level", number = true, top = 9999, valid = wholeTo(9999),
+	of = function(rec) if type(rec.ilvl) == "number" then return rec.ilvl end end,
+}
+-- What a vendor pays for one, in copper (0: it can't be sold). The top is 9999g 99s 99c.
+R.KEYS.price = {
+	label = "Vendor Value", number = true, money = true, top = 99999999, valid = wholeTo(99999999),
+	of = function(rec) if type(rec.sellPrice) == "number" then return rec.sellPrice end end,
+}
+R.KEY_ORDER = { "type", "slot", "quality", "bind", "ilvl", "price" }
 
 -- A row's values as a set, built once for each row table (never stored in the row: rows are saved data).
 local sets = setmetatable({}, { __mode = "k" })
@@ -81,6 +97,10 @@ local function rowFits(row, rec)
 	if not def then return false end
 	local have = def.of(rec)
 	if have == nil then return false end
+	if def.number then
+		local lo, hi = row.v[1], row.v[2]
+		return type(lo) == "number" and type(hi) == "number" and have >= lo and have <= hi
+	end
 	local set, hit = setOf(row), false
 	for _, a in ipairs(have) do if set[a] then hit = true; break end end
 	if row.n then return not hit end
@@ -118,15 +138,30 @@ function R.Clean(rules)
 		if #out.rows >= R.MAX_ROWS then break end
 		if type(row) == "table" and type(row.k) == "string" and #row.k <= 24 and row.k:match("^[%a_]+$") and type(row.v) == "table" then
 			local def = R.KEYS[row.k]
-			local vals, seen = {}, {}
-			for _, v in ipairs(row.v) do
-				if #vals >= R.MAX_VALUES then break end
-				local ok
-				if def then ok = def.valid(v)
-				else ok = (type(v) == "string" and #v <= 40) or (type(v) == "number" and v == v and v > -1e9 and v < 1e9) end
-				if ok and not seen[v] then seen[v] = true; vals[#vals + 1] = v end
+			if def and def.number then
+				-- (1.10.0-beta3) a range: its first two sound numbers, low then high (one alone means "at least")
+				local lo, hi
+				for _, v in ipairs(row.v) do
+					if def.valid(v) then
+						if lo == nil then lo = v else hi = v; break end
+					end
+				end
+				if lo ~= nil then
+					hi = hi or def.top
+					if lo > hi then lo, hi = hi, lo end
+					out.rows[#out.rows + 1] = { k = row.k, v = { lo, hi } }
+				end
+			else
+				local vals, seen = {}, {}
+				for _, v in ipairs(row.v) do
+					if #vals >= R.MAX_VALUES then break end
+					local ok
+					if def then ok = def.valid(v)
+					else ok = (type(v) == "string" and #v <= 40) or (type(v) == "number" and v == v and v > -1e9 and v < 1e9) end
+					if ok and not seen[v] then seen[v] = true; vals[#vals + 1] = v end
+				end
+				if #vals > 0 then out.rows[#out.rows + 1] = { k = row.k, v = vals, n = (row.n == true) or nil } end
 			end
-			if #vals > 0 then out.rows[#out.rows + 1] = { k = row.k, v = vals, n = (row.n == true) or nil } end
 		end
 	end
 	if #out.rows == 0 then return nil end
@@ -185,10 +220,38 @@ function R:ValueLabel(k, v)
 end
 function R:KeyLabel(k) local def = R.KEYS[k]; return def and def.label or "Another addon's rule" end
 -- "Type is Trade Goods: Cloth or Trade Goods: Leather", "Binding is not Soulbound"
+-- (1.10.0-beta3) Money in plain words: "1g 50s", "20c". A range in words: "is at least 30", "is between 1s and 5s".
+function R.Money(copper)
+	copper = math.max(0, math.floor(tonumber(copper) or 0))
+	local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
+	local parts = {}
+	if g > 0 then parts[#parts + 1] = ("%dg"):format(g) end
+	if s > 0 then parts[#parts + 1] = ("%ds"):format(s) end
+	if c > 0 or #parts == 0 then parts[#parts + 1] = ("%dc"):format(c) end
+	return table.concat(parts, " ")
+end
+function R:RangeText(k, lo, hi)
+	local def = R.KEYS[k]
+	local function say(n) if def and def.money then return R.Money(n) end return ("%d"):format(n) end
+	if lo == hi then return "is " .. say(lo) end
+	if def and hi >= def.top then return "is at least " .. say(lo) end
+	if lo <= 0 then return "is at most " .. say(hi) end
+	return ("is between %s and %s"):format(say(lo), say(hi))
+end
 function R:RowText(row)
 	if not usable(row) then return "" end
-	local names = {}
-	for i, v in ipairs(row.v) do names[i] = self:ValueLabel(row.k, v) end
+	local def = R.KEYS[row.k]
+	if def and def.number then
+		local lo, hi = row.v[1], row.v[2]
+		if type(lo) ~= "number" or type(hi) ~= "number" then return "" end
+		return ("%s %s"):format(def.label, self:RangeText(row.k, lo, hi))
+	end
+	-- (1.10.0-beta3: a name is said once, so two slots the game calls the same, like Chest and Robe, read as one)
+	local names, said = {}, {}
+	for _, v in ipairs(row.v) do
+		local name = self:ValueLabel(row.k, v)
+		if not said[name] then said[name] = true; names[#names + 1] = name end
+	end
 	local list = #names <= 2 and table.concat(names, " or ") or (table.concat(names, ", ", 1, #names - 1) .. " or " .. names[#names])
 	return ("%s %s %s"):format(self:KeyLabel(row.k), row.n and "is not" or "is", list)
 end
@@ -206,7 +269,8 @@ function R:FactsOf(rec)
 	local out = {}
 	if type(rec) ~= "table" then return out end
 	for _, k in ipairs(R.KEY_ORDER) do
-		local have = R.KEYS[k].of(rec)
+		-- (1.10.0-beta3: a number rule is a range to choose, not something two items have "the same": the editor's)
+		local have = not R.KEYS[k].number and R.KEYS[k].of(rec) or nil
 		local v = have and have[#have]   -- the most exact answer (a type's class and subclass, not the class alone)
 		if v ~= nil then
 			local text
@@ -220,6 +284,89 @@ function R:FactsOf(rec)
 			end
 			out[#out + 1] = { k = k, v = v, label = R.KEYS[k].label, text = text }
 		end
+	end
+	return out
+end
+
+------------------------------------------------------------------------
+-- The lists the rule editor offers (1.10.0-beta3)
+------------------------------------------------------------------------
+-- Item types, class by class, from the game's own lists (so a new kind of item shows up by itself):
+-- { { class = 7, label = "Trade Goods", any = "7:*", kinds = { { v = "7:5", label = "Cloth" }, ... } }, ... }.
+-- Names the game marks OBSOLETE are left out, and the WoW Token (no bag holds one). Where the game has no lists to
+-- ask, the types of the items in your bags and bank.
+local SKIP_CLASS = { [18] = true }
+local typeGroups
+local function typesInBags()
+	local byClass, order = {}, {}
+	for _, list in ipairs({ ns.items or {}, ns.bankItems or {} }) do
+		for _, r in ipairs(list) do
+			local c, sub = r.classID, r.subclassID
+			if type(c) == "number" and type(r.itemType) == "string" and r.itemType ~= "" and not SKIP_CLASS[c] then
+				local g = byClass[c]
+				if not g then g = { class = c, label = r.itemType, any = c .. ":*", kinds = {}, has = {} }; byClass[c] = g; order[#order + 1] = g end
+				if type(sub) == "number" and not g.has[sub] and type(r.itemSubType) == "string" and r.itemSubType ~= "" then
+					g.has[sub] = true
+					g.kinds[#g.kinds + 1] = { v = c .. ":" .. sub, label = r.itemSubType, sub = sub }
+				end
+			end
+		end
+	end
+	table.sort(order, function(a, b) return a.class < b.class end)
+	for _, g in ipairs(order) do g.has = nil; table.sort(g.kinds, function(a, b) return a.sub < b.sub end) end
+	return order
+end
+function R:TypeGroups()
+	if typeGroups then return typeGroups end
+	local classFn = C_Item and C_Item.GetItemClassInfo or rawget(_G, "GetItemClassInfo")
+	local subFn = C_Item and C_Item.GetItemSubClassInfo or rawget(_G, "GetItemSubClassInfo")
+	local out = {}
+	for c = 0, 24 do
+		local name = not SKIP_CLASS[c] and gameName(classFn, c) or nil
+		if name then
+			local g = { class = c, label = name, any = c .. ":*", kinds = {} }
+			for sub = 0, 31 do
+				local subName = gameName(subFn, c, sub)
+				if subName then g.kinds[#g.kinds + 1] = { v = c .. ":" .. sub, label = subName, sub = sub } end
+			end
+			out[#out + 1] = g
+		end
+	end
+	if #out == 0 then return typesInBags() end
+	typeGroups = out
+	return out
+end
+-- Slots, qualities and bindings: { { label = "Chest", v = { "INVTYPE_CHEST", "INVTYPE_ROBE" } }, ... }. An entry can
+-- stand for several values: slots the game gives one name (Chest and Robe, the two kinds of Ranged) are one entry.
+local SLOTS = { "INVTYPE_HEAD", "INVTYPE_NECK", "INVTYPE_SHOULDER", "INVTYPE_CLOAK", "INVTYPE_CHEST", "INVTYPE_ROBE", "INVTYPE_BODY",
+	"INVTYPE_TABARD", "INVTYPE_WRIST", "INVTYPE_HAND", "INVTYPE_WAIST", "INVTYPE_LEGS", "INVTYPE_FEET", "INVTYPE_FINGER", "INVTYPE_TRINKET",
+	"INVTYPE_WEAPON", "INVTYPE_WEAPONMAINHAND", "INVTYPE_WEAPONOFFHAND", "INVTYPE_2HWEAPON", "INVTYPE_SHIELD", "INVTYPE_HOLDABLE",
+	"INVTYPE_RANGED", "INVTYPE_RANGEDRIGHT", "INVTYPE_THROWN", "INVTYPE_RELIC", "INVTYPE_AMMO", "INVTYPE_BAG", "INVTYPE_QUIVER" }
+local BIND_ORDER = { "bop", "boe", "bou", "none" }
+function R:Options(k)
+	local out = {}
+	if k == "slot" then
+		local byLabel, seen = {}, {}
+		local function add(token)
+			if seen[token] then return end
+			local label = rawget(_G, token)
+			if type(label) ~= "string" or label == "" then return end
+			seen[token] = true
+			local o = byLabel[label]
+			if not o then o = { label = label, v = {} }; byLabel[label] = o; out[#out + 1] = o end
+			o.v[#o.v + 1] = token
+		end
+		for _, token in ipairs(SLOTS) do add(token) end
+		-- and any slot an item of yours names that isn't in that list
+		for _, list in ipairs({ ns.items or {}, ns.bankItems or {} }) do
+			for _, r in ipairs(list) do
+				if type(r.equipLoc) == "string" and R.KEYS.slot.valid(r.equipLoc) then add(r.equipLoc) end
+			end
+		end
+	elseif k == "quality" then
+		for q = 0, 5 do out[#out + 1] = { label = self:ValueLabel("quality", q), v = { q }, quality = q } end
+	elseif k == "bind" then
+		for _, b in ipairs(BIND_ORDER) do out[#out + 1] = { label = BIND[b], v = { b } } end
 	end
 	return out
 end

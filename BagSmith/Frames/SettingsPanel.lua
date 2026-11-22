@@ -1519,7 +1519,8 @@ function Panel:CustomSectionRow(c)
 		w.sub = fs(w); w.sub:SetPoint("TOPLEFT", w, "BOTTOMLEFT", 22, 4); w.sub:SetPoint("RIGHT", -8, 0)
 		w.del = ns.IconButton(w, "Interface\\AddOns\\BagSmith\\Media\\ui-close.tga", "Delete this section", function(b) ns.Sections:ConfirmDelete(b:GetParent().id, b) end)
 		w.del:SetSize(18, 18); w.del:SetPoint("RIGHT", -4, 0)
-		w.ren = ns.IconButton(w, "Interface\\AddOns\\BagSmith\\Media\\ui-pencil.tga", "Rename this section", function(b) ns.Sections:PromptRename(b:GetParent().id) end)
+		-- (1.10.0-beta3) the pencil opens the editor: the section's name and its rules
+		w.ren = ns.IconButton(w, "Interface\\AddOns\\BagSmith\\Media\\ui-pencil.tga", "Edit this section: its name and its rules", function(b) ns.Sections:EditSection(b:GetParent().id) end)
 		w.ren:SetSize(18, 18); w.ren:SetPoint("RIGHT", w.del, "LEFT", -8, 0)
 		w.empty = CreateFrame("CheckButton", nil, w, "UICheckButtonTemplate"); w.empty:SetSize(24, 24)
 		w.empty:SetPoint("RIGHT", -62, 0)
@@ -2161,9 +2162,10 @@ end
 pages.custom = function(self, db)
 	self:PageHead("Custom Sections", "custom")
 	self:Text("Make your own sections. Drag an item onto a section's title, or Alt+Left-click it, to move it there. Every copy of the item moves with it.")
-	self:Button("New Section...", function() ns.Sections:PromptNew() end)
+	-- (1.10.0-beta3) New Section... opens the editor: a name, and rules if you want them
+	self:Button("New Section...", function() ns.Sections:EditSection() end)
 	-- (1.10.0-beta1) sections that fill themselves
-	self:Text("A section can also fill itself: Alt+Left-click an item and pick New Section From This Item.")
+	self:Text("A section can also fill itself. Give it rules with the pencil beside it, or Alt+Left-click an item and pick New Section From This Item.")
 	self:Check("showEmptySections", "Show Empty Custom Sections", "Shows your sections even when they're empty, so you can drag items onto them.")
 	local customs = ns.Sections:Customs()
 	if #customs == 0 then

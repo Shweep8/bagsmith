@@ -615,6 +615,9 @@ function S:SectionMenu(laneId, owner)
 		local c = S:Custom(laneId)
 		items[#items + 1] = { text = "Show When Empty", checked = c and c.showEmpty ~= false, disabled = not ns.db.showEmptySections,
 			onClick = function() if same() then local cc = S:Custom(laneId); if cc then S:SetShowEmpty(laneId, cc.showEmpty == false) end end end, gap = true }
+		-- (1.10.0-beta3) its name and its rules, in the editor
+		items[#items + 1] = { text = "Edit Section...", onClick = function() if same() then S:EditSection(laneId) end end,
+			tip = "Change its name, and the rules that fill it by itself." }
 		items[#items + 1] = { text = "Rename...", onClick = function() if same() then S:PromptRename(laneId) end end }
 		items[#items + 1] = { text = "Delete...", onClick = function() if same() then S:ConfirmDelete(laneId) end end }
 	end

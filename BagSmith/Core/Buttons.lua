@@ -411,7 +411,11 @@ function Buttons:ApplyIconCrop(b)
 		b.icon:AddMaskTexture(b.classicMask)
 		if b.slotBG and b.slotBG.AddMaskTexture then b.slotBG:AddMaskTexture(b.classicMask) end
 	end
-	if b.classicMask then b.classicMask:SetTexture(masked and CLASSIC_MASK or "Interface\\Buttons\\WHITE8X8") end
+	if b.classicMask then
+		-- (1.10.0-beta3) set only when it changes: this runs for every button on every redraw
+		local want = masked and CLASSIC_MASK or "Interface\\Buttons\\WHITE8X8"
+		if b.classicMaskIs ~= want then b.classicMask:SetTexture(want); b.classicMaskIs = want end
+	end
 	if b.globalChildIcon then return end
 	local left, right = modern and 0.08 or 0.07, modern and 0.92 or 0.93
 	b.icon:SetTexCoord(left, right, left, right)

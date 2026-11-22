@@ -105,5 +105,9 @@
 	check(j.classic and f.skip.classic, "in Classic it wears the same red button as Skip and Exclude")
 	n:Set("skin", "modern"); M.runTimers()
 	j:GetScript("OnClick")(j); M.runTimers()
-	check(n.Junk:Marked(7001) and not j:IsShown(), "clicking it marks the item as junk, and the button goes away")
+	-- (by design since 1.10.0-beta3: an item marked as junk isn't offered while it's marked, so the item itself leaves
+	-- the Helper, and its button with it; before, the item stayed and only the button went)
+	local gone = true
+	for _, e in ipairs(DE.entries or {}) do if e.itemID == 7001 then gone = false end end
+	check(n.Junk:Marked(7001) and gone and not (DE.current and DE.current.itemID == 7001), "clicking it marks the item as junk, and the item leaves the Helper")
 end)()

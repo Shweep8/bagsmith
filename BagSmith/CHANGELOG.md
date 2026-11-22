@@ -6,8 +6,16 @@ New:
   before you create it.
 - When an item fits more than one of your sections, the higher one in Settings > Custom Sections gets it. Arrows
   there change their order, and each section shows its rules in words.
+- A rule editor for your sections. Click the pencil beside a section in Settings > Custom Sections, or pick Edit
+  Section... from the section's menu, to give it rules about an item's type, slot, quality, binding, item level or
+  vendor value. Choose whether an item has to fit all of them or any one, and see what would go in the section, and
+  what fits but stays somewhere else, before you save. New Section... on that page opens it too.
 Changed:
 - An item you move back to its usual section by hand stays there, even when one of your sections would take it.
+- The Disenchant Helper no longer offers an item you've marked as junk. Mark one there and it leaves the list, and
+  it comes back if you take the mark off.
+- Classic skin: item icons and their borders are cleaner in Icons and List view, with the artwork kept inside the
+  border. Bold now brightens Classic borders. Thanks to Jeor!
 
 ## 1.9.8
 

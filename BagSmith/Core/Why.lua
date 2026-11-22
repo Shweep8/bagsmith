@@ -12,6 +12,7 @@ ns.Why = Why
 Why.LABEL = {
 	favorite = "Favorites",
 	gearset = "In a gear set",
+	junk = "Marked as junk",   -- (1.10.0-beta3) the Disenchant Helper leaves these for the vendor
 	quest = "Quest items",
 	pawn = "Pawn upgrades",
 	novalue = "No vendor price",
@@ -29,6 +30,7 @@ Why.LABEL = {
 Why.NOUN = {
 	favorite = { "favorite", "favorites" },
 	gearset = { "item in a gear set", "items in a gear set" },
+	junk = { "item you marked as junk", "items you marked as junk" },
 	quest = { "quest item", "quest items" },
 	pawn = { "Pawn upgrade", "Pawn upgrades" },
 	novalue = { "item with no vendor price", "items with no vendor price" },
@@ -42,7 +44,7 @@ Why.NOUN = {
 	questneed = { "item a quest needs", "items quests need" },
 	unknown = { "item that couldn't be checked", "items that couldn't be checked" },
 }
-Why.ORDER = { "favorite", "protected", "gearset", "quest", "questneed", "pawn", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
+Why.ORDER = { "favorite", "protected", "gearset", "junk", "quest", "questneed", "pawn", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
 Why.SHOWN_NAMES = 3
 
 function Why:New() return { total = 0, by = {} } end

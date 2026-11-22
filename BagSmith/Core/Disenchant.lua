@@ -765,6 +765,9 @@ function DE:Eligible(rec, skill)
 	if self:Never()[rec.itemID] then return false, "never" end
 	if ns.Marks and rec.itemID and ns.Marks:IsFavorite(rec.itemID) then return false, "favorite" end
 	if rec.gearSets then return false, "gear set" end
+	-- (1.10.0-beta3, Shweep: "when you mark an item to vendor in DE Helper it stays in there, it should leave") an item
+	-- you marked as junk is going to a vendor: not offered while it's marked, and back when the mark comes off
+	if ns.Junk and rec.itemID and ns.Junk:Marked(rec.itemID) then return false, "junk" end
 	if skill and self.SkillFor(rec.ilvl) > skill then return false, "skill" end
 	if ns.db and ns.db.deSkipRefundable ~= false then
 		if refundable(rec) then return false, "refundable" end
@@ -775,7 +778,7 @@ end
 
 -- Every eligible item in the bags, with its values and verdict, best disenchant first.
 -- Eligible's reasons that mean "held back" (an item that would otherwise be considered), in the shared words.
-DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic" }
+DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic" }
 function DE:Entries()
 	local out = {}
 	local skill = self:Skill()
