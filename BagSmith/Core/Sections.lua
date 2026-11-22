@@ -360,21 +360,18 @@ function S:Delete(id)
 	for _, list in ipairs(lists) do
 		for i = #list, 1, -1 do if list[i] == id then table.remove(list, i) end end
 	end
+	-- (1.10.0-beta4: in either form, the older box or a Section rule)
 	for _, v in pairs(ns.views or {}) do
 		local f = v.st and v.st.filters
-		if f and f.cat then f.cat[id] = nil end
+		if f then ns.DropFilterSection(f, id) end
 	end
 	-- Saved sheets filtered on it lose it too; one filtered only by it now
 	-- shows every category, and chat says so.
 	local label = (deleted and deleted.name) or id
 	for _, key in ipairs({ "sheets", "bankSheets" }) do
 		for _, sh in ipairs(ns.db[key] or {}) do
-			local cat = sh.f and sh.f.cat
-			if type(cat) == "table" and cat[id] then
-				cat[id] = nil
-				if not next(cat) then
-					ns:Print("Sheet \"%s\" was filtered by the section %s; it now shows every category.", sh.n or "?", label)
-				end
+			if type(sh.f) == "table" and ns.DropFilterSection(sh.f, id) then
+				ns:Print("Sheet \"%s\" was filtered by the section %s; it now shows every category.", sh.n or "?", label)
 			end
 		end
 	end

@@ -18,6 +18,11 @@
 	from 0 to the key's top. "At least 30" is 30 to the top; "at most 30" is 0 to 30. The row has the same shape as the
 	others, so nothing else that reads or saves rules needs to know. Also the lists the rule editor offers: R:TypeGroups
 	(the game's own item types) and R:Options (slots, qualities, bindings).
+
+	(1.10.0-beta4) The Filters window uses the same rules. Three more keys are for filters only (filterOnly): the
+	section an item is in, the bag it sits in, and how long it has been in your bags. They are about the moment or the
+	place, so a section never uses them: in a section's rules such a row fits nothing, like a key this version doesn't
+	know. Rules:Fits takes a third argument, true when a filter asks.
 --]]
 local ADDON, ns = ...
 local R = {}
@@ -80,6 +85,29 @@ R.KEYS.price = {
 	of = function(rec) if type(rec.sellPrice) == "number" then return rec.sellPrice end end,
 }
 R.KEY_ORDER = { "type", "slot", "quality", "bind", "ilvl", "price" }
+-- (1.10.0-beta4) For filters only: where an item is and how long it has been there. Never a section's.
+R.KEYS.sec = {
+	label = "Section", filterOnly = true,
+	valid = function(v) return type(v) == "string" and v ~= "" and #v <= 40 end,
+	-- its section, and the section that one is a part of (Potions is part of Consumables)
+	of = function(rec)
+		if type(rec.cat) ~= "string" then return nil end
+		local parent = ns.PARENT_CAT and ns.PARENT_CAT[rec.cat]
+		if parent then return { rec.cat, parent } end
+		return { rec.cat }
+	end,
+}
+R.KEYS.bag = {
+	label = "Bag", filterOnly = true,
+	valid = function(v) return type(v) == "string" and v ~= "" and #v <= 80 end,
+	of = function(rec) return { type(rec.where) == "string" and rec.where or "" } end,
+}
+-- Whole hours, 0 to 99; the item's own answer is exact (2.5 hours), so "at most 2" leaves it out.
+R.KEYS.age = {
+	label = "Time in Bags", number = true, filterOnly = true, top = 99, valid = wholeTo(99), unit = { "hour", "hours" },
+	of = function(rec) if type(rec.firstSeen) == "number" then return (time() - rec.firstSeen) / 3600 end end,
+}
+R.FILTER_KEYS = { "sec", "bag", "age" }
 
 -- A row's values as a set, built once for each row table (never stored in the row: rows are saved data).
 local sets = setmetatable({}, { __mode = "k" })
@@ -92,14 +120,16 @@ local function setOf(row)
 	end
 	return s
 end
-local function rowFits(row, rec)
+local function rowFits(row, rec, filter)
 	local def = R.KEYS[row.k]
 	if not def then return false end
+	if def.filterOnly and not filter then return false end   -- (1.10.0-beta4) a filter's key in a section's rules
 	local have = def.of(rec)
 	if have == nil then return false end
 	if def.number then
 		local lo, hi = row.v[1], row.v[2]
-		return type(lo) == "number" and type(hi) == "number" and have >= lo and have <= hi
+		-- (1.10.0-beta4) a range that reaches the key's top has no upper end: "at least 2 hours" takes a week-old item
+		return type(lo) == "number" and type(hi) == "number" and have >= lo and (hi >= def.top or have <= hi)
 	end
 	local set, hit = setOf(row), false
 	for _, a in ipairs(have) do if set[a] then hit = true; break end end
@@ -109,13 +139,14 @@ end
 local function usable(row) return type(row) == "table" and type(row.k) == "string" and type(row.v) == "table" and #row.v > 0 end
 
 -- Does the item fit these rules? Rows with no values are skipped; rules with no usable row fit nothing.
-function R:Fits(rules, rec)
+-- filter (1.10.0-beta4): true when a filter asks, so the keys that are only a filter's count too.
+function R:Fits(rules, rec, filter)
 	if type(rules) ~= "table" or type(rules.rows) ~= "table" or type(rec) ~= "table" then return false end
 	local any, used = rules.mode == "any", 0
 	for _, row in ipairs(rules.rows) do
 		if usable(row) then
 			used = used + 1
-			local ok = rowFits(row, rec)
+			local ok = rowFits(row, rec, filter)
 			if any and ok then return true end
 			if not any and not ok then return false end
 		end
@@ -215,7 +246,12 @@ function R:ValueLabel(k, v)
 	elseif k == "quality" then
 		local s = rawget(_G, ("ITEM_QUALITY%d_DESC"):format(tonumber(v) or -1))
 		return type(s) == "string" and s ~= "" and s or QUALITY[v] or tostring(v)
-	elseif k == "bind" then return BIND[v] or tostring(v) end
+	elseif k == "bind" then return BIND[v] or tostring(v)
+	elseif k == "sec" then
+		-- (1.10.0-beta4) a section by its name: BagSmith's own, or yours (a deleted one keeps its id)
+		local label = (ns.CAT_LABEL and ns.CAT_LABEL[v]) or (ns.Sections and ns.Sections.IsCustom and ns.Sections:IsCustom(v) and ns.Sections:Label(v))
+		return type(label) == "string" and label ~= "" and label or tostring(v)
+	end
 	return tostring(v)
 end
 function R:KeyLabel(k) local def = R.KEYS[k]; return def and def.label or "Another addon's rule" end
@@ -232,11 +268,17 @@ function R.Money(copper)
 end
 function R:RangeText(k, lo, hi)
 	local def = R.KEYS[k]
-	local function say(n) if def and def.money then return R.Money(n) end return ("%d"):format(n) end
-	if lo == hi then return "is " .. say(lo) end
+	-- (1.10.0-beta4) a key with a unit says it: "at least 2 hours", "between 1 and 3 hours"
+	local unit = def and def.unit
+	local function say(n, bare)
+		if def and def.money then return R.Money(n) end
+		if unit and not bare then return ("%d %s"):format(n, n == 1 and unit[1] or unit[2]) end
+		return ("%d"):format(n)
+	end
 	if def and hi >= def.top then return "is at least " .. say(lo) end
+	if lo == hi then return "is " .. say(lo) end
 	if lo <= 0 then return "is at most " .. say(hi) end
-	return ("is between %s and %s"):format(say(lo), say(hi))
+	return ("is between %s and %s"):format(say(lo, true), say(hi))
 end
 function R:RowText(row)
 	if not usable(row) then return "" end

@@ -530,7 +530,8 @@ end)()
 ;(function()
 	-- the TOC and the changelog
 	local f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
-	check(toc:find("Frames\\SectionsUI.lua\nFrames\\SectionEditor.lua\n", 1, true), "the TOC loads the editor right after the sections' menus")
+	-- (by design since 1.10.0-beta4: the rows moved to Frames/RuleList.lua, shared with the Filters window, loaded first)
+	check(toc:find("Frames\\SectionsUI.lua\nFrames\\RuleList.lua\nFrames\\SectionEditor.lua\n", 1, true), "the TOC loads the rule list and the editor right after the sections' menus")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
 	check(section:find("rule editor", 1, true) and section:find("item level or\n  vendor value", 1, true) and section:find("Disenchant Helper no longer offers an item you've marked as junk", 1, true) and section:find("Thanks to Jeor!", 1, true),

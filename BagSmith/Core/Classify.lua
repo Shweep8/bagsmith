@@ -241,6 +241,15 @@ end
 
 ------------------------------------------------------------------------
 -- Structured filters: { q = {[3]=true}, cat = {Gear=true}, t = {}, bd = {}, w = {}, new = false, text = "" }
+--
+-- (1.10.0-beta4) Two more: usable (only what your character can use) and rules ({ mode, rows }, Core/Rules.lua, the
+-- same rules a custom section has, plus the keys that are only a filter's: section, bag, time in bags). An item
+-- passes when it passes every older field AND fits the rules.
+--
+-- The Filters window shows what "Type / Sections", "Bind", "Where" and "Age" used to be as rules. ns.FoldFilters
+-- turns those older fields into rule rows for the window; ns.UnfoldFilters turns them back where it can, when a sheet
+-- is saved, so a sheet that only uses what an older version knows is saved the way that version reads it. Both forms
+-- mean the same and FilterPredicate reads either, so nothing depends on which one a table is in.
 ------------------------------------------------------------------------
 local function setOf(v, wantNumber)
 	local out = {}
@@ -264,7 +273,8 @@ function ns.CleanFilters(f)
 	local lo, hi = hour(f.ageMin), hour(f.ageMax)
 	if lo and hi and lo > hi then lo, hi = hi, lo end
 	return { q = setOf(f.q, true), cat = setOf(f.cat), t = setOf(f.t), bd = setOf(f.bd), w = setOf(f.w),
-		new = f.new and true or false, text = type(f.text) == "string" and f.text or "", ageMin = lo, ageMax = hi }
+		new = f.new and true or false, text = type(f.text) == "string" and f.text or "", ageMin = lo, ageMax = hi,
+		usable = f.usable == true or nil, rules = ns.Rules and ns.Rules.Clean(f.rules) or nil }
 end
 function ns.EmptyFilters() return ns.CleanFilters(nil) end
 -- Drops custom-section categories that aren't in the given sections (a list
@@ -278,19 +288,160 @@ function ns.PruneFilterCategories(f, customs)
 	for k in pairs(f.cat) do
 		if type(k) == "string" and k:match("^c%d+$") and not have[k] then f.cat[k] = nil end
 	end
+	-- (1.10.0-beta4) and from a Section rule
+	if type(f.rules) == "table" and type(f.rules.rows) == "table" then
+		for _, row in ipairs(f.rules.rows) do
+			if type(row) == "table" and row.k == "sec" and type(row.v) == "table" then
+				for i = #row.v, 1, -1 do
+					local v = row.v[i]
+					if type(v) == "string" and v:match("^c%d+$") and not have[v] then table.remove(row.v, i) end
+				end
+			end
+		end
+		f.rules = ns.Rules and ns.Rules.Clean(f.rules) or nil
+	end
 	return f
 end
+-- (1.10.0-beta4) Takes one section out of a filter table, whichever form names it: the older box or a Section rule.
+-- True when that left a Section filter with nothing, so the table no longer narrows by section.
+function ns.DropFilterSection(f, id)
+	if type(f) ~= "table" then return false end
+	local emptied = false
+	if type(f.cat) == "table" and f.cat[id] then
+		f.cat[id] = nil
+		if not next(f.cat) then emptied = true end
+	end
+	local rules = f.rules
+	if type(rules) == "table" and type(rules.rows) == "table" then
+		local changed = false
+		for _, row in ipairs(rules.rows) do
+			if type(row) == "table" and row.k == "sec" and type(row.v) == "table" then
+				for i = #row.v, 1, -1 do
+					if row.v[i] == id then
+						table.remove(row.v, i); changed = true
+						if #row.v == 0 then emptied = true end
+					end
+				end
+			end
+		end
+		if changed then f.rules = ns.Rules and ns.Rules.Clean(rules) or nil end
+	end
+	return emptied
+end
+-- How many filters are on, for the Filter button: each thing ticked counts, in either form (a rule with three
+-- sections picked counts three, as three ticked boxes did); a number rule counts one.
 function ns.FilterCount(f)
 	local n = 0
 	for _, key in ipairs({ "q", "cat", "t", "bd", "w" }) do for _ in pairs(f[key]) do n = n + 1 end end
 	if f.new then n = n + 1 end
 	if f.ageMin or f.ageMax then n = n + 1 end
+	if f.usable then n = n + 1 end
+	if type(f.rules) == "table" and type(f.rules.rows) == "table" then
+		for _, row in ipairs(f.rules.rows) do
+			if type(row) == "table" and type(row.v) == "table" and #row.v > 0 then
+				local def = ns.Rules and ns.Rules.KEYS[row.k]
+				n = n + ((def and def.number) and 1 or #row.v)
+			end
+		end
+	end
 	return n
+end
+-- (1.10.0-beta4) The older fields as rule rows, in place, for the Filters window. Nothing changes in what passes: the
+-- older fields all had to pass, and so do rows under "all of these". (Rules set to "any one of these" together with
+-- older fields is something no version saves; the rows join the others.)
+local BD_KEY, KEY_BD = { BoE = "boe", BoP = "bop", None = "none" }, { boe = "BoE", bop = "BoP", none = "None" }
+local function sortedKeys(set)
+	local out = {}
+	for k in pairs(set) do out[#out + 1] = k end
+	table.sort(out, function(a, b) return tostring(a) < tostring(b) end)
+	return out
+end
+function ns.FoldFilters(f)
+	if type(f) ~= "table" or not ns.Rules then return f end
+	local rows = {}
+	if next(f.cat or {}) then rows[#rows + 1] = { k = "sec", v = sortedKeys(f.cat) }; f.cat = {} end
+	if next(f.bd or {}) then
+		local v = {}
+		for _, key in ipairs({ "BoE", "BoP", "None" }) do if f.bd[key] then v[#v + 1] = BD_KEY[key] end end
+		if #v > 0 then rows[#rows + 1] = { k = "bind", v = v } end
+		f.bd = {}
+	end
+	if next(f.w or {}) then rows[#rows + 1] = { k = "bag", v = sortedKeys(f.w) }; f.w = {} end
+	if f.ageMin or f.ageMax then
+		rows[#rows + 1] = { k = "age", v = { f.ageMin or 0, f.ageMax or ns.Rules.KEYS.age.top } }
+		f.ageMin, f.ageMax = nil, nil
+	end
+	if #rows == 0 then return f end
+	local rules = type(f.rules) == "table" and f.rules or { mode = "all", rows = {} }
+	for _, row in ipairs(rules.rows or {}) do rows[#rows + 1] = row end
+	rules.rows = rows
+	f.rules = ns.Rules.Clean(rules)
+	return f
+end
+-- Would folding fit? (A table with a full set of rules AND older fields is something no version saves; it is left as
+-- it is, and still filters the same.)
+local function foldFits(f)
+	local n = type(f.rules) == "table" and type(f.rules.rows) == "table" and #f.rules.rows or 0
+	if next(f.cat or {}) then n = n + 1 end
+	if next(f.bd or {}) then n = n + 1 end
+	if next(f.w or {}) then n = n + 1 end
+	if f.ageMin or f.ageMax then n = n + 1 end
+	return n <= ns.Rules.MAX_ROWS
+end
+local fold = ns.FoldFilters
+function ns.FoldFilters(f)
+	if type(f) ~= "table" or not ns.Rules or not foldFits(f) then return f end
+	return fold(f)
+end
+-- A copy to save: under "all of these", a Section, Binding, Bag or Time in Bags rule that an older version has a
+-- field for goes back to that field (one rule of its kind, not "is not", values that version knows). The rest stays
+-- as rules, which an older version leaves out.
+function ns.UnfoldFilters(f)
+	local out = ns.CleanFilters(f)
+	local rules = out.rules
+	if not rules or rules.mode == "any" then return out end
+	local count = {}
+	for _, row in ipairs(rules.rows) do count[row.k] = (count[row.k] or 0) + 1 end
+	local keep = {}
+	for _, row in ipairs(rules.rows) do
+		local done = false
+		if count[row.k] == 1 and not row.n then
+			if row.k == "sec" and not next(out.cat) then
+				for _, v in ipairs(row.v) do out.cat[v] = true end
+				done = true
+			elseif row.k == "bag" and not next(out.w) then
+				for _, v in ipairs(row.v) do out.w[v] = true end
+				done = true
+			elseif row.k == "bind" and not next(out.bd) then
+				local all = true
+				for _, v in ipairs(row.v) do if not KEY_BD[v] then all = false end end
+				if all then for _, v in ipairs(row.v) do out.bd[KEY_BD[v]] = true end; done = true end
+			elseif row.k == "age" and not (out.ageMin or out.ageMax) then
+				local lo, hi = row.v[1], row.v[2]
+				local top = ns.Rules.KEYS.age.top
+				-- (an older version knows whole hours 0 to 9, and an upper end left open)
+				if type(lo) == "number" and type(hi) == "number" and lo <= 9 and (hi <= 9 or hi >= top) then
+					out.ageMin, out.ageMax = lo, hi <= 9 and hi or nil
+					done = true
+				end
+			end
+		end
+		if not done then keep[#keep + 1] = row end
+	end
+	rules.rows = keep
+	out.rules = ns.Rules.Clean(rules)
+	return out
 end
 function ns:FilterPredicate(f)
 	local text = ns:ParseSearch(f.text)
 	local hasQ, hasCat, hasT, hasBd, hasW = next(f.q) ~= nil, next(f.cat) ~= nil, next(f.t) ~= nil, next(f.bd) ~= nil, next(f.w) ~= nil
+	-- (1.10.0-beta4) the same rules a custom section has, asked as a filter; and "Usable by Me"
+	local Rules = ns.Rules
+	local rules = Rules and Rules:HasRules(f.rules) and f.rules or nil
+	local usable = f.usable and ns.Usability or nil
 	return function(r)
+		if usable and usable:IsUnusable(r) then return false end
+		if rules and not Rules:Fits(rules, r, true) then return false end
 		if hasQ and not f.q[r.quality] then return false end
 		if hasCat and not (f.cat[r.cat] or (ns.PARENT_CAT[r.cat] and f.cat[ns.PARENT_CAT[r.cat]])) then return false end
 		if hasT and not f.t[r.itemSubType or ""] then return false end

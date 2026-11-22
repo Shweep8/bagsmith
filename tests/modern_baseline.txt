@@ -53,6 +53,7 @@
 # 1.9.0-beta10 (Shweep's main-page icons): each main page in the Settings list gains its icon (settings.3.N.r2, the accent at 0.65, the open page's at 1.00); an arrow after it renumbers r2 to r3, unchanged. The only differences, in all three scenarios, then re-recorded
 # 1.9.0-beta20 (Shweep: "a soft shadow or line" under Settings' header): a new Settings child after the page, its line (settings.6.r1, the skin's line color) and shadow (settings.6.r2, black at 0.55, clear at the top of a page). The only differences, in all three scenarios, then re-recorded
 # 1.9.1-beta1 (Shweep: the bank window's gold has the bags' gold tooltip): the bank footer's first child is its gold's hover button (bank.9.1, no look of its own), so the bag-slots button is bank.9.2, unchanged. The only differences, in all three scenarios, then re-recorded
+# 1.10.0-beta4: the Filters window is rebuilt (search, Quality and Quick picks chips, rules, a count, Save as Sheet and Save as Section); only its own lines (filter.search, look filter...) differ: its search box sits 14 px lower, under a line that says which window and tab the filters are for.
 title | w=nil h=26 shown=true | TOPLEFT,window,TOPLEFT,12,-12 ; TOPRIGHT,window,TOPRIGHT,-12,-12
 scroll | w=nil h=nil shown=true | TOPLEFT,header,BOTTOMLEFT,0,-2 ; BOTTOMRIGHT,tabs,TOPRIGHT,0,4
 tabs | w=nil h=22 shown=true | BOTTOMLEFT,window,BOTTOMLEFT,12,40 ; BOTTOMRIGHT,window,BOTTOMRIGHT,-12,40
@@ -82,7 +83,7 @@ settings.nav | w=170 h=nil shown=true | TOPLEFT,Frame,BOTTOMLEFT,0,-12 ; BOTTOML
 settings.scroll | w=nil h=nil shown=true | TOPLEFT,Frame,TOPRIGHT,16,0 ; BOTTOMRIGHT,BagSmithSettings,BOTTOMRIGHT,-34,14
 settings.sub | w=nil h=nil shown=true | LEFT,frame,RIGHT,10,0 ; RIGHT,BagSmithSettingsSearch,LEFT,-12,0
 filter.title | w=nil h=nil shown=true | TOPLEFT,nil,TOPLEFT,14,-11
-filter.search | w=nil h=24 shown=true | TOPLEFT,Frame,TOPLEFT,18,-38 ; TOPRIGHT,Frame,TOPRIGHT,-14,-38
+filter.search | w=nil h=24 shown=true | TOPLEFT,Frame,TOPLEFT,18,-52 ; TOPRIGHT,Frame,TOPRIGHT,-14,-52
 bagwin.title | w=nil h=26 shown=true | TOPLEFT,BagSmithBag1,TOPLEFT,12,-12 ; TOPRIGHT,BagSmithBag1,TOPRIGHT,-12,-12
 bagwin.scroll | w=nil h=nil shown=true | TOPLEFT,Frame,BOTTOMLEFT,0,-12 ; BOTTOMRIGHT,BagSmithBag1,BOTTOMRIGHT,-12,12
 bagwin.titleText | w=nil h=nil shown=true | LEFT,frame,RIGHT,6,0 ; RIGHT,frame,LEFT,-10,0
@@ -256,26 +257,45 @@ look settings.6.r2 color=0.00,0.00,0.00,0.55 alpha=0.00
 look filter bg=0.07,0.07,0.06,1.00 border=0.36,0.33,0.28,1.00
 look filter.r1 text=0.93,0.91,0.88,1.00
 look filter.r2 text=0.56,0.55,0.51,1.00
-look filter.r3 text=0.98,0.78,0.46,1.00
+look filter.r3 text=0.56,0.55,0.51,1.00
 look filter.r4 text=0.98,0.78,0.46,1.00
+look filter.r5 text=0.98,0.78,0.46,1.00
+look filter.r6 text=0.84,0.83,0.79,1.00
 look filter.2.r1 color=0.62,0.60,0.55,1.00
-look filter.10.r1 text=0.98,0.78,0.46,1.00
-look filter.10.r2 text=0.98,0.78,0.46,1.00
-look filter.10.4.r1 text=0.98,0.78,0.46,1.00
-look filter.10.4.r2 text=0.98,0.78,0.46,1.00
-look filter.10.4.r3 text=0.84,0.83,0.79,1.00
-look filter.10.4.r4 text=0.84,0.83,0.79,1.00
-look filter.10.4.r5 text=0.84,0.83,0.79,1.00
-look filter.10.4.r6 text=0.56,0.55,0.51,1.00
-look filter.10.4.r7 color=0.23,0.22,0.20,1.00
-look filter.10.4.r8 text=0.98,0.78,0.46,1.00
-look filter.10.4.r9 text=0.56,0.55,0.51,1.00
-look filter.10.4.5 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
-look filter.10.4.5.r1 text=0.56,0.55,0.51,1.00
+look filter.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.4.r1 text=0.56,0.55,0.51,1.00
+look filter.5 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.5.r1 text=0.56,0.55,0.51,1.00
+look filter.6 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.6.r1 text=0.56,0.55,0.51,1.00
+look filter.7 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.7.r1 text=0.56,0.55,0.51,1.00
+look filter.8 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.8.r1 text=0.56,0.55,0.51,1.00
+look filter.9 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.9.r1 text=0.56,0.55,0.51,1.00
+look filter.10 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.10.r1 text=0.56,0.55,0.51,1.00
 look filter.11 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
 look filter.11.r1 text=0.56,0.55,0.51,1.00
-look filter.12 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
-look filter.12.r1 text=0.56,0.55,0.51,1.00
+look filter.12 bg=0.23,0.22,0.19,1.00 border=0.98,0.78,0.46,0.90
+look filter.12.r1 text=0.93,0.91,0.88,1.00
+look filter.13 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.13.r1 text=0.56,0.55,0.51,1.00
+look filter.14.1.1 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.14.1.1.r1 text=0.56,0.55,0.51,1.00
+look filter.15.r1 color=0.23,0.22,0.20,1.00
+look filter.15.r2 text=0.84,0.83,0.79,1.00
+look filter.15.r3 text=0.98,0.78,0.46,1.00
+look filter.15.r4 text=0.56,0.55,0.51,1.00
+look filter.15.1 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.15.1.r1 text=0.56,0.55,0.51,1.00
+look filter.15.3 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.15.3.r1 text=0.56,0.55,0.51,1.00
+look filter.15.4 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.15.4.r1 text=0.56,0.55,0.51,1.00
+look filter.15.5 bg=0.15,0.14,0.13,1.00 border=0.23,0.22,0.20,1.00
+look filter.15.5.r1 text=0.56,0.55,0.51,1.00
 look bagwin bg=0.10,0.10,0.08,0.98 border=0.36,0.33,0.28,1.00
 look bagwin.r1 color=1.00,1.00,1.00,0.04
 look bagwin.2.r1 color=0.93,0.91,0.88,1.00

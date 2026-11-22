@@ -395,7 +395,8 @@ function ns:SaveSheet(name, view)
 	if name == "" then return false, "Enter a sheet name first." end
 	if ns.TAB_LABEL[name] then return false, "That name is taken." end
 	for _, s in ipairs(list) do if s.n == name then return false, "That name is taken." end end
-	table.insert(list, { n = name, f = ns.CleanFilters(view.st.filters) })
+	-- (1.10.0-beta4) saved the way an older version reads it, wherever the filters only use what it knows
+	table.insert(list, { n = name, f = ns.UnfoldFilters(view.st.filters) })
 	table.insert(order, name)
 	view.st.sheet = name
 	ns:RefreshViews(true)
@@ -413,7 +414,7 @@ function ns:UpdateSheet(oldName, newName, view)
 	end
 	for _, s in ipairs(list) do
 		if s.n == oldName then
-			s.n, s.f = newName, ns.CleanFilters(view.st.filters)
+			s.n, s.f = newName, ns.UnfoldFilters(view.st.filters)
 			local oi = ns.IndexOf(order, oldName); if oi then order[oi] = newName end
 			local hidden = view.isBank and ns.db.bankHiddenTabs or ns.db.hiddenTabs
 			local hi = ns.IndexOf(hidden, oldName); if hi then hidden[hi] = newName end

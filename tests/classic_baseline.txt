@@ -74,6 +74,7 @@
 # 1.9.0-beta20 (Shweep: "a soft shadow or line" under Settings' header): a new Settings child after the page (settings.7: its line in the skin's line color, and its shadow), so the two after it are numbered one higher (8 and 9). Both scenarios checked to differ only by its insertion, Modern's the same, then re-recorded
 # 1.9.0-beta22 (Shweep: "pull in the carrots closer to the words"): the side list's four arrows (settings.3.5, .6, .7 and .9, r3) sit 4 px after their page's name (LEFT of the arrow on the name's RIGHT), not at the row's right edge. Both scenarios checked to differ only there, Modern unchanged, then re-recorded
 # 1.9.1-beta1 (Shweep: the bank window's gold has the bags' gold tooltip): the bank footer's first child is its gold's hover button (bank.9.1, over the gold text), so the bag-slots button is bank.9.2, unchanged. Both scenarios checked to differ only by its insertion, then re-recorded
+# 1.10.0-beta4: the Filters window is rebuilt (chips, rules, a count, Save as Section); only its own lines differ, in both scenarios.
 == classic
 look main bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=620 h=560 at=BOTTOMRIGHT,UIParent,BOTTOMRIGHT,-80,140
 look main.1 w=nil h=54 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
@@ -322,63 +323,56 @@ look settings.8.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
 look settings.8.r4 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
 look settings.8.r5 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
 look settings.9 w=nil h=nil at=TOPRIGHT,settings,TOPRIGHT,-4,-4 level=11
-look filter bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=480 h=642 at=TOPLEFT,BagSmithFrameSearch,BOTTOMLEFT,-4,-2
+look filter bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=480 h=440 at=TOPLEFT,BagSmithFrameSearch,BOTTOMLEFT,-4,-2
 look filter.r2 text=0.60,0.55,0.45,1.00
-look filter.r3 text=0.98,0.78,0.46,1.00
+look filter.r3 text=0.60,0.55,0.45,1.00
 look filter.r4 text=0.98,0.78,0.46,1.00
+look filter.r5 text=0.98,0.78,0.46,1.00
+look filter.r6 text=0.84,0.83,0.79,1.00
 look filter.1 w=nil h=34 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
 look filter.2 w=nil h=nil at= level=1
 look filter.2.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
 look filter.2.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
 look filter.3 w=nil h=nil at=TOPRIGHT,filter,TOPRIGHT,-4,-4 level=11
-look filter.4 w=nil h=24 at=TOPLEFT,parent,TOPLEFT,18,-38;TOPRIGHT,parent,TOPRIGHT,-14,-38
-look filter.5 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-124
-look filter.6 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,78,-124
-look filter.7 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,154,-124
-look filter.8 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,242,-124
-look filter.9 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,306,-124
-look filter.10 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,370,-124
-look filter.11 w=nil h=372 at=TOPLEFT,filter,TOPLEFT,0,-232;TOPRIGHT,filter,TOPRIGHT,0,-232
-look filter.11.r1 text=0.98,0.78,0.46,1.00
-look filter.11.r2 text=0.98,0.78,0.46,1.00
-look filter.11.1 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-26
-look filter.11.2 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,72,-26
-look filter.11.3 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,130,-26
-look filter.11.4 w=nil h=230 at=TOPLEFT,filter.11,TOPLEFT,0,-134;TOPRIGHT,filter.11,TOPRIGHT,0,-134
-look filter.11.4.r1 text=0.98,0.78,0.46,1.00
-look filter.11.4.r2 text=0.98,0.78,0.46,1.00
-look filter.11.4.r3 text=0.84,0.83,0.79,1.00
-look filter.11.4.r4 text=0.84,0.83,0.79,1.00
-look filter.11.4.r5 text=0.84,0.83,0.79,1.00
-look filter.11.4.r6 text=0.60,0.55,0.45,1.00
-look filter.11.4.r7 color=0.32,0.25,0.12,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,14,-136;TOPRIGHT,parent,TOPRIGHT,-14,-136 layer=ARTWORK/nil
-look filter.11.4.r8 text=0.98,0.78,0.46,1.00
-look filter.11.4.r9 text=0.60,0.55,0.45,1.00
-look filter.11.4.1 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-26
-look filter.11.4.2 w=26 h=22 at=LEFT,frame,RIGHT,10,0
-look filter.11.4.3 w=26 h=22 at=LEFT,frame,RIGHT,10,0
-look filter.11.4.4 w=322 h=24 at=TOPLEFT,parent,TOPLEFT,20,-174
-look filter.11.4.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=116 h=24 at=LEFT,filter.11.4.4,RIGHT,8,0
-look filter.11.4.5.1 w=nil h=nil at=
-look filter.11.5 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-80
-look filter.11.6 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,102,-80
-look filter.11.7 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,220,-80
-look filter.11.8 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-106
-look filter.11.9 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,156,-106
-look filter.12 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=80 h=24 at=BOTTOMLEFT,parent,BOTTOMLEFT,14,14
+look filter.4 w=nil h=24 at=TOPLEFT,parent,TOPLEFT,18,-52;TOPRIGHT,parent,TOPRIGHT,-14,-52
+look filter.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=20 at=TOPLEFT,filter,TOPLEFT,14,-132
+look filter.5.1 w=nil h=nil at=
+look filter.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=52 h=20 at=TOPLEFT,filter,TOPLEFT,58,-132
+look filter.6.1 w=nil h=nil at=
+look filter.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=20 at=TOPLEFT,filter,TOPLEFT,114,-132
+look filter.7.1 w=nil h=nil at=
+look filter.8 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=20 at=TOPLEFT,filter,TOPLEFT,182,-132
+look filter.8.1 w=nil h=nil at=
+look filter.9 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=20 at=TOPLEFT,filter,TOPLEFT,226,-132
+look filter.9.1 w=nil h=nil at=
+look filter.10 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=70 h=20 at=TOPLEFT,filter,TOPLEFT,270,-132
+look filter.10.1 w=nil h=nil at=
+look filter.11 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=20 at=TOPLEFT,filter,TOPLEFT,14,-180
+look filter.11.1 w=nil h=nil at=
+look filter.12 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=88 h=20 at=TOPLEFT,filter,TOPLEFT,52,-180
 look filter.12.1 w=nil h=nil at=
-look filter.13 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=70 h=24 at=BOTTOMRIGHT,parent,BOTTOMRIGHT,-14,14
+look filter.13 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=20 at=LEFT,frame,RIGHT,8,0
 look filter.13.1 w=nil h=nil at=
-look filter.14 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-178
-look filter.15 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,78,-178
-look filter.16 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,184,-178
-look filter.17 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,272,-178
-look filter.18 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,378,-178
-look filter.19 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-204
-look filter.20 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,84,-204
-look filter.21 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,160,-204
-look filter.22 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,224,-204
-look filter.23 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,288,-204
+look filter.14 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=118 h=20 at=LEFT,filter.13,RIGHT,6,0
+look filter.14.1 w=nil h=nil at=
+look filter.15 w=430 h=28 at=TOPLEFT,parent,TOPLEFT,14,-240
+look filter.15.1 w=430 h=28 at=
+look filter.15.1.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=104 h=22 at=TOPLEFT,filter.15.1,TOPLEFT,0,-0
+look filter.15.1.1.1 w=nil h=nil at=
+look filter.16 w=480 h=164 at=TOPLEFT,filter,TOPLEFT,0,-276
+look filter.16.r1 color=0.32,0.25,0.12,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,14,0;TOPRIGHT,parent,TOPRIGHT,-14,0 layer=ARTWORK/nil
+look filter.16.r2 text=0.84,0.83,0.79,1.00
+look filter.16.r3 text=0.98,0.78,0.46,1.00
+look filter.16.r4 text=0.60,0.55,0.45,1.00
+look filter.16.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=80 h=22 at=TOPRIGHT,parent,TOPRIGHT,-14,-8
+look filter.16.1.1 w=nil h=nil at=
+look filter.16.2 w=182 h=24 at=TOPLEFT,parent,TOPLEFT,20,-62
+look filter.16.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=116 h=24 at=LEFT,filter.16.2,RIGHT,8,0
+look filter.16.3.1 w=nil h=nil at=
+look filter.16.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=132 h=24 at=LEFT,filter.16.3,RIGHT,8,0
+look filter.16.4.1 w=nil h=nil at=
+look filter.16.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=70 h=24 at=TOPRIGHT,parent,TOPRIGHT,-14,-126
+look filter.16.5.1 w=nil h=nil at=
 look bagwin bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=298 h=160 at=BOTTOMLEFT,UIParent,BOTTOMLEFT,-518,200
 look bagwin.1 w=nil h=44 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
 look bagwin.2 w=nil h=26 at=TOPLEFT,bagwin,TOPLEFT,12,-34;TOPRIGHT,bagwin,TOPRIGHT,-10,-34 level=3
@@ -775,63 +769,56 @@ look settings.8.r1 w=58 h=58 at=TOPLEFT,parent,TOPLEFT,-5,7 layer=OVERLAY/nil
 look settings.8.r4 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
 look settings.8.r5 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
 look settings.9 w=nil h=nil at=TOPRIGHT,settings,TOPRIGHT,-4,-4 level=11
-look filter bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=480 h=642 at=TOPLEFT,BagSmithFrameSearch,BOTTOMLEFT,-4,-2
+look filter bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=480 h=440 at=TOPLEFT,BagSmithFrameSearch,BOTTOMLEFT,-4,-2
 look filter.r2 text=0.60,0.55,0.45,1.00
-look filter.r3 text=0.98,0.78,0.46,1.00
+look filter.r3 text=0.60,0.55,0.45,1.00
 look filter.r4 text=0.98,0.78,0.46,1.00
+look filter.r5 text=0.98,0.78,0.46,1.00
+look filter.r6 text=0.84,0.83,0.79,1.00
 look filter.1 w=nil h=34 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
 look filter.2 w=nil h=nil at= level=1
 look filter.2.r3 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/2
 look filter.2.r4 color=0.07,0.07,0.06,0.35 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,4,-4;BOTTOMRIGHT,parent,BOTTOMRIGHT,-4,4 layer=BACKGROUND/4
 look filter.3 w=nil h=nil at=TOPRIGHT,filter,TOPRIGHT,-4,-4 level=11
-look filter.4 w=nil h=24 at=TOPLEFT,parent,TOPLEFT,18,-38;TOPRIGHT,parent,TOPRIGHT,-14,-38
-look filter.5 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-124
-look filter.6 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,78,-124
-look filter.7 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,154,-124
-look filter.8 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,242,-124
-look filter.9 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,306,-124
-look filter.10 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,370,-124
-look filter.11 w=nil h=372 at=TOPLEFT,filter,TOPLEFT,0,-232;TOPRIGHT,filter,TOPRIGHT,0,-232
-look filter.11.r1 text=0.98,0.78,0.46,1.00
-look filter.11.r2 text=0.98,0.78,0.46,1.00
-look filter.11.1 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-26
-look filter.11.2 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,72,-26
-look filter.11.3 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,130,-26
-look filter.11.4 w=nil h=230 at=TOPLEFT,filter.11,TOPLEFT,0,-134;TOPRIGHT,filter.11,TOPRIGHT,0,-134
-look filter.11.4.r1 text=0.98,0.78,0.46,1.00
-look filter.11.4.r2 text=0.98,0.78,0.46,1.00
-look filter.11.4.r3 text=0.84,0.83,0.79,1.00
-look filter.11.4.r4 text=0.84,0.83,0.79,1.00
-look filter.11.4.r5 text=0.84,0.83,0.79,1.00
-look filter.11.4.r6 text=0.60,0.55,0.45,1.00
-look filter.11.4.r7 color=0.32,0.25,0.12,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,14,-136;TOPRIGHT,parent,TOPRIGHT,-14,-136 layer=ARTWORK/nil
-look filter.11.4.r8 text=0.98,0.78,0.46,1.00
-look filter.11.4.r9 text=0.60,0.55,0.45,1.00
-look filter.11.4.1 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-26
-look filter.11.4.2 w=26 h=22 at=LEFT,frame,RIGHT,10,0
-look filter.11.4.3 w=26 h=22 at=LEFT,frame,RIGHT,10,0
-look filter.11.4.4 w=322 h=24 at=TOPLEFT,parent,TOPLEFT,20,-174
-look filter.11.4.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=116 h=24 at=LEFT,filter.11.4.4,RIGHT,8,0
-look filter.11.4.5.1 w=nil h=nil at=
-look filter.11.5 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-80
-look filter.11.6 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,102,-80
-look filter.11.7 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,220,-80
-look filter.11.8 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-106
-look filter.11.9 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,156,-106
-look filter.12 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=80 h=24 at=BOTTOMLEFT,parent,BOTTOMLEFT,14,14
+look filter.4 w=nil h=24 at=TOPLEFT,parent,TOPLEFT,18,-52;TOPRIGHT,parent,TOPRIGHT,-14,-52
+look filter.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=20 at=TOPLEFT,filter,TOPLEFT,14,-132
+look filter.5.1 w=nil h=nil at=
+look filter.6 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=52 h=20 at=TOPLEFT,filter,TOPLEFT,58,-132
+look filter.6.1 w=nil h=nil at=
+look filter.7 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=64 h=20 at=TOPLEFT,filter,TOPLEFT,114,-132
+look filter.7.1 w=nil h=nil at=
+look filter.8 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=20 at=TOPLEFT,filter,TOPLEFT,182,-132
+look filter.8.1 w=nil h=nil at=
+look filter.9 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=40 h=20 at=TOPLEFT,filter,TOPLEFT,226,-132
+look filter.9.1 w=nil h=nil at=
+look filter.10 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=70 h=20 at=TOPLEFT,filter,TOPLEFT,270,-132
+look filter.10.1 w=nil h=nil at=
+look filter.11 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=34 h=20 at=TOPLEFT,filter,TOPLEFT,14,-180
+look filter.11.1 w=nil h=nil at=
+look filter.12 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=88 h=20 at=TOPLEFT,filter,TOPLEFT,52,-180
 look filter.12.1 w=nil h=nil at=
-look filter.13 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=70 h=24 at=BOTTOMRIGHT,parent,BOTTOMRIGHT,-14,14
+look filter.13 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=92 h=20 at=LEFT,frame,RIGHT,8,0
 look filter.13.1 w=nil h=nil at=
-look filter.14 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-178
-look filter.15 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,78,-178
-look filter.16 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,184,-178
-look filter.17 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,272,-178
-look filter.18 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,378,-178
-look filter.19 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,14,-204
-look filter.20 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,84,-204
-look filter.21 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,160,-204
-look filter.22 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,224,-204
-look filter.23 w=22 h=22 at=TOPLEFT,parent,TOPLEFT,288,-204
+look filter.14 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=118 h=20 at=LEFT,filter.13,RIGHT,6,0
+look filter.14.1 w=nil h=nil at=
+look filter.15 w=430 h=28 at=TOPLEFT,parent,TOPLEFT,14,-240
+look filter.15.1 w=430 h=28 at=
+look filter.15.1.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=104 h=22 at=TOPLEFT,filter.15.1,TOPLEFT,0,-0
+look filter.15.1.1.1 w=nil h=nil at=
+look filter.16 w=480 h=164 at=TOPLEFT,filter,TOPLEFT,0,-276
+look filter.16.r1 color=0.32,0.25,0.12,1.00 w=nil h=nil at=TOPLEFT,parent,TOPLEFT,14,0;TOPRIGHT,parent,TOPRIGHT,-14,0 layer=ARTWORK/nil
+look filter.16.r2 text=0.84,0.83,0.79,1.00
+look filter.16.r3 text=0.98,0.78,0.46,1.00
+look filter.16.r4 text=0.60,0.55,0.45,1.00
+look filter.16.1 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=80 h=22 at=TOPRIGHT,parent,TOPRIGHT,-14,-8
+look filter.16.1.1 w=nil h=nil at=
+look filter.16.2 w=182 h=24 at=TOPLEFT,parent,TOPLEFT,20,-62
+look filter.16.3 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=116 h=24 at=LEFT,filter.16.2,RIGHT,8,0
+look filter.16.3.1 w=nil h=nil at=
+look filter.16.4 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=132 h=24 at=LEFT,filter.16.3,RIGHT,8,0
+look filter.16.4.1 w=nil h=nil at=
+look filter.16.5 bg=0.00,0.00,0.00,0.00 border=0.00,0.00,0.00,0.00 w=70 h=24 at=TOPRIGHT,parent,TOPRIGHT,-14,-126
+look filter.16.5.1 w=nil h=nil at=
 look bagwin bg=0.09,0.09,0.10,0.00 border=0.00,0.00,0.00,0.00 w=298 h=160 at=BOTTOMLEFT,UIParent,BOTTOMLEFT,-518,200
 look bagwin.1 w=nil h=44 at=TOPLEFT,parent,TOPLEFT,0,0;TOPRIGHT,parent,TOPRIGHT,0,0
 look bagwin.2 w=nil h=26 at=TOPLEFT,bagwin,TOPLEFT,12,-34;TOPRIGHT,bagwin,TOPRIGHT,-10,-34 level=3

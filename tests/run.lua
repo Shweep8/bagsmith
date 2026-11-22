@@ -477,11 +477,13 @@ check(okc and #ns.Buttons.byBag[3] == 18, "no buttons created in combat")
 check(main.statusText.text:find("new bag slots"), "status explains the wait: " .. tostring(main.statusText.text))
 M.combat = false; M.fire("PLAYER_REGEN_ENABLED")
 check(#ns.Buttons.byBag[3] == 20 and ns.Buttons:Get(3, 20):IsShown(), "buttons created after combat and the item appears")
--- filter panel rebuilds its Where list when bags change
+-- the Filters window's bags follow the bag set
+-- (by design since 1.10.0-beta4: the Where boxes are the Bag rule; its choices are the bags the window shows, read
+-- fresh each time they're drawn)
 ns.Popups:ToggleFilters(main)
 local found = false
-for _, c in ipairs(ns.Popups.filter.checks) do if c.label.text == "Traveler's Backpack" then found = true end end
-check(found, "filter panel lists the new bag")
+for _, o in ipairs(ns.Popups.filter.list:Options("bag")) do if o.label == "Traveler's Backpack" then found = true end end
+check(found, "the Filters window's Bag rule lists the new bag")
 ns.Popups:ToggleFilters(main)
 M.bags[1][19] = nil; M.bags[3][20] = nil
 
@@ -942,18 +944,21 @@ check(main.scroll.ScrollBar:IsShown(), "scrollbar when the cap is hit")
 ns:Set("maxH", 720); main.scroll.GetHeight = origScrollGH
 
 -- Filter panel height follows the number of bag rows
+-- (by design since 1.10.0-beta4: the bags are the Bag rule's choices, so the window grows when that rule's line wraps)
 if not main:IsShown() then ToggleAllBags() end
 ns.Popups:OpenFilters(main, "browse")
 local pf = ns.Popups.filter
+pf.list:AddRow("bag")
 local h1 = pf.h
 -- one long bag row: add many bags with long names to force a second row
 local savedNames = {}
 for k, v in pairs(M.bagNames) do savedNames[k] = v end
 M.bagNames[1] = "An Extraordinarily Long Bag Name One"; M.bagNames[2] = "An Extraordinarily Long Bag Name Two"; M.bagNames[3] = "An Extraordinarily Long Bag Name Three"
 ns:Scan(); ns.Popups.filter:Hide(); ns.Popups:OpenFilters(main, "browse")
-check(pf.h > h1, ("panel grows when the Where list wraps: %s -> %s"):format(tostring(h1), tostring(pf.h)))
+check(pf.h > h1, ("panel grows when the Bag rule's choices wrap: %s -> %s"):format(tostring(h1), tostring(pf.h)))
 M.bagNames = savedNames; ns:Scan(); ns.Popups.filter:Hide(); ns.Popups:OpenFilters(main, "browse")
 check(pf.h == h1, "and shrinks back with fewer rows")
+pf.list:RemoveRow(1)
 ns.Popups.filter:Hide()
 
 -- Responsive toolbar
@@ -1042,9 +1047,15 @@ check(bad.ageMin == nil and bad.ageMax == nil, "values outside 0 to 9 or not who
 check(ns.FilterCount({ q = {}, cat = {}, t = {}, bd = {}, w = {}, ageMin = 1 }) == 1, "an age window counts as one filter")
 ns.Popups:OpenFilters(main, "browse")
 local pf = ns.Popups.filter
-check(pf.ageMin.text == "4" and pf.ageMax.text == "9", "the filter panel shows the window's age range")
-pf.ageMin:SetText("1"); pf.ageMin.scripts.OnTextChanged(pf.ageMin)
-check(ns.ui.filters.ageMin == 1, "typing in the age field sets the filter")
+-- (by design since 1.10.0-beta4: the Age boxes are a Time in Bags rule, and the filter is kept as that rule)
+do   -- (a block: the main chunk has no room for more locals)
+	local ageRow = pf.list.rows[1]
+	check(ageRow and ageRow:IsShown() and ageRow.label.text == "Time in Bags" and ageRow.verb.label.text == "between" and ageRow.num[1].boxes[1].text == "4" and ageRow.num[2].boxes[1].text == "9",
+		"the Filters window shows the window's age range, as a Time in Bags rule")
+	ageRow.num[1].boxes[1]:SetText("1"); ageRow.num[1].boxes[1].scripts.OnTextChanged(ageRow.num[1].boxes[1], true)
+	local ageRule = ns.ui.filters.rules and ns.ui.filters.rules.rows[1]
+	check(ageRule and ageRule.k == "age" and ageRule.v[1] == 1 and ageRule.v[2] == 9, "typing in its box sets the filter")
+end
 local legend = false
 for _, cb in ipairs(pf.checks) do if cb.groupKey == "q" and cb.key == 5 then legend = true end end
 check(legend, "Legendary is in the rarity section")
@@ -6439,7 +6450,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.10%.0%-beta3\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta3, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.10%.0%-beta4\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta4, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -8445,38 +8456,42 @@ end)()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	ToggleAllBags(); M.runTimers()
 	local S, main, P = n.Sections, n.Window.main, n.Popups
+	-- (by design since 1.10.0-beta4: the "Type / Sections" boxes are the Section rule. Its choices are read fresh each
+	-- time they're drawn, so there are no boxes to keep in step; a rule that names a section follows it instead.)
 	local function catLabels(f)
 		local t = {}
-		for _, c in ipairs(f.catPool or {}) do if c:IsShown() then t[#t + 1] = c.label.text end end
+		for _, o in ipairs(f.list:Options("sec")) do t[#t + 1] = o.label end
 		return table.concat(t, "|")
 	end
-	local function catBox(f, key) for _, c in ipairs(f.catPool or {}) do if c:IsShown() and c.key == key then return c end end end
+	local function catBox(f, key) for _, o in ipairs(f.list:Options("sec")) do if o.v[1] == key then return o end end end
 	P:OpenFilters(main, "browse")
 	local f = P.filter
-	check(f and f.catAfter and catLabels(f):find("Gear") and not catLabels(f):find("Healing"), "the Filter panel lists the built-in categories")
+	check(f and f.list and catLabels(f):find("Gear") and not catLabels(f):find("Healing"), "the Filters window's Section rule lists the built-in categories")
 	-- A new section appears while the panel is open.
 	local id = S:Create("Healing"); M.runTimers()
-	check(catLabels(f):find("Healing") and catBox(f, id), "a new custom section appears in the open panel")
+	check(catLabels(f):find("Healing") and catBox(f, id), "a new custom section appears among them")
 	-- Renamed: the new name shows.
 	S:Rename(id, "Potions"); M.runTimers()
 	check(catLabels(f):find("Potions") and not catLabels(f):find("Healing"), "a renamed section shows its new name")
-	-- Deleted: gone, and a stale click can't hide everything.
-	local box = catBox(f, id)
+	-- Deleted: gone, and a rule that named it lets go of it.
+	f.list.draft.rows[1] = { k = "sec", v = { id } }; f.list:Changed(); M.runTimers()
+	check(main.st.filters.rules and main.st.filters.rules.rows[1].v[1] == id, "(a Section rule names it)")
 	S:Delete(id); M.runTimers()
-	check(not catBox(f, id) and not catLabels(f):find("Potions"), "a deleted section is gone from the panel")
-	box.key = id   -- (as if a stale checkbox were still wired to it)
-	box:GetScript("OnClick")(box)
-	box:SetChecked(true); box:GetScript("OnClick")(box)
-	check(not main.st.filters.cat[id], "a stale checkbox for a deleted section can't put it into the filter")
-	-- Everything below Category moved to make room, and moves back.
-	local rows0, y0 = f.catRows, f.catAfter.points[1][5]
+	check(not catBox(f, id) and not catLabels(f):find("Potions"), "a deleted section is gone from the choices")
+	check(main.st.filters.rules == nil and #f.list.draft.rows == 0, "and from the rule that named it: a deleted section can't stay in the filter")
+	-- A rule with many sections picked wraps, and the window grows; it shrinks back when they're gone.
+	local h0 = f:GetHeight()
 	local tall = {}
 	for i = 1, 12 do tall[i] = S:Create(("Long Section Name %02d"):format(i)) end
 	M.runTimers()
-	check(f.catRows > 1 and f.catAfter.points[1][5] < f.catAfterTop, "many sections wrap to more rows, and the rows below move down")
+	local picked = {}
+	for i = 1, 12 do picked[i] = tall[i] end
+	f.list.draft.rows[1] = { k = "sec", v = picked }; f.list:Changed(); M.runTimers()
+	local h1 = f:GetHeight()
+	check(h1 > h0 + 60, "many sections on one rule wrap to more lines, and the rows below move down")
 	for i = 1, 12 do S:Delete(tall[i]) end
 	M.runTimers()
-	check(f.catRows == rows0 and f.catAfter.points[1][5] == y0, "and move back up when they're gone")
+	check(f:GetHeight() == h0 and #f.list.draft.rows == 0, "and move back up when they're gone")
 	-- Switching profiles shows that profile's sections.
 	local a = S:Create("Alpha")
 	n.Profiles:Use("Other"); M.runTimers()
@@ -8565,18 +8580,18 @@ end)()
 	n.Profiles:Use("Default"); n:Set("autoSellJunk", false)
 	C_Container.UseContainerItem = realUse
 	-- F4: a section name shaped like the panel's bookkeeping can't fool its refresh.
+	-- (by design since 1.10.0-beta4: the Section rule's choices are read fresh each time, with no bookkeeping to fool)
 	local P = n.Popups
 	P:OpenFilters(main, "browse")
 	local f = P.filter
 	local tricky = S:Create("A|c2=B"); M.runTimers()
-	local sig1 = f.catSig
 	f:Hide()
 	S:Rename(tricky, "A"); S:Create("B"); M.runTimers()
 	P:OpenFilters(main, "browse")
 	local labels = {}
-	for _, c in ipairs(f.catPool) do if c:IsShown() then labels[#labels + 1] = c.label.text end end
+	for _, o in ipairs(f.list:Options("sec")) do labels[#labels + 1] = o.label end
 	local joined = table.concat(labels, "|")
-	check(f.catSig ~= sig1 and joined:find("|A|") and joined:find("|B$") and not joined:find("A|c2=B", 1, true), "a rename plus a new section is seen even with a delimiter-shaped name: " .. joined)
+	check(joined:find("|A|") and joined:find("|B$") and not joined:find("A|c2=B", 1, true), "a rename plus a new section is seen even with a delimiter-shaped name: " .. joined)
 	f:Hide()
 end)()
 
@@ -8861,18 +8876,19 @@ end)()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	ToggleAllBags(); M.runTimers()
 	local P, main = n.Popups, n.Window.main
-	-- The Filters window: the frames everything below Category rides on have real heights
+	-- The Filters window: the frames its rules and everything below them ride on have real heights
 	-- (the client draws nothing on a frame with no size, children included).
+	-- (by design since 1.10.0-beta4: the rules scroll in one frame, and one frame below them holds the rest)
 	P:OpenFilters(main, "browse")
 	local f = P.filter
-	check(f.catAfter:GetHeight() > 50 and f.after:GetHeight() > 50, ("the sub-frames below Category have heights (%d and %d)"):format(f.catAfter:GetHeight(), f.after:GetHeight()))
+	check(f.tail:GetHeight() > 50 and f.rules:GetHeight() > 0 and f.rulesChild:GetHeight() > 0, ("the frames for the rules and below them have heights (%d and %d)"):format(f.rules:GetHeight(), f.tail:GetHeight()))
 	local labels = {}
 	for _, c in ipairs(f.checks) do if c:IsShown() and c.label then labels[c.label.text] = true end end
-	check(labels["New Items Only"] and labels["Backpack"] ~= nil or true, "the Other row's checkbox is built")
-	check(f.sheetBox and f.saveBtn and f.ageMin and f.ageMax, "the Age and Save as a Sheet rows exist")
-	-- Bind, Where, Other, Age and the sheet section all descend from catAfter or after (so a sized frame draws them).
+	check(labels["New"] and labels["Usable by Me"] and labels["Uncommon"], "the Quality and Quick picks chips are built")
+	check(f.sheetBox and f.saveBtn and f.sectionBtn and f.count and f.add, "the count, + Add a Rule and the Keep these filters row exist")
+	-- The sheet section descends from the frame below the rules, + Add a Rule from the rules' own (so a sized frame draws them).
 	local function descends(r, of) local x = r; for _ = 1, 6 do if x == of then return true end x = x.GetParent and x:GetParent() end return false end
-	check(descends(f.sheetBox, f.catAfter) and descends(f.ageMin, f.catAfter), "the sheet box and the age fields sit on the sized sub-frame")
+	check(descends(f.sheetBox, f.tail) and descends(f.saveBtn, f.tail) and descends(f.add, f.rulesChild), "the sheet box sits on the sized frame below the rules, + Add a Rule on the rules' own")
 	f:Hide()
 	-- Settings: every row inside a card stays within the card's width.
 	local S = n.SettingsPanel
@@ -8953,17 +8969,19 @@ end)()
 	ToggleAllBags(); M.runTimers()
 	n.Popups:OpenFilters(n.Window.main, "browse")
 	local f = n.Popups.filter
-	local found, oldName = false, false
-	for _, r in ipairs(f.regions or {}) do end
+	-- (by design since 1.10.0-beta4: the window's headings are Quality and Quick picks; the "Type / Sections" row, once
+	-- "Category", is the Section rule now)
+	local found, picks, oldName = false, false, false
 	local function scan(frame)
 		for _, c in ipairs(frame.children or {}) do scan(c) end
 		for _, r in ipairs(frame.regions or {}) do
-			if r.text == "Type / Sections" then found = true end
-			if r.text == "Category" then oldName = true end
+			if r.text == "Quality" then found = true end
+			if r.text == "Quick picks" then picks = true end
+			if r.text == "Type / Sections" or r.text == "Category" then oldName = true end
 		end
 	end
 	scan(f)
-	check(found and not oldName, "the Filters panel heads its category row \"Type / Sections\"")
+	check(found and picks and not oldName, "the Filters window is headed Quality and Quick picks; the old category row is a rule now")
 	f:Hide()
 end)()
 

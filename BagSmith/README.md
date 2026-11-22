@@ -21,7 +21,8 @@ Spreadsheet-style bags for World of Warcraft: Forever.
 - Optional small window per bag and for the reagent bag: icon grids with every slot, placed where you leave
   them, with their own icons-per-row, max height and a scale applied on top of the main Scale. Windows fade and ignore clicks during combat.
 - Search shortcuts: plain words, `boe`, `bop`, `new`, `q:rare`, `t:herb`, `il>20`.
-- Filter panel (rarity, category, bind, bag, new only) and "Save as sheet": your own tabs.
+- Filters window (quality, quick picks, and rules such as type, slot, binding, section or bag) and "Save as Sheet": your own tabs.
+  "Save as Section" turns the rules into one of your sections.
 - Sheet tabs: reorder by dragging, hide in Settings. Optionally, each sheet remembers its own view.
 - What's New: a short card after notable updates, with a tab for each recent release; reopen it from Settings or `/bs new`.
 - Sell Junk + Mark as Junk: mark items as junk (Junk column or a keybinding) and they're sold with Blizzard's Sell All Junk. Optional Dim Junk Items.

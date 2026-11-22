@@ -10,7 +10,14 @@ New:
   Section... from the section's menu, to give it rules about an item's type, slot, quality, binding, item level or
   vendor value. Choose whether an item has to fit all of them or any one, and see what would go in the section, and
   what fits but stays somewhere else, before you save. New Section... on that page opens it too.
+- The Filters window is rebuilt around the same rules. Quality and quick picks (New, Usable by Me) sit at the top.
+  Under "Only show items that fit" you add rules with + Add a Rule, choose all of these or any one of these, and
+  see how many items are left. Three rules are just for filters: Section, Bag and Time in Bags.
+- Save as Section... in the Filters window opens the section editor with the rules you've set, so a filter you like
+  can become a section.
 Changed:
+- The boxes the Filters window used to have (Type / Sections, Bind, Where and Age) are rules now. Sheets you saved
+  before show them as rules and filter the same.
 - An item you move back to its usual section by hand stays there, even when one of your sections would take it.
 - The Disenchant Helper no longer offers an item you've marked as junk. Mark one there and it leaves the list, and
   it comes back if you take the mark off.

@@ -1697,6 +1697,8 @@ function View:UpdateChrome(shown, total, bagInfo, cached)
 	-- (1.9.0-beta8, Shweep: the value note "is getting lost ... hard to understand") Global Inventory's worth is its Total
 	-- row now (UpdateTotalRow), under the Vendor and AH Price columns; the title keeps only "N of M shown"
 	local shownNote = #shown ~= total and ("%d of %d shown"):format(#shown, total) or nil
+	-- (1.10.0-beta4) the Filters window says the same under its rules
+	if ns.Popups and ns.Popups.UpdateCount then ns.Popups:UpdateCount(self, #shown, total) end
 	if shownNote then sub = (sub ~= "" and sub .. ", " or "") .. shownNote end
 	self.subText:SetText(sub)
 	if self.charBtn then

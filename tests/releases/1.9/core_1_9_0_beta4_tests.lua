@@ -128,11 +128,13 @@ end)()
 	n.Popups:OpenFilters(V, "browse"); M.runTimers()
 	local rc = n.Popups.filter.realmsCheck
 	check(rc and rc:IsShown() and not rc:GetChecked(), "the Filter panel: Include Other Rulesets, off")
-	rc:SetChecked(true); rc:GetScript("OnClick")(rc); M.runTimers()
+	-- (by design since 1.10.0-beta4: the Filters window's boxes are chips now, so one click turns it on, another off)
+	rc:GetScript("OnClick")(rc); M.runTimers()
 	local found = false
 	for _, r in ipairs(V:Filtered()) do if r.itemID == 4306 then found = true end end
 	check(n.Inventory:Settings().allRealms and found, "on: the other ruleset's character's items too")
-	rc:SetChecked(false); rc:GetScript("OnClick")(rc); M.runTimers()
+	rc:GetScript("OnClick")(rc); M.runTimers()
+	check(not rc:GetChecked() and not n.Inventory:Settings().allRealms, "and off again")
 	n.Popups.filter:Hide()
 	-- the signpost
 	V.btnTravel:GetScript("OnClick")(V.btnTravel); M.runTimers(); M.runTimers()
