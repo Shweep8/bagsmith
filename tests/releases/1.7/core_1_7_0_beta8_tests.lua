@@ -195,7 +195,7 @@
 		local n = boot()
 		-- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 		-- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
-		local first = n.WhatsNew.ENTRIES[9].items[1]   -- (by design since 1.9.6: six places down, after 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+		local first = n.WhatsNew.ENTRIES[11].items[1]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 		check(first:find("never offers what you still need for a quest, unless its heading is collapsed in your quest log.", 1, true), "the 1.7 card's first bullet names the collapsed-heading limit")
 		check(n.MakeRoom:HowItDecides()[3] == "Anything you still need for a quest is never on the list, unless its heading is collapsed in your quest log.", "as the (i) does (unchanged)")
 	end
