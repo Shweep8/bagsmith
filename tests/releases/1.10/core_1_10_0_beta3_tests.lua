@@ -160,7 +160,9 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	click(f.add)
 	local texts = {}
 	for i, it in ipairs(menu) do texts[i] = it.text end
-	check(anchor == f.add and table.concat(texts, " | ") == "What should the rule look at? | Type | Slot | Quality | Binding | Item Level | Vendor Value" and menu[1].title and menu[2].tip:find("Cloth", 1, true), S0 .. "the menu: the six kinds of rule, each with a hint")
+	-- (by design since 1.10.0-beta6: one quiet line after them says the optional ItemTree addon adds more)
+	check(anchor == f.add and table.concat(texts, " | ") == "What should the rule look at? | Type | Slot | Quality | Binding | Item Level | Vendor Value | Optional: the ItemTree addon adds more rules here."
+		and menu[1].title and menu[2].tip:find("Cloth", 1, true) and menu[8].disabled, S0 .. "the menu: the six kinds of rule, each with a hint")
 	-- Quality: every choice on the row
 	menu[4].onClick(); M.runTimers()
 	local r1 = f.rows[1]

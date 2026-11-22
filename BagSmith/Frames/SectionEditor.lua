@@ -422,6 +422,7 @@ ns:OnSignal("ADDON_READY", function()
 	-- the list on the right follows your bags, and your other sections, while the window is up
 	local function follow() if E.frame and E.frame:IsShown() then E:Refresh() end end
 	ns:OnSignal("ITEMS_CHANGED", follow)
+	ns:OnSignal("ITEMTREE_FACTS", follow)   -- (1.10.0-beta6) ItemTree's answers came in, or changed
 	ns:OnSignal("SETTINGS_CHANGED", function(key) if key == "customSections" then follow() end end)
 	ns:OnSignal("PROFILE_ACTIVATED", function() if E.frame and E.frame:IsShown() then E.frame:Hide() end end)
 end)

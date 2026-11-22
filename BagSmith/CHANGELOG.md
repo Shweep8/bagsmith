@@ -18,6 +18,9 @@ New:
 - A section can show on every sheet, or only on some. In the section editor, set Show this section on to only some
   sheets and tick the tabs. Everywhere else its items stay in their usual section, so Cloth, Leather and Herbs can
   split up your Trade Goods tab while All keeps one Trade Goods section.
+- With the ItemTree addon installed, your section and filter rules can use what it knows: Used by My Professions,
+  Needed for a Quest, An Upgrade for Me and Sold by Vendors, and for filters ItemTree's Advice. Use ItemTree in
+  Settings > General turns it on or off. ItemTree is optional, and BagSmith works the same without it.
 Changed:
 - The Gear, Consumables, Trade Goods, Quest and Junk tabs show every item of their kind, grouped under your own
   sections where you have them. Before, an item in one of your sections left its tab.

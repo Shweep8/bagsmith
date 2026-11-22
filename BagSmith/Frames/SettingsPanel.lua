@@ -1693,6 +1693,17 @@ pages.general = function(self, db)
 	end
 	self:Seg("priceSource", "Price Source", { { "auto", "Automatic" }, { "auctionator", "Auctionator" }, { "blackthornes", "Blackthornes" } },
 		"Which addon BagSmith gets auction prices from. Automatic uses the one you have, or Auctionator if you have both. " .. now)
+	-- (1.10.0-beta6) ItemTree: optional, always listed, and the switch says which of three states it's in
+	self:Head("Other Addons")
+	do
+		local IT = ns.ItemTree
+		local installed = IT and IT:Installed()
+		local status = not installed and "ItemTree isn't installed. You don't need it. If you add it later, this switch comes alive."
+			or (db.useItemTree ~= false and "ItemTree is installed, and BagSmith is using it." or "ItemTree is installed. Tick this whenever you want BagSmith to use it.")
+		self:Check("useItemTree", "Use ItemTree", "ItemTree is another addon that knows what your items are for. With this on, your sections and filters can use what it knows, "
+			.. "like which items your professions use or which a quest needs. BagSmith works the same without it. " .. status,
+			not installed and { disabled = true, checked = false } or nil)
+	end
 	-- (1.6.0) tips on BagSmith's own controls
 	self:Head("Tooltips")   -- (1.9.0-beta2, Shweep) was "Tips"
 	-- (1.9.0-beta1, Shweep)

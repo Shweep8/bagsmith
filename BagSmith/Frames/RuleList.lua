@@ -8,7 +8,8 @@
 		draft    { mode = "all" | "any", rows = { ... } }, the rules as the list holds them while they're edited
 		parent   the frame the rows are made in (they're laid out from its top left)
 		width    the room a row has
-		host     the window: the second window is its child, and it waits behind a shade while that one is up
+		host     the window: the second window opens over it, in a layer of its own, and the host waits behind a
+		         shade while that one is up
 		filter   true for a filter's rules: the keys that are only a filter's are offered too
 		rows     {} (the rows made so far)
 	and may replace
@@ -27,10 +28,21 @@ RL.__index = RL
 ns.RuleList = RL
 
 local LABEL_W, CHIP_H, CHIP_GAP = 88, 20, 4
-local PAD, PW, PH, PROW = 14, 330, 480, 22
+local PAD, PW, PH, PROW = 14, 330, 440, 22   -- (1.10.0-beta6: no taller than the windows it opens over)
+-- (1.10.0-beta6, Shweep's screenshots: "the Edit Section and Change a Rule window glitch each other out") The second
+-- window used to be a child of its host a few levels up in the SAME layer. In Classic the game's own frame art draws a
+-- window's border and title at a fixed high level, above anything inside that window, so the host's border and title
+-- strip cut across the second window. It now has a layer of its own above the host's, with the shade in a layer
+-- between the two, covering the whole host: its border, title and close button too.
+local SHADE_STRATA, PICK_STRATA = "FULLSCREEN", "FULLSCREEN_DIALOG"
+local function layer(frame, strata)
+	frame:SetFrameStrata(strata)
+	if frame.SetFixedFrameStrata then frame:SetFixedFrameStrata(true) end   -- (never back to its parent's layer)
+end
 local OPS = { "ge", "le", "in" }
 local OP_TEXT = { ge = "at least", le = "at most", ["in"] = "between" }
-local INLINE = { quality = true, bind = true, bag = true }   -- few enough choices to show them all on the row
+local INLINE = { quality = true, bind = true, bag = true,   -- few enough choices to show them all on the row
+	it_prof = true, it_quest = true, it_upgrade = true, it_vendor = true, it_advice = true }
 local PICKED = { type = true, slot = true, sec = true }      -- long lists: picked in the second window
 local KINDS = {
 	{ k = "type", hint = "What kind of item it is: Cloth, Herbs, Plate, Potions..." },
@@ -45,6 +57,14 @@ local FILTER_KINDS = {
 	{ k = "sec", hint = "The section it's in: Gear, Trade Goods, one of yours..." },
 	{ k = "bag", hint = "Which of your bags it sits in." },
 	{ k = "age", hint = "How long it has been in your bags, in hours." },
+}
+-- (1.10.0-beta6) what ItemTree knows, offered while it's installed and "Use ItemTree" is on
+local ITEMTREE_KINDS = {
+	{ k = "it_prof", hint = "A recipe of one of your professions uses it, or ItemTree keeps it for one." },
+	{ k = "it_quest", hint = "A quest you can still do needs it." },
+	{ k = "it_upgrade", hint = "Better than what you're wearing, by ItemTree's reckoning." },
+	{ k = "it_vendor", hint = "A vendor sells it, so it's easy to buy again." },
+	{ k = "it_advice", hint = "What ItemTree would do with it: Keep, Equip, Vendor..." },
 }
 local PICK_ASK = { type = "Tick every kind you want:", slot = "Tick every slot you want:", sec = "Tick every section you want:" }
 local PICK_NONE = { type = "Tick at least one kind.", slot = "Tick at least one slot.", sec = "Tick at least one section." }
@@ -347,6 +367,10 @@ function RL:LayoutRow(r, row, s)
 	local note
 	local known = R.KEYS[row.k]
 	if known and known.filterOnly and not self.filter then note = "Only a filter can use this rule. Here it fits nothing."
+	elseif def and def.addon == "ItemTree" and not (ns.ItemTree and ns.ItemTree:Enabled()) then
+		-- (1.10.0-beta6) kept, and waiting for ItemTree
+		note = (ns.ItemTree and ns.ItemTree:Installed()) and "ItemTree is turned off in Settings, so this rule fits nothing for now."
+			or "ItemTree isn't installed, so this rule fits nothing for now."
 	elseif row.kept or not def then note = "From another addon or a newer BagSmith. It's kept as it is."
 	elseif number and not self:RowUsable(row) then note = "Type a number, or this rule is ignored."
 	elseif list and #row.v == 0 then note = "Pick at least one, or this rule is ignored." end
@@ -420,6 +444,12 @@ function RL:Kinds()
 	for _, kind in ipairs(FILTER_KINDS) do out[#out + 1] = kind end
 	return out
 end
+-- (1.10.0-beta6) ItemTree's kinds, for this list (its advice is a filter's only).
+function RL:ItemTreeKinds()
+	local out = {}
+	for _, kind in ipairs(ITEMTREE_KINDS) do if self:Def(kind.k) then out[#out + 1] = kind end end
+	return out
+end
 -- + Add a Rule: what should the rule look at?
 function RL:AddMenu(button)
 	local L, d = self, self.draft
@@ -433,6 +463,19 @@ function RL:AddMenu(button)
 	for _, kind in ipairs(self:Kinds()) do
 		items[#items + 1] = { text = R.KEYS[kind.k].label, tip = kind.hint, gap = kind.k == "price" and self.filter or nil, onClick = function() L:AddRow(kind.k) end }
 	end
+	-- (1.10.0-beta6) What ItemTree knows: its rules while it's in use, else one quiet line that says where they are
+	items[#items].gap = true
+	local IT = ns.ItemTree
+	if IT and IT:Enabled() then
+		items[#items + 1] = { text = "What ItemTree knows", title = true }
+		for _, kind in ipairs(self:ItemTreeKinds()) do
+			items[#items + 1] = { text = R.KEYS[kind.k].label, tip = kind.hint, onClick = function() L:AddRow(kind.k) end }
+		end
+	elseif IT and IT:Installed() then
+		items[#items + 1] = { text = "ItemTree is turned off. Turn it on in Settings to add its rules.", disabled = true }
+	else
+		items[#items + 1] = { text = "Optional: the ItemTree addon adds more rules here.", disabled = true }
+	end
 	return ns.ShowMenu(items, button)
 end
 function RL:AddRow(k)
@@ -441,7 +484,9 @@ function RL:AddRow(k)
 	local def = self:Def(k)
 	if not (d and def) or #d.rows >= R.MAX_ROWS then return end
 	if PICKED[k] then return self:OpenPicker(nil, k) end   -- a long list: picked first, added by Add Rule
-	if def.number then d.rows[#d.rows + 1] = { k = k, op = "ge" } else d.rows[#d.rows + 1] = { k = k, v = {} } end
+	if def.number then d.rows[#d.rows + 1] = { k = k, op = "ge" }
+	elseif def.yesNo then d.rows[#d.rows + 1] = { k = k, v = { "yes" } }   -- (1.10.0-beta6) yes or no: it starts at yes
+	else d.rows[#d.rows + 1] = { k = k, v = {} } end
 	self:Changed()
 	self:Added()
 end
@@ -454,7 +499,7 @@ function RL:Shade()
 	local host = self.host
 	if host.shade then return host.shade end
 	local shade = CreateFrame("Frame", nil, host); shade:SetAllPoints(host); shade:EnableMouse(true)
-	shade:SetFrameLevel(host:GetFrameLevel() + 30)
+	layer(shade, SHADE_STRATA)
 	shade.tex = shade:CreateTexture(nil, "BACKGROUND"); shade.tex:SetAllPoints(); shade.tex:SetColorTexture(0, 0, 0, 0.5)
 	shade:Hide()
 	host.shade = shade
@@ -467,7 +512,8 @@ function RL:Picker()
 	local host = self.host
 	self:Shade()
 	p = CreateFrame("Frame", self.pickerName, host, "BackdropTemplate")
-	p:SetFrameLevel(host:GetFrameLevel() + 40)
+	layer(p, PICK_STRATA)
+	p:SetToplevel(true)
 	p:SetSize(PW, PH); p:SetClampedToScreen(true); p:EnableMouse(true)
 	p:SetPoint("CENTER", host, "CENTER", 0, 0)
 	p:SetMovable(true); p:RegisterForDrag("LeftButton")
@@ -536,9 +582,12 @@ function RL:OpenPicker(index, k)
 	p.note:SetShown(k == "type")
 	p.scroll:SetVerticalScroll(0)
 	if ns.Classic then ns.Classic:RefreshTitle(p) end
+	-- (its own layers, said again each time: nothing may have put either back into the host's)
+	layer(self.host.shade, SHADE_STRATA); layer(p, PICK_STRATA)
 	self.host.shade:Show()
 	p:ClearAllPoints(); p:SetPoint("CENTER", self.host, "CENTER", 0, 0)
 	p:Show()
+	if p.Raise then p:Raise() end
 	self:RefreshPicker()
 	return p
 end

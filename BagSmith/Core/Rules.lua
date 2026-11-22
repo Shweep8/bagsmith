@@ -116,6 +116,41 @@ R.KEYS.age = {
 	of = function(rec) if type(rec.firstSeen) == "number" then return (time() - rec.firstSeen) / 3600 end end,
 }
 R.FILTER_KEYS = { "sec", "bag", "age" }
+-- (1.10.0-beta6) What ItemTree knows (another addon, optional: Core/ItemTree.lua). Four are yes or no: the one value
+-- is "yes", so "is" means yes and "is not" means no. While ItemTree has no answer for an item (it isn't installed, is
+-- turned off, isn't ready, or hasn't been asked about that item yet) the answer is nil and the rule fits nothing.
+local function itemTree(label, field)
+	return {
+		label = label, addon = "ItemTree", yesNo = true,
+		valid = function(v) return v == "yes" end,
+		of = function(rec)
+			local e = ns.ItemTree and ns.ItemTree:Facts(rec)
+			if not e then return nil end
+			return e[field] and { "yes" } or {}
+		end,
+	}
+end
+R.KEYS.it_prof = itemTree("Used by My Professions", "prof")
+R.KEYS.it_quest = itemTree("Needed for a Quest", "quest")
+R.KEYS.it_upgrade = itemTree("An Upgrade for Me", "upgrade")
+R.KEYS.it_vendor = itemTree("Sold by Vendors", "vendor")
+-- Its advice can change with prices and with how many you hold, so it's a filter's rule only: a section never moves
+-- an item about as that changes.
+R.KEYS.it_advice = {
+	label = "ItemTree's Advice", addon = "ItemTree", filterOnly = true,
+	valid = function(v) return type(v) == "string" and #v <= 24 and v:match("^%l+$") ~= nil end,
+	of = function(rec)
+		local e = ns.ItemTree and ns.ItemTree:Facts(rec)
+		if not e then return nil end
+		return e.tags
+	end,
+}
+R.ADDON_KEYS = { "it_prof", "it_quest", "it_upgrade", "it_vendor", "it_advice" }
+-- ItemTree's own words for its advice, as it tags an item (keep, equip and vendor seen in game, 22 Nov; the rest are
+-- the tags its code names).
+R.ADVICE = { "keep", "equip", "use", "open", "auction", "vendor", "disenchant", "worthless" }
+local ADVICE_LABEL = { keep = "Keep", equip = "Equip", use = "Use", open = "Open", auction = "Auction", vendor = "Vendor",
+	disenchant = "Disenchant", worthless = "Worthless", pet = "Pet" }
 
 -- A row's values as a set, built once for each row table (never stored in the row: rows are saved data).
 local sets = setmetatable({}, { __mode = "k" })
@@ -256,6 +291,10 @@ function R:ValueLabel(k, v)
 		local s = rawget(_G, ("ITEM_QUALITY%d_DESC"):format(tonumber(v) or -1))
 		return type(s) == "string" and s ~= "" and s or QUALITY[v] or tostring(v)
 	elseif k == "bind" then return BIND[v] or tostring(v)
+	elseif k == "it_advice" then
+		return ADVICE_LABEL[v] or (tostring(v):gsub("^%l", string.upper))
+	elseif R.KEYS[k] and R.KEYS[k].yesNo then
+		return v == "yes" and "Yes" or tostring(v)
 	elseif k == "sec" then
 		-- (1.10.0-beta4) a section by its name: BagSmith's own, or yours (a deleted one keeps its id)
 		local label = (ns.CAT_LABEL and ns.CAT_LABEL[v]) or (ns.Sections and ns.Sections.IsCustom and ns.Sections:IsCustom(v) and ns.Sections:Label(v))
@@ -418,6 +457,11 @@ function R:Options(k)
 		for q = 0, 5 do out[#out + 1] = { label = self:ValueLabel("quality", q), v = { q }, quality = q } end
 	elseif k == "bind" then
 		for _, b in ipairs(BIND_ORDER) do out[#out + 1] = { label = BIND[b], v = { b } } end
+	elseif k == "it_advice" then
+		-- (1.10.0-beta6)
+		for _, word in ipairs(R.ADVICE) do out[#out + 1] = { label = ADVICE_LABEL[word], v = { word } } end
+	elseif R.KEYS[k] and R.KEYS[k].yesNo then
+		out[1] = { label = "Yes", v = { "yes" } }
 	end
 	return out
 end

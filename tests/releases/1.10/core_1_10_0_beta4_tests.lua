@@ -189,7 +189,9 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	click(f.add)
 	local texts = {}
 	for i, it in ipairs(menu) do texts[i] = it.text end
-	check(table.concat(texts, " | ") == "What should the rule look at? | Type | Slot | Quality | Binding | Item Level | Vendor Value | Section | Bag | Time in Bags", S0 .. "the kinds of rule: a section's six, then Section, Bag and Time in Bags")
+	-- (by design since 1.10.0-beta6: one quiet line after them says the optional ItemTree addon adds more)
+	check(table.concat(texts, " | ") == "What should the rule look at? | Type | Slot | Quality | Binding | Item Level | Vendor Value | Section | Bag | Time in Bags | Optional: the ItemTree addon adds more rules here."
+		and menu[11].disabled, S0 .. "the kinds of rule: a section's six, then Section, Bag and Time in Bags")
 	-- Binding: every choice on the row, live
 	menu[5].onClick(); M.runTimers()
 	local r1 = L.rows[1]
@@ -417,7 +419,8 @@ end)()
 	n.ShowMenu = function(items) menu = items end
 	f = S:EditSection(id); M.runTimers()
 	click(f.add)
-	check(#menu == 7 and menu[7].text == "Vendor Value", "the section editor offers its six kinds, as before")
+	-- (by design since 1.10.0-beta6: and one quiet line about the optional ItemTree addon)
+	check(#menu == 8 and menu[7].text == "Vendor Value" and menu[8].disabled, "the section editor offers its six kinds, as before")
 	click(f.cancel)
 	check((n.errors or 0) == 0, "no errors")
 end)()
