@@ -152,7 +152,7 @@ end)()
 	-- What's New: 1.9.4's entry, under 1.9 as an update
 	local n, M = boot(nil, { whatsNewSeen = "1.9.3", whatsNewPatchSeen = { ["1.9.2"] = true, ["1.9.1"] = true }, whatsNewButtonSeen = "1.9.2" })
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[3]   -- (by design since 1.9.6: two places down, after 1.9.6's and 1.9.5's entries)
+	local e = WN.ENTRIES[5]   -- (by design since 1.9.8: four places down, after 1.9.8's, 1.9.7's, 1.9.6's and 1.9.5's entries)
 	check(e.v == "1.9.4" and e.heading == "BagSmith 1.9.4" and #e.items == 2, "the 1.9.4 entry, two bullets")
 	check(e.items[1] == "|cfffac775Section Values in Compact View:|r Compact View now shows what each section is worth, too. Just hover over or click the little coin on a section's header.", "Section Values in Compact View, word for word as chosen")
 	check(e.items[2] == "|cfffac775Show Section Values:|r prefer clean headers? Turn the values off in Settings > Sections. You can still hover a section's name to see them.", "Show Section Values, word for word as chosen")

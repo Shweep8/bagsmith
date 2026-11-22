@@ -26,6 +26,21 @@ ns.WhatsNew = WN
 WN.ENTRIES = {
 	-- (1.9.2-beta1, Shweep) a release's updates have entries of their own, shown under its tab: 1.9.2 (Jeor's red tint)
 	-- and 1.9.1 (which had no card), as Shweep approved them
+	-- (1.9.8-beta1, after Shweep's "this should have had a card in what's new" on 1.9.7: an entry is drafted for every
+	-- release a player can notice) two characters sharing a first name shared one saved record
+	-- (1.9.8-beta2, Shweep: "One Thing to Do" becomes "Important", in the soft red 1.8's entry uses; "let's show this on
+	-- next load, while we normally don't in this case we should" (opens = true: the one update that opens the card by
+	-- itself); "a small notes below the bullets few lines down" in his own voice (note); and the reminder, with his
+	-- apology, that Global Inventory isn't fully accurate until each such character has logged in and visited the bank)
+	{ v = "1.9.8", heading = "BagSmith 1.9.8", opens = true, items = {
+		"|cfffac775Shared First Names:|r two characters with the same first name, like Mara Swift and Mara Stone, no longer write over each other's saved bags, bank and gold. Each shows on its own in Global Inventory and tooltips.",
+		"|cfff09595Important:|r if two of your characters share a first name, Global Inventory and tooltips won't be 100% accurate until you've logged in to each of them and visited the bank on each. Apologies, I wish this had been caught sooner.",
+	}, note = "I don't usually open What's New by itself for a patch, since patches are mostly bug fixes that change little. This time I wanted you to know sooner rather than later." },
+	-- (1.9.8-beta1) 1.9.7's entry, added afterwards as Shweep asked (1.9.7 was already published without one)
+	{ v = "1.9.7", heading = "BagSmith 1.9.7", items = {
+		"|cfffac775No Clean Up at Vendors:|r Clean Up Bags When Opened no longer runs when your bags open at a vendor, so your items stay put while you sell. The Clean Up button still works there.",
+		"|cfffac775Junk Stays Dimmed:|r with Dim Junk on, junk keeps its greyed look while your bags are being cleaned up.",
+	} },
 	-- (1.9.6-beta1; Shweep asked whether What's New should warn players to log into every alt) no warning needed, a
 	-- reassurance: client build 71037 stopped giving the realm, which hid every alt (Core/Init.lua)
 	{ v = "1.9.6", heading = "BagSmith 1.9.6", items = {
@@ -248,8 +263,18 @@ function WN:UnseenReleases()
 	for _, g in ipairs(groups(self:Latest())) do if newer(g.primary.v, seen) then out[#out + 1] = g end end
 	return out
 end
+-- (1.9.8-beta2, Shweep: "while we normally don't in this case we should") An update marked opens = true opens the
+-- card by itself, once, like a main release: while its release is the newest one, until its notes have been opened.
+-- Every other update still waits to be clicked.
+function WN:UnseenOpener()
+	local newest = groups(self:Latest())[1]
+	local seen = BagSmithDB.whatsNewPatchSeen
+	for j, p in ipairs(newest and newest.patches or {}) do
+		if p.opens and not (type(seen) == "table" and seen[base(p.v)]) then return p, j end
+	end
+end
 function WN:Pending()
-	return ns.db and ns.db.whatsNew ~= false and #self:UnseenReleases() > 0
+	return ns.db and ns.db.whatsNew ~= false and (#self:UnseenReleases() > 0 or self:UnseenOpener() ~= nil)
 end
 function WN:MarkSeen() BagSmithDB.whatsNewSeen = base(ns.version) end
 -- An update's notes you haven't opened: NEW on its button, for the newest release's updates only (never an old one's)
@@ -451,6 +476,7 @@ end
 -- A tab per release (BagSmith's choice buttons; Blizzard's red buttons in Classic).
 local TAB_H = 22
 local SUB_H = 18   -- (1.9.2-beta1) an update's button, under its release's tab
+local SUB_GAP = 6   -- between update buttons, and between their lines (1.9.8-beta3)
 local function tab(f, i)
 	return pooled(f, f.tabs, i, function()
 		local b = ns.TextButton(f, "", 56, function(btn) WN:Select(btn.index) end)
@@ -466,6 +492,8 @@ end
 WN.INTRO = "Highlights from recent major updates."   -- (no count: fine while fewer than five exist)
 WN.CHANGELOG_LINE = "|cfffac775Previous Updates & Patches:|r See full changelog @ CurseForge:"
 local ITEM_GAP, INDENT, MAX_SCREEN = 6, 10, 0.85
+local NOTE_GAP = 22   -- (1.9.8-beta2) the room above an entry's note: set apart from the bullets, a line or two down
+WN.NOTE_GAP = NOTE_GAP
 -- (1.7.0-beta12, Shweep) The body is at most this tall (about what the 1.6 release needs), so the card keeps the size
 -- players know; a longer release scrolls. BAR_W: the room its scrollbar takes on the right while it scrolls.
 WN.MAX_BODY = 360
@@ -479,6 +507,7 @@ local function measure(f, e, textW)
 	local y = m:GetStringHeight() + 2
 	m:SetFontObject(GameFontHighlight); m:SetWidth(textW - INDENT)
 	for _, text in ipairs(e.items) do m:SetText(text); y = y + ITEM_GAP + m:GetStringHeight() end
+	if e.note then m:SetFontObject(GameFontHighlightSmall); m:SetWidth(textW); m:SetText(e.note); y = y + NOTE_GAP + m:GetStringHeight() end
 	return y + 4
 end
 
@@ -594,39 +623,61 @@ function WN:Fill(entries, sel, sub)
 	if #entries > 0 then top = top + TAB_H + 10 end
 	-- (1.9.2-beta1) the open release's updates, newest first, on a second row; its height kept on every tab (when any
 	-- release shown has updates), so switching tabs doesn't jump. An update not opened yet says NEW.
-	local anyPatches = false
-	for _, g in ipairs(entries) do if g.patches and #g.patches > 0 then anyPatches = true end end
+	-- (1.9.8-beta3, Shweep: "all the new tags are causing the patch buttons to go outside the window", eight updates
+	-- under 1.9, seven saying NEW) The row wraps: a button, with its NEW, that wouldn't fit starts the next line.
+	-- (1.9.8-beta4, Shweep: "reserving those two rows on all of them is a bit much") Every tab keeps room for one line,
+	-- as before; a release whose updates need more takes the rest from the room under its own notes (the body starts
+	-- that much lower and is that much shorter), so the card and Got It never move. A NEW that was showing when the
+	-- card opened keeps its room once clicked: the buttons don't shuffle, and the notes don't shift, while it's open.
 	f.subTabs = f.subTabs or {}
-	local sx = PAD
-	for j, p in ipairs(patches) do
+	local function subButton(j)
 		local b = f.subTabs[j]
 		if not b then
 			b = ns.TextButton(f, "", 48, function(btn) WN:SelectPatch(btn.index) end)
 			b:SetHeight(SUB_H)
 			f.subTabs[j] = b
 		end
+		return b
+	end
+	local SP = ns.SettingsPanel
+	local right = WIDTH - PAD
+	local function tagRoom(b) return 4 + ((b.newTag and SP and SP.NewTagWidth and SP.NewTagWidth(b.newTag)) or 30) end
+	local anyPatches = false
+	for _, g in ipairs(entries) do if g.patches and #g.patches > 0 then anyPatches = true end end
+	f.subRoom = f.subRoom or {}
+	local sx, row = PAD, 0
+	for j, p in ipairs(patches) do
+		local b = subButton(j)
 		b.index = j
 		b.label:SetText(tabLabel(p))
 		local w = math.max(48, math.ceil(b.label:GetStringWidth()) + 18)
 		b:SetWidth(w)
-		b:ClearAllPoints(); b:SetPoint("TOPLEFT", f, "TOPLEFT", sx, -(top - 4))
 		if b.SetClassic then b:SetClassic(classic) end
 		b:SetActive(j == f.sub)
 		b.tip = p.heading or ("BagSmith " .. tostring(p.v))
-		b:Show()
 		local new = WN:PatchNew(p)
-		if ns.SettingsPanel and ns.SettingsPanel.NewTag then ns.SettingsPanel.NewTag(b, new, b, w + 4) end
-		sx = sx + w + 6 + (new and 30 or 0)
+		if SP and SP.NewTag then SP.NewTag(b, new, b, w + 4) end
+		if new then f.subRoom[p.v] = tagRoom(b) end
+		local need = w + (f.subRoom[p.v] or 0)
+		if sx > PAD and sx + need > right then row = row + 1; sx = PAD end
+		b:ClearAllPoints(); b:SetPoint("TOPLEFT", f, "TOPLEFT", sx, -(top - 4 + row * (SUB_H + SUB_GAP)))
+		b.row, b.left, b.need = row, sx, need
+		b:Show()
+		sx = sx + need + SUB_GAP
 	end
 	for j = #patches + 1, #f.subTabs do
 		f.subTabs[j]:Hide()
 		if f.subTabs[j].newTag then f.subTabs[j].newTag:Hide() end
 	end
-	if anyPatches then top = top + SUB_H + 6 end
+	f.subLines = #patches > 0 and (row + 1) or 0   -- the lines this release's updates take
+	local kept = anyPatches and 1 or 0           -- the line every tab keeps room for
+	top = top + kept * (SUB_H + SUB_GAP)
+	local shift = math.max(0, f.subLines - kept) * (SUB_H + SUB_GAP)   -- this tab's extra lines: its notes start lower
+	f.subShift = shift
 	-- The intro line, then the body below it.
 	f.intro:SetWidth(textW)
 	f.intro:SetText(WN.INTRO)
-	f.intro:ClearAllPoints(); f.intro:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -top)
+	f.intro:ClearAllPoints(); f.intro:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(top + shift))
 	f.intro:SetTextColor(unpack(sk.muted))
 	top = top + f.intro:GetStringHeight() + 10
 	-- The body: the selected release's heading, then its bullets with a
@@ -647,7 +698,9 @@ function WN:Fill(entries, sel, sub)
 	local screenH = (UIParent and UIParent:GetHeight()) or 768
 	local maxBody = math.max(80, math.min(WN.MAX_BODY, math.floor(screenH * MAX_SCREEN) - top - footerH))
 	local bodyH = math.min(tallest, maxBody)
-	local scrolling = e ~= nil and measure(f, e, textW) > bodyH
+	-- (1.9.8-beta4) this tab's own height: less by its extra lines of update buttons (never less than a few lines)
+	local bodyHere = math.max(60, bodyH - shift)
+	local scrolling = e ~= nil and measure(f, e, textW) > bodyHere
 	local contentW = WIDTH - (scrolling and BAR_W or 0)
 	local fullW = textW
 	textW = contentW - PAD * 2
@@ -692,7 +745,19 @@ function WN:Fill(entries, sel, sub)
 			end
 			y = y + ITEM_GAP + hText
 		end
+		-- (1.9.8-beta2, Shweep) an entry's note: under the bullets, set apart, smaller and quieter, no dash or stripe
+		if e.note then
+			if not f.note then
+				f.note = f.content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+				f.note:SetJustifyH("LEFT"); f.note:SetWordWrap(true)
+			end
+			y = y + NOTE_GAP
+			f.note:SetWidth(textW); f.note:SetText(e.note); f.note:SetTextColor(unpack(sk.muted))
+			f.note:ClearAllPoints(); f.note:SetPoint("TOPLEFT", f.content, "TOPLEFT", PAD, -y); f.note:Show()
+			y = y + f.note:GetStringHeight()
+		end
 	end
+	if f.note and not (e and e.note) then f.note:Hide() end
 	for i = n + 1, #f.lines do f.lines[i]:Hide() end
 	for i = ns2 + 1, #f.stripes do f.stripes[i]:Hide() end
 	for i = nsep + 1, #f.seps do f.seps[i]:Hide() end
@@ -702,14 +767,14 @@ function WN:Fill(entries, sel, sub)
 	local contentH = y + 4
 	textW = fullW   -- (the footer below uses the card's full width)
 	-- A steady size: every release the same height (bodyH, above); the open one scrolls if it's taller.
-	f.contentH, f.bodyH = contentH, bodyH
+	f.contentH, f.bodyH = contentH, bodyHere
 	f.content:SetSize(contentW, contentH)
-	f.body:ClearAllPoints(); f.body:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -top); f.body:SetSize(contentW, bodyH)
+	f.body:ClearAllPoints(); f.body:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(top + shift)); f.body:SetSize(contentW, bodyHere)
 	f.body:SetVerticalScroll(0)
-	f.scrolls = contentH > bodyH
+	f.scrolls = contentH > bodyHere
 	if ns.Classic and ns.Classic.DressScrollBar then ns.Classic:DressScrollBar(f.body, classic) end
 	if f.body.ScrollBar then f.body.ScrollBar:SetShown(f.scrolls) end
-	y = top + bodyH
+	y = top + math.max(bodyH, shift + bodyHere)   -- (the same on every tab: the extra lines came out of the body)
 	f.footLine:ClearAllPoints(); f.footLine:SetHeight(2)
 	f.footLine:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(y + 16)); f.footLine:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(y + 16))
 	if classic then f.footLine:SetVertexColor(0.62, 0.48, 0.25, 0.95) else f.footLine:SetVertexColor(lr, lg, lb, 1) end
@@ -750,6 +815,7 @@ end
 
 function WN:Open(entries, sel)
 	local f = create()
+	f.subRoom = nil   -- (1.9.8-beta4) which updates said NEW is noted afresh each time the card opens
 	self:Fill(entries, sel)
 	-- Beside whatever it was opened from: Settings if that's showing (so the
 	-- two don't overlap), otherwise the bags window.
@@ -771,11 +837,22 @@ function WN:Tabs()
 	for i = 1, math.min(#list, self.MAX_SHOWN) do out[i] = list[i] end
 	return out
 end
-function WN:ShowLatest() self:Open(self:Tabs(), 1) end
+function WN:ShowLatest()
+	self:Open(self:Tabs(), 1)
+	-- (1.9.8-beta3) an update that opens the card and hasn't been read is what it opens on, from Settings too
+	local opener, j = self:UnseenOpener()
+	if opener then self:SelectPatch(j) end
+end
 
+-- (1.9.8-beta3, Shweep) Closing it, by Got It, the X or Escape, also counts every update listed as seen: NEW then
+-- means "arrived since you last had this open", so the tags no longer pile up for someone who never clicks them.
 function WN:Close()
+	local shown = card and card:IsShown()
 	if card then card:Hide() end
 	self:MarkSeen()
+	if shown then
+		for _, e in ipairs(self:Latest()) do if parse(e.v)[3] > 0 then self:MarkPatchSeen(e) end end
+	end
 end
 
 -- The first bag open after updating.
@@ -784,6 +861,13 @@ function WN:Check()
 	-- Opens on the newest release you haven't seen (the update you just got).
 	-- (1.9.2-beta1) on that release's own notes ("we always open on the primary"); its updates are a click away
 	local unseen, tabs = self:UnseenReleases(), self:Tabs()
+	-- (1.9.8-beta2) an update that opens the card: on its own notes, which counts as opening them (its NEW goes)
+	local opener, j = self:UnseenOpener()
+	if opener then
+		self:Open(tabs, 1)
+		self:SelectPatch(j)
+		return
+	end
 	local sel = 1
 	for i, e in ipairs(tabs) do if unseen[1] and e.v == unseen[1].v then sel = i end end
 	self:Open(tabs, sel)
