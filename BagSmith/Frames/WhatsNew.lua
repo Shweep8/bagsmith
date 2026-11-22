@@ -28,10 +28,14 @@ WN.ENTRIES = {
 	-- and 1.9.1 (which had no card), as Shweep approved them
 	-- (1.9.8-beta1, after Shweep's "this should have had a card in what's new" on 1.9.7: an entry is drafted for every
 	-- release a player can notice) two characters sharing a first name shared one saved record
-	{ v = "1.9.8", heading = "BagSmith 1.9.8", items = {
+	-- (1.9.8-beta2, Shweep: "One Thing to Do" becomes "Important", in the soft red 1.8's entry uses; "let's show this on
+	-- next load, while we normally don't in this case we should" (opens = true: the one update that opens the card by
+	-- itself); "a small notes below the bullets few lines down" in his own voice (note); and the reminder, with his
+	-- apology, that Global Inventory isn't fully accurate until each such character has logged in and visited the bank)
+	{ v = "1.9.8", heading = "BagSmith 1.9.8", opens = true, items = {
 		"|cfffac775Shared First Names:|r two characters with the same first name, like Mara Swift and Mara Stone, no longer write over each other's saved bags, bank and gold. Each shows on its own in Global Inventory and tooltips.",
-		"|cfffac775One Thing to Do:|r if you have characters like that, log in to each and visit the bank once, so its bank is saved fresh.",
-	} },
+		"|cfff09595Important:|r if two of your characters share a first name, Global Inventory and tooltips won't be 100% accurate until you've logged in to each of them and visited the bank on each. Apologies, I wish this had been caught sooner.",
+	}, note = "I don't usually open What's New by itself for a patch, since patches are mostly bug fixes that change little. This time I wanted you to know sooner rather than later." },
 	-- (1.9.8-beta1) 1.9.7's entry, added afterwards as Shweep asked (1.9.7 was already published without one)
 	{ v = "1.9.7", heading = "BagSmith 1.9.7", items = {
 		"|cfffac775No Clean Up at Vendors:|r Clean Up Bags When Opened no longer runs when your bags open at a vendor, so your items stay put while you sell. The Clean Up button still works there.",
@@ -259,8 +263,18 @@ function WN:UnseenReleases()
 	for _, g in ipairs(groups(self:Latest())) do if newer(g.primary.v, seen) then out[#out + 1] = g end end
 	return out
 end
+-- (1.9.8-beta2, Shweep: "while we normally don't in this case we should") An update marked opens = true opens the
+-- card by itself, once, like a main release: while its release is the newest one, until its notes have been opened.
+-- Every other update still waits to be clicked.
+function WN:UnseenOpener()
+	local newest = groups(self:Latest())[1]
+	local seen = BagSmithDB.whatsNewPatchSeen
+	for j, p in ipairs(newest and newest.patches or {}) do
+		if p.opens and not (type(seen) == "table" and seen[base(p.v)]) then return p, j end
+	end
+end
 function WN:Pending()
-	return ns.db and ns.db.whatsNew ~= false and #self:UnseenReleases() > 0
+	return ns.db and ns.db.whatsNew ~= false and (#self:UnseenReleases() > 0 or self:UnseenOpener() ~= nil)
 end
 function WN:MarkSeen() BagSmithDB.whatsNewSeen = base(ns.version) end
 -- An update's notes you haven't opened: NEW on its button, for the newest release's updates only (never an old one's)
@@ -477,6 +491,8 @@ end
 WN.INTRO = "Highlights from recent major updates."   -- (no count: fine while fewer than five exist)
 WN.CHANGELOG_LINE = "|cfffac775Previous Updates & Patches:|r See full changelog @ CurseForge:"
 local ITEM_GAP, INDENT, MAX_SCREEN = 6, 10, 0.85
+local NOTE_GAP = 22   -- (1.9.8-beta2) the room above an entry's note: set apart from the bullets, a line or two down
+WN.NOTE_GAP = NOTE_GAP
 -- (1.7.0-beta12, Shweep) The body is at most this tall (about what the 1.6 release needs), so the card keeps the size
 -- players know; a longer release scrolls. BAR_W: the room its scrollbar takes on the right while it scrolls.
 WN.MAX_BODY = 360
@@ -490,6 +506,7 @@ local function measure(f, e, textW)
 	local y = m:GetStringHeight() + 2
 	m:SetFontObject(GameFontHighlight); m:SetWidth(textW - INDENT)
 	for _, text in ipairs(e.items) do m:SetText(text); y = y + ITEM_GAP + m:GetStringHeight() end
+	if e.note then m:SetFontObject(GameFontHighlightSmall); m:SetWidth(textW); m:SetText(e.note); y = y + NOTE_GAP + m:GetStringHeight() end
 	return y + 4
 end
 
@@ -703,7 +720,19 @@ function WN:Fill(entries, sel, sub)
 			end
 			y = y + ITEM_GAP + hText
 		end
+		-- (1.9.8-beta2, Shweep) an entry's note: under the bullets, set apart, smaller and quieter, no dash or stripe
+		if e.note then
+			if not f.note then
+				f.note = f.content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+				f.note:SetJustifyH("LEFT"); f.note:SetWordWrap(true)
+			end
+			y = y + NOTE_GAP
+			f.note:SetWidth(textW); f.note:SetText(e.note); f.note:SetTextColor(unpack(sk.muted))
+			f.note:ClearAllPoints(); f.note:SetPoint("TOPLEFT", f.content, "TOPLEFT", PAD, -y); f.note:Show()
+			y = y + f.note:GetStringHeight()
+		end
 	end
+	if f.note and not (e and e.note) then f.note:Hide() end
 	for i = n + 1, #f.lines do f.lines[i]:Hide() end
 	for i = ns2 + 1, #f.stripes do f.stripes[i]:Hide() end
 	for i = nsep + 1, #f.seps do f.seps[i]:Hide() end
@@ -795,6 +824,13 @@ function WN:Check()
 	-- Opens on the newest release you haven't seen (the update you just got).
 	-- (1.9.2-beta1) on that release's own notes ("we always open on the primary"); its updates are a click away
 	local unseen, tabs = self:UnseenReleases(), self:Tabs()
+	-- (1.9.8-beta2) an update that opens the card: on its own notes, which counts as opening them (its NEW goes)
+	local opener, j = self:UnseenOpener()
+	if opener then
+		self:Open(tabs, 1)
+		self:SelectPatch(j)
+		return
+	end
 	local sel = 1
 	for i, e in ipairs(tabs) do if unseen[1] and e.v == unseen[1].v then sel = i end end
 	self:Open(tabs, sel)

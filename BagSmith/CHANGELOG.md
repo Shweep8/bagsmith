@@ -8,6 +8,10 @@ Fixed:
 - A character can no longer be taken for a new one when the game is slow to report its level at login, which would
   have hidden its other characters. One that was finds its saved data again the next time it logs in.
 
+Changed:
+- What's New opens by itself once for this update, which patches don't usually do, so the note above about characters
+  who share a first name reaches you sooner.
+
 ## 1.9.7
 
 Fixed:
