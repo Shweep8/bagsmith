@@ -624,8 +624,11 @@ function WN:Fill(entries, sel, sub)
 	-- (1.9.2-beta1) the open release's updates, newest first, on a second row; its height kept on every tab (when any
 	-- release shown has updates), so switching tabs doesn't jump. An update not opened yet says NEW.
 	-- (1.9.8-beta3, Shweep: "all the new tags are causing the patch buttons to go outside the window", eight updates
-	-- under 1.9, seven saying NEW) The row wraps: a button, with its NEW, that wouldn't fit starts the next line. The
-	-- tallest it gets while the card is open is kept on every tab, so neither a tab nor a click moves what's below.
+	-- under 1.9, seven saying NEW) The row wraps: a button, with its NEW, that wouldn't fit starts the next line.
+	-- (1.9.8-beta4, Shweep: "reserving those two rows on all of them is a bit much") Every tab keeps room for one line,
+	-- as before; a release whose updates need more takes the rest from the room under its own notes (the body starts
+	-- that much lower and is that much shorter), so the card and Got It never move. A NEW that was showing when the
+	-- card opened keeps its room once clicked: the buttons don't shuffle, and the notes don't shift, while it's open.
 	f.subTabs = f.subTabs or {}
 	local function subButton(j)
 		local b = f.subTabs[j]
@@ -639,25 +642,9 @@ function WN:Fill(entries, sel, sub)
 	local SP = ns.SettingsPanel
 	local right = WIDTH - PAD
 	local function tagRoom(b) return 4 + ((b.newTag and SP and SP.NewTagWidth and SP.NewTagWidth(b.newTag)) or 30) end
-	-- how many lines a release's updates take (the first button's label measures the others')
-	local function linesFor(list)
-		if #list == 0 then return 0 end
-		local m = subButton(1)
-		if m.SetClassic then m:SetClassic(classic) end
-		local was = m.label:GetText()
-		local x, lines = PAD, 1
-		for _, p in ipairs(list) do
-			m.label:SetText(tabLabel(p))
-			local need = math.max(48, math.ceil(m.label:GetStringWidth()) + 18) + (WN:PatchNew(p) and tagRoom(m) or 0)
-			if x > PAD and x + need > right then lines = lines + 1; x = PAD end
-			x = x + need + SUB_GAP
-		end
-		m.label:SetText(was or "")
-		return lines
-	end
-	local lines = 0
-	for _, g in ipairs(entries) do lines = math.max(lines, linesFor(g.patches or {})) end
-	f.subLines = math.max(f.subLines or 0, lines)
+	local anyPatches = false
+	for _, g in ipairs(entries) do if g.patches and #g.patches > 0 then anyPatches = true end end
+	f.subRoom = f.subRoom or {}
 	local sx, row = PAD, 0
 	for j, p in ipairs(patches) do
 		local b = subButton(j)
@@ -670,7 +657,8 @@ function WN:Fill(entries, sel, sub)
 		b.tip = p.heading or ("BagSmith " .. tostring(p.v))
 		local new = WN:PatchNew(p)
 		if SP and SP.NewTag then SP.NewTag(b, new, b, w + 4) end
-		local need = w + (new and tagRoom(b) or 0)
+		if new then f.subRoom[p.v] = tagRoom(b) end
+		local need = w + (f.subRoom[p.v] or 0)
 		if sx > PAD and sx + need > right then row = row + 1; sx = PAD end
 		b:ClearAllPoints(); b:SetPoint("TOPLEFT", f, "TOPLEFT", sx, -(top - 4 + row * (SUB_H + SUB_GAP)))
 		b.row, b.left, b.need = row, sx, need
@@ -681,12 +669,15 @@ function WN:Fill(entries, sel, sub)
 		f.subTabs[j]:Hide()
 		if f.subTabs[j].newTag then f.subTabs[j].newTag:Hide() end
 	end
-	if #patches > 0 then f.subLines = math.max(f.subLines, row + 1) end   -- (never less than what was just laid out)
-	top = top + f.subLines * (SUB_H + SUB_GAP)
+	f.subLines = #patches > 0 and (row + 1) or 0   -- the lines this release's updates take
+	local kept = anyPatches and 1 or 0           -- the line every tab keeps room for
+	top = top + kept * (SUB_H + SUB_GAP)
+	local shift = math.max(0, f.subLines - kept) * (SUB_H + SUB_GAP)   -- this tab's extra lines: its notes start lower
+	f.subShift = shift
 	-- The intro line, then the body below it.
 	f.intro:SetWidth(textW)
 	f.intro:SetText(WN.INTRO)
-	f.intro:ClearAllPoints(); f.intro:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -top)
+	f.intro:ClearAllPoints(); f.intro:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(top + shift))
 	f.intro:SetTextColor(unpack(sk.muted))
 	top = top + f.intro:GetStringHeight() + 10
 	-- The body: the selected release's heading, then its bullets with a
@@ -707,7 +698,9 @@ function WN:Fill(entries, sel, sub)
 	local screenH = (UIParent and UIParent:GetHeight()) or 768
 	local maxBody = math.max(80, math.min(WN.MAX_BODY, math.floor(screenH * MAX_SCREEN) - top - footerH))
 	local bodyH = math.min(tallest, maxBody)
-	local scrolling = e ~= nil and measure(f, e, textW) > bodyH
+	-- (1.9.8-beta4) this tab's own height: less by its extra lines of update buttons (never less than a few lines)
+	local bodyHere = math.max(60, bodyH - shift)
+	local scrolling = e ~= nil and measure(f, e, textW) > bodyHere
 	local contentW = WIDTH - (scrolling and BAR_W or 0)
 	local fullW = textW
 	textW = contentW - PAD * 2
@@ -774,14 +767,14 @@ function WN:Fill(entries, sel, sub)
 	local contentH = y + 4
 	textW = fullW   -- (the footer below uses the card's full width)
 	-- A steady size: every release the same height (bodyH, above); the open one scrolls if it's taller.
-	f.contentH, f.bodyH = contentH, bodyH
+	f.contentH, f.bodyH = contentH, bodyHere
 	f.content:SetSize(contentW, contentH)
-	f.body:ClearAllPoints(); f.body:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -top); f.body:SetSize(contentW, bodyH)
+	f.body:ClearAllPoints(); f.body:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(top + shift)); f.body:SetSize(contentW, bodyHere)
 	f.body:SetVerticalScroll(0)
-	f.scrolls = contentH > bodyH
+	f.scrolls = contentH > bodyHere
 	if ns.Classic and ns.Classic.DressScrollBar then ns.Classic:DressScrollBar(f.body, classic) end
 	if f.body.ScrollBar then f.body.ScrollBar:SetShown(f.scrolls) end
-	y = top + bodyH
+	y = top + math.max(bodyH, shift + bodyHere)   -- (the same on every tab: the extra lines came out of the body)
 	f.footLine:ClearAllPoints(); f.footLine:SetHeight(2)
 	f.footLine:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(y + 16)); f.footLine:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(y + 16))
 	if classic then f.footLine:SetVertexColor(0.62, 0.48, 0.25, 0.95) else f.footLine:SetVertexColor(lr, lg, lb, 1) end
@@ -822,7 +815,7 @@ end
 
 function WN:Open(entries, sel)
 	local f = create()
-	f.subLines = nil   -- (1.9.8-beta3) the update buttons' lines are measured afresh each time the card opens
+	f.subRoom = nil   -- (1.9.8-beta4) which updates said NEW is noted afresh each time the card opens
 	self:Fill(entries, sel)
 	-- Beside whatever it was opened from: Settings if that's showing (so the
 	-- two don't overlap), otherwise the bags window.
