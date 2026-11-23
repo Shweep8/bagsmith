@@ -236,7 +236,8 @@ do
 	local function top(w) return select(5, w:GetPoint(1)) or select(3, w:GetPoint(1)) end
 	local r, bagRow, mini = row("autoCloseOwnBags"), row("replaceBlizzardBags"), row("minimap")
 	check(r and r.text.text == "Auto-Close Bags I Opened", "the switch is named Auto-Close Bags I Opened")
-	check(r and r.help.text == "Leaving a vendor, the mailbox, a trade or the auction house closes your bags even if you opened them yourself. Turn off to keep those open. Bags that opened by themselves still close.",
+	-- (by design since 1.10.1: Shweep had the help reworded, "a tad confusing as written", and picked this one)
+	check(r and r.help.text == "When you leave a vendor, the mailbox, a trade or the auction house, your bags close, even if you already had them open. Turn off, and bags you already had open stay open.",
 		"its help, word for word: " .. tostring(r and r.help.text))
 	check(r and not r.help.text:find("\226\128\148"), "no dashes")
 	check(r and bagRow and mini and top(bagRow) > top(r) and top(r) > top(mini), "it sits under Open with the Bag Keybind, above Show Minimap Button")

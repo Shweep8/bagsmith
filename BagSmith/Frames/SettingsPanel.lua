@@ -1765,8 +1765,9 @@ pages.general = function(self, db)
 	self:Check("replaceBlizzardBags", bagLabel, bagHelp)
 	-- (1.10.1-beta2, Shweep: "keep it as it is but add a setting default (true) for that so players can turn it off in
 	-- future"; the name is his pick) Greyed while Blizzard's bags are on the key: BagSmith opens and closes nothing
-	-- for a window then.
-	self:Check("autoCloseOwnBags", "Auto-Close Bags I Opened", "Leaving a vendor, the mailbox, a trade or the auction house closes your bags even if you opened them yourself. Turn off to keep those open. Bags that opened by themselves still close.",
+	-- for a window then. (1.10.1, Shweep: "slightly improve the description ... a tad confusing as written"; his
+	-- pick of three.)
+	self:Check("autoCloseOwnBags", "Auto-Close Bags I Opened", "When you leave a vendor, the mailbox, a trade or the auction house, your bags close, even if you already had them open. Turn off, and bags you already had open stay open.",
 		(not db.replaceBlizzardBags) and { disabled = true, checked = db.autoCloseOwnBags } or nil)
 	self:Check("minimap", "Show Minimap Button", "With it off, you can still open BagSmith with /bs or from the game's addon list.")
 	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
