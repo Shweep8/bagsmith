@@ -1,3 +1,17 @@
+-- (by design since 1.10.0-beta12) this set tests the NEW tags with 1.9's list, which the panel's own list (each
+-- release's) replaced: 1.9's, as it stood at 1.9.8, is put back after the addon loads
+local function NEW19()
+	return { release = "1.9",
+		pages = { general = true, window = true, icons = true, look = true, sections = true, columns = true, sheets = true,
+			globalsections = true, globalcols = true, globalsheets = true },
+		heads = {},
+		keys = { tipInventory = "general", tipAHPrice = "general", bagSlotCount = "window", borderWeight = "icons", iconLayout = "look", footerTextScale = "look", globalResize = "window" },
+		added = {
+			["1.9.1"] = { keys = { splitViewPinnedWide = "look" } },
+			["1.9.2"] = { keys = { unusableOverlay = "icons" } },
+			["1.9.4"] = { keys = { sectionValues = "sections" } },
+		} }
+end
 -- ======== 1.9.0-beta6 (Shweep, 16 Nov) ========
 -- Global Inventory's own pages in Settings (Global Sections, Global Columns, Global Sheets: the bare minimum, each under
 -- a heading with the globe saying they live outside profiles), its sections by BagSmith's defaults, its own columns
@@ -13,7 +27,7 @@ local function boot(skin, extra)
 		sheets = { { n = "Mats", f = { text = "cloth" } } } }
 	for k, v in pairs(extra or {}) do prof[k] = v end
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = prof }, whatsNewSeen = "1.8.0" }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	n.Window:Show(); M.runTimers(); M.runTimers()
 	return n, M, n.Window.main
@@ -125,7 +139,7 @@ end)()
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = {} },
 		globalInv = { cols = { "c", "bogus", 7, "c" }, colOrder = { "n", "c" }, tabOrder = { "Gear", "Nope" }, hiddenTabs = { "Junk", "Nope" } } }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	local G = BagSmithDB.globalInv
 	check(#G.cols == 1 and G.cols[1] == "c", "columns: unknown and repeated ones dropped")
@@ -170,7 +184,7 @@ end)()
 	local M = require("mock")
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = {} } }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	local C = n.CompactCategories
 	local W, CELL, GAP, GUT, GG = 560, 40, 4, 3, 16
 	local boxes = { { count = 3, minWidth = 120 }, { count = 8, minWidth = 90 }, { count = 1, minWidth = 80 }, { count = 4, minWidth = 100 }, { count = 6, minWidth = 100 } }

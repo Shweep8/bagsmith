@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 ;(function()
 	-- 1.6.0 (a player's request, via Shweep): Blackthornes Tradeskills as an alternative to Auctionator for auction
 	-- prices, through its documented public API (BlackthornesTS_API: version, GetPrice(item) in copper, GetPriceAge(item)
@@ -256,7 +257,7 @@
 	-- (1.7.0-beta6, by design) the 1.7 card leads now; 1.6's is second
 	-- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 	-- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
-	local e = WN.ENTRIES[12]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	local e = WN.ENTRIES[13]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	local text = table.concat(e.items, " ")
 	-- (beta4, by design) a fifth bullet: Narrower Windows
 	-- (1.6.0-beta10, by design: Shweep) a sixth bullet, Smarter Disenchant Advice
@@ -264,7 +265,7 @@
 	check(text:find("Narrower Windows:", 1, true) and text:find("440 pixels", 1, true), "and the fifth is Narrower Windows")
 	check(text:find("Blackthornes", 1, true) and text:find("Quest Starters", 1, true) and text:find("Fade While Moving", 1, true) and text:find("Show Help Tooltips", 1, true), "Blackthornes prices, Quest Starters, opacity, help tooltips (named Show Help Tooltips since 1.9.0-beta2, by design)")
 	check(not text:find("\226\128\148"), "no em dashes")
-	check(WN.ENTRIES[11].v == "1.7.0" and WN.ENTRIES[13].v == "1.5.1", "after the 1.7 card, and 1.5.1's follows")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	check(WN.ENTRIES[12].v == "1.7.0" and WN.ENTRIES[14].v == "1.5.1", "after the 1.7 card, and 1.5.1's follows")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 
 	-- ---- Icon Corners: marks other addons draw themselves (beta3: on its own line, with weight)
 	local P2 = n.SettingsPanel

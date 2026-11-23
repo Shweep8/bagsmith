@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 -- ======== 1.9.0-beta10 (Shweep, 17 Nov) ========
 -- Settings: an icon for each main page (Shweep's concepts, drawn twice), a title with its icon at the top of each main
 -- page, every Settings icon in the accent color, dimmed ("maybe 80-50%"), the open page's at full strength. The Total
@@ -81,7 +82,7 @@ end)()
 ;(function()
 	-- What's New: Shweep's rewording
 	local n = boot()
-	local e = n.WhatsNew.ENTRIES[9]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	local e = n.WhatsNew.ENTRIES[10]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	check(e.items[1]:find("on this ruleset", 1, true) and not e.items[1]:find("realm", 1, true), "Global Inventory: \"ruleset\", not \"realm\"")
 	check(e.items[1]:find("Down at the bottom, the Total tells you what it's all worth.", 1, true), "its last sentence, reworded")
 	check(e.items[2]:find("^|cfffac775Alts in Your Tooltips:|r") and e.items[2]:find("you and your alts", 1, true) and e.items[2]:find("Settings > General > Tooltips", 1, true),

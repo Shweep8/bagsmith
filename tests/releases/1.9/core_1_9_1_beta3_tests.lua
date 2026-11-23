@@ -1,3 +1,17 @@
+-- (by design since 1.10.0-beta12) this set tests the NEW tags with 1.9's list, which the panel's own list (each
+-- release's) replaced: 1.9's, as it stood at 1.9.8, is put back after the addon loads
+local function NEW19()
+	return { release = "1.9",
+		pages = { general = true, window = true, icons = true, look = true, sections = true, columns = true, sheets = true,
+			globalsections = true, globalcols = true, globalsheets = true },
+		heads = {},
+		keys = { tipInventory = "general", tipAHPrice = "general", bagSlotCount = "window", borderWeight = "icons", iconLayout = "look", footerTextScale = "look", globalResize = "window" },
+		added = {
+			["1.9.1"] = { keys = { splitViewPinnedWide = "look" } },
+			["1.9.2"] = { keys = { unusableOverlay = "icons" } },
+			["1.9.4"] = { keys = { sectionValues = "sections" } },
+		} }
+end
 -- ======== 1.9.1-beta3 (Shweep, 18 Nov) ========
 -- "I do think point releases getting new tags would be good going forward as well": a point release's additions are
 -- NEW even on a page opened in an earlier version of the release. Panel.NEW.added["1.9.1"] holds 1.9.1's (Full-Width
@@ -9,7 +23,7 @@ local function boot(newSeen, version)
 	M.put(0, 1, { id = 2589, name = "Linen Cloth", q = 1, count = 5, class = 7, subclass = 5, type = "Tradeskill", sub = "Cloth", price = 13 })
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = {} }, whatsNewSeen = "1.9.0", newSeen = newSeen }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	n.version = version or "1.9.1-beta3"
 	return n, M, n.SettingsPanel
@@ -48,7 +62,7 @@ local ALL19 = { general = true, window = true, icons = true, look = true, sectio
 		local M2 = require("mock")
 		_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 		_G.BagSmithDB = saved
-		local n2 = M2.loadAddon("BagSmith")
+		local n2 = M2.loadAddon("BagSmith"); n2.SettingsPanel.NEW = NEW19()
 		M2.fire("ADDON_LOADED", "BagSmith"); M2.fire("PLAYER_ENTERING_WORLD"); M2.runTimers()
 		n2.version = "1.9.1-beta3"
 		return n2, M2, n2.SettingsPanel

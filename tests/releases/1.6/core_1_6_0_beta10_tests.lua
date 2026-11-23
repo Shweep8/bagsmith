@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 ;(function()
 	-- 1.6.0-beta10: the 1.6.0-beta9 audit's findings (B9 R1 an emptied slot keeping the quest mark and its shadow; B9 R2 a
 	-- 14.5% margin used as 14%; B9 A1 a fractional price missing a tie), and Shweep's changes: a 10% leeway while leveling
@@ -129,7 +130,7 @@ end)()
 	-- What's New: the sixth bullet
 	-- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 	-- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
-	local e = n.WhatsNew.ENTRIES[12]   -- (1.7.0-beta6, by design) the 1.7 card leads now   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	local e = n.WhatsNew.ENTRIES[13]   -- (1.7.0-beta6, by design) the 1.7 card leads now   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	check(e.v == "1.6.0" and #e.items == 6 and e.items[6] == "|cfffac775Smarter Disenchant Advice:|r the Disenchant Helper counts the AH's cut and leans toward disenchanting while you level Enchanting (Settings > Disenchant Helper).",
 		"What's New: the 1.6 card's sixth bullet, Smarter Disenchant Advice")
 end)()

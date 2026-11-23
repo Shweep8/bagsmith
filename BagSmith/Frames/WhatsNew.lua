@@ -24,6 +24,19 @@ ns.WhatsNew = WN
 -- Newest first. Only notable releases get an entry; keep a handful of short
 -- bullets that say what it is and where to turn it on.
 WN.ENTRIES = {
+	-- (1.10.0-beta12) the 1.10 card: Shweep reviewed the draft (22 Nov: "no need for bullet 5 crediting Ohnoto",
+	-- "length is fine") and asked for it in the audit version
+	{ v = "1.10.0", heading = "BagSmith 1.10", items = {
+		"|cfffac775Sections That Fill Themselves:|r your own sections can now fill themselves. Give one a few rules, like Type is Cloth or Binding is Binds when equipped, and every item that fits goes there on its own. Rules can look at an item's type, slot, quality, binding, item level, vendor value or name, and whether it's food or drink, a quest item, a crafting material or something your character can use. Click the pencil beside a section in Settings > Custom Sections, and you'll see what would go in before you save.",
+		"|cfffac775Start From an Item or an Example:|r Alt+Left-click an item and pick New Section From This Item to make a section for things like it. Or try an example in Settings > Custom Sections: Cloth, Herbs, Gear to Sell, or Food and Drink. If an item fits two of your sections, the higher one in the list gets it.",
+		"|cfffac775A New Filters Window:|r filters use the same rules now. Pick qualities at the top, add rules with + Add a Rule, and watch how many items are left. Like what you've filtered? Save as Section turns it into a section.",
+		"|cfffac775Sections Only Where You Want Them:|r a section can show on every tab or only on some, so Cloth, Leather and Herbs can split up your Trade Goods tab while All keeps one Trade Goods section. And the Gear, Consumables, Trade Goods, Quest and Junk tabs now show every item of their kind, grouped under your own sections.",
+		"|cfffac775All Items, Where You Want It:|r with Sections set to All, your pinned sections, Favorites and the rest can sit above or below All Items. Drag its title, or move it in Settings > Sections. Pin to Top is now called Pin Section.",
+		"|cfffac775Works With ItemTree:|r have the ItemTree addon? Your rules can use what it knows, like Used by My Professions and Needed for a Quest, and the Loot Helper and Disenchant Helper hold back what it says to keep. It's optional, and BagSmith works the same without it.",
+		"|cfffac775Addon Sources:|r a new Settings page shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree and Pawn, with a switch for each job. Auction Price Source moved there from General. Find it in Settings > Addon Sources.",
+		"|cfffac775Cleaner Classic Icons:|r in the Classic skin, item icons and their borders are cleaner, with the artwork kept inside the border. Thanks to Jeor!",
+		"|cfffac775Disenchant Helper and Junk:|r an item you've marked as junk no longer shows in the Disenchant Helper.",
+	} },
 	-- (1.9.2-beta1, Shweep) a release's updates have entries of their own, shown under its tab: 1.9.2 (Jeor's red tint)
 	-- and 1.9.1 (which had no card), as Shweep approved them
 	-- (1.9.8-beta1, after Shweep's "this should have had a card in what's new" on 1.9.7: an entry is drafted for every

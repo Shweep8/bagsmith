@@ -1,3 +1,18 @@
+-- (by design since 1.10.0-beta12) this set tests the NEW tags with 1.9's list, which the panel's own list (each
+-- release's) replaced: 1.9's, as it stood at 1.9.8, is put back after the addon loads
+local function NEW19()
+	return { release = "1.9",
+		pages = { general = true, window = true, icons = true, look = true, sections = true, columns = true, sheets = true,
+			globalsections = true, globalcols = true, globalsheets = true },
+		heads = {},
+		keys = { tipInventory = "general", tipAHPrice = "general", bagSlotCount = "window", borderWeight = "icons", iconLayout = "look", footerTextScale = "look", globalResize = "window" },
+		added = {
+			["1.9.1"] = { keys = { splitViewPinnedWide = "look" } },
+			["1.9.2"] = { keys = { unusableOverlay = "icons" } },
+			["1.9.4"] = { keys = { sectionValues = "sections" } },
+		} }
+end
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 -- ======== 1.9.4-beta2 (Shweep, 19 Nov) ========
 -- "let's make that a setting to turn showing V and AH in section headers as a setting": Show Section Values (Settings >
 -- Sections, on by default). Off, no section header shows its values, no words and no coin, in List and in all three
@@ -19,7 +34,7 @@ local function boot(prof, db)
 	for k, v in pairs(prof or {}) do p[k] = v end
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = p } }
 	for k, v in pairs(db or {}) do BagSmithDB[k] = v end
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	n.version = "1.9.4-beta2"
 	n.Window:Show(); M.runTimers(); M.runTimers()
@@ -152,7 +167,7 @@ end)()
 	-- What's New: 1.9.4's entry, under 1.9 as an update
 	local n, M = boot(nil, { whatsNewSeen = "1.9.3", whatsNewPatchSeen = { ["1.9.2"] = true, ["1.9.1"] = true }, whatsNewButtonSeen = "1.9.2" })
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[5]   -- (by design since 1.9.8: four places down, after 1.9.8's, 1.9.7's, 1.9.6's and 1.9.5's entries)
+	local e = WN.ENTRIES[6]   -- (by design since 1.9.8: four places down, after 1.9.8's, 1.9.7's, 1.9.6's and 1.9.5's entries)
 	check(e.v == "1.9.4" and e.heading == "BagSmith 1.9.4" and #e.items == 2, "the 1.9.4 entry, two bullets")
 	check(e.items[1] == "|cfffac775Section Values in Compact View:|r Compact View now shows what each section is worth, too. Just hover over or click the little coin on a section's header.", "Section Values in Compact View, word for word as chosen")
 	check(e.items[2] == "|cfffac775Show Section Values:|r prefer clean headers? Turn the values off in Settings > Sections. You can still hover a section's name to see them.", "Show Section Values, word for word as chosen")

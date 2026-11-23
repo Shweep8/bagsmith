@@ -24,7 +24,10 @@ Spreadsheet-style bags for World of Warcraft: Forever.
 - Filters window (quality, quick picks, and rules such as type, slot, binding, section or bag) and "Save as Sheet": your own tabs.
   "Save as Section" turns the rules into one of your sections.
 - Custom Sections: your own sections, filled by hand (drag an item onto a title) or by rules (type, slot, quality,
-  binding, item level, vendor value), in the order you rank them, on every sheet or only on some.
+  binding, item level, vendor value, name, kind of consumable, quest item, crafting material, usable by you), in
+  the order you rank them, on every sheet or only on some. Settings > Custom Sections has examples to start from.
+- With Sections: All, All Items has its own place in Section Order: pinned sections, Favorites and the rest show
+  above or below it.
 - Sheet tabs: reorder by dragging, hide in Settings. Optionally, each sheet remembers its own view.
 - What's New: a short card after notable updates, with a tab for each recent release; reopen it from Settings or `/bs new`.
 - Sell Junk + Mark as Junk: mark items as junk (Junk column or a keybinding) and they're sold with Blizzard's Sell All Junk. Optional Dim Junk Items.
@@ -38,6 +41,9 @@ Spreadsheet-style bags for World of Warcraft: Forever.
 - Settings search: find any setting from the box at the top of Settings.
 - Track as Currency: show any item in the currency drawer (the wallet column, or Add Item in the drawer), kept even when you have none.
 - Pawn support: Pawn's upgrade arrow on BagSmith's item icons.
+- Addon Sources (Settings): what BagSmith does with other addons, each optional. Auction prices from Auctionator or
+  Blackthornes Tradeskills; rules from ItemTree (Used by My Professions, Needed for a Quest and more); and whether
+  the Loot Helper and Disenchant Helper hold back what ItemTree says to keep or what Pawn calls an upgrade.
 - Travel Mode: a compact, on-the-go view. The signpost beside the close button hides the toolbar and filters (search moves into the title row); click it again for the full tools. Auto Travel Mode can switch it off at the bank, the auction house, vendors and on flight paths, and back on afterwards.
 - Sorting: rarity, name, item level, newest, oldest, or click any column header. Merge stacks into one row.
 - Bank: at a banker a dedicated Bank window opens beside your bags, replacing Blizzard's, with a bank bag

@@ -89,17 +89,14 @@ end
 -- last opened at (newSeen[release][page] = "1.9.1"; an older save's true reads as x.y.0), and it and its entries show
 -- NEW while it holds anything added after that: a 1.9.1 setting on a page opened in 1.9.0 is NEW, the rest there isn't.
 -- Someone coming straight from an older release sees all of them.
+-- (1.10.0-beta12) 1.10's list, with its What's New card. Other Addons' page (Addon Sources) and each of its switches;
+-- Custom Sections (the rule editor, the examples) and its last card; Sections, for All Items in its list.
 Panel.NEW = {
-	release = "1.9",
-	pages = { general = true, window = true, icons = true, look = true, sections = true, columns = true, sheets = true,
-		globalsections = true, globalcols = true, globalsheets = true },
-	heads = {},
-	keys = { tipInventory = "general", tipAHPrice = "general", bagSlotCount = "window", borderWeight = "icons", iconLayout = "look", footerTextScale = "look", globalResize = "window" },
-	added = {
-		["1.9.1"] = { keys = { splitViewPinnedWide = "look" } },   -- (1.9.1-beta2) Full-Width Pinned
-		["1.9.2"] = { keys = { unusableOverlay = "icons" } },   -- (1.9.2-beta1) Jeor's Unusable Item Overlay
-		["1.9.4"] = { keys = { sectionValues = "sections" } },   -- (1.9.4-beta2) Show Section Values
-	},
+	release = "1.10",
+	pages = { addons = true, sections = true, custom = true },
+	heads = { ["How an Item Finds Its Section"] = "custom" },
+	keys = { useItemTree = "addons", makeRoomHoldItemTree = "addons", deHoldItemTree = "addons", makeRoomHoldPawn = "addons", deHoldPawn = "addons" },
+	added = {},
 }
 Panel.NEW_COLOR = { 0.55, 0.78, 1 }   -- the soft blue of What's New's links
 local function release() return tostring(ns.version or ""):match("^(%d+%.%d+)") end
