@@ -73,6 +73,59 @@ local function actionName(action)
 	return _G["BINDING_NAME_" .. action] or (GetBindingName and GetBindingName(action)) or action
 end
 
+-- (1.10.1-beta1, Shweep: "will our settings update to show what their keybind is? so if not B", and "what if they
+-- have a secondary keybind for it and there is a keybind for opening bags and reagent bag") Every key that opens
+-- BagSmith in place of Blizzard's bags, spelled out ("Tab", "Shift-B"), each once: both keys of each of the game's
+-- bag actions. A bag's own key counts when BagSmith stands in for that bag (Hooks.Covers: its hook on ToggleBag acts
+-- for the same bags). An empty list when none has a key; nil where the game can't be asked (Settings then says B,
+-- as before).
+-- (1.10.1-beta2, Shweep's screenshot of Forever's own keys: Toggle Backpack on B and F12, Toggle Reagent Bag unbound,
+-- Toggle Bag 1 to 4 on F8 to F11, Open All Bags on Shift-B) Toggle Backpack leads: its first key is the one a player
+-- thinks of as the bag key. Beta1 led with Open All Bags and read "(Shift-B, B and 5 more)" on those defaults.
+KB.BAG_ACTIONS = {   -- the game's action, and the bag its key toggles where it is one bag's
+	{ "TOGGLEBACKPACK" }, { "OPENALLBAGS" },
+	{ "TOGGLEREAGENTBAG1", 5 }, { "TOGGLEBAG1", 4 }, { "TOGGLEBAG2", 3 }, { "TOGGLEBAG3", 2 }, { "TOGGLEBAG4", 1 },
+}
+function KB:BagKeys()
+	if type(GetBindingKey) ~= "function" then return nil end
+	local out, seen = {}, {}
+	for _, a in ipairs(KB.BAG_ACTIONS) do
+		if not a[2] or (ns.Hooks and ns.Hooks.Covers(a[2])) then
+			for _, key in ipairs({ GetBindingKey(a[1]) }) do
+				local name = KB:Pretty(key)
+				if name and not seen[name] then seen[name] = true; out[#out + 1] = name end
+			end
+		end
+	end
+	return out
+end
+-- The words for Settings > General: the setting's name with the main bag key in it, and its help line, which says
+-- when there are others. The main key is the first of the list above (Toggle Backpack's, then Open All Bags', then a
+-- single bag's) that isn't a bare function key: the game's stock second key for the backpack is F12 and for the bags
+-- F8 to F11, so a player whose own key is on Open All Bags (Tab, say) with F12 left on Toggle Backpack reads Tab, not
+-- F12. With nothing but function keys, the first of them.
+KB.BAG_LABEL = "Open with the Bag Keybind (%s)"
+function KB:MainBagKey(keys)
+	for _, k in ipairs(keys) do if not k:match("^F%d+$") then return k end end
+	return keys[1]
+end
+local function gameName(action, fallback)
+	local name = actionName(action)
+	return (type(name) == "string" and name ~= "" and name ~= action) and name or fallback
+end
+function KB:BagKeyWords()
+	local keys = KB:BagKeys() or { "B" }
+	local where = "You can still open BagSmith from the minimap button or /bs."
+	if #keys == 0 then
+		return KB.BAG_LABEL:format("Not Set"),
+			("No key opens your bags right now. Set one in the game's Key Bindings, under %s or %s. %s"):format(
+				gameName("TOGGLEBACKPACK", "Toggle Backpack"), gameName("OPENALLBAGS", "Open All Bags"), where)
+	end
+	local main = KB:MainBagKey(keys)
+	return KB.BAG_LABEL:format(main),
+		("Turn off to keep Blizzard's bags on %s%s. %s"):format(main, #keys > 1 and " and your other bag keys" or "", where)
+end
+
 -- Bind a key (the game's form, "ALT-CTRL-SHIFT-K") to an action, replacing
 -- the action's old keys. Returns a message to show, or nil.
 function KB:Set(action, key)

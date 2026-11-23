@@ -132,6 +132,9 @@ local DEFAULTS = {
 	fadeMoving = false, movingAlpha = 0.5,   -- (1.6.0) the bag windows fade while the character moves (back on hover)
 	helpTips = true,                         -- (1.6.0) tooltips on BagSmith's own controls (item tooltips always show)
 	replaceBlizzardBags = true,   -- open with the bag keybind and stand in for Blizzard's bags
+	-- (1.10.1-beta2, Shweep) Auto-Close Bags I Opened: leaving a vendor, the mail, a trade or the auction house closes
+	-- the bags even when the player had opened them himself, as it always has. Off: only bags that opened for it.
+	autoCloseOwnBags = true,
 	-- Plugin preferences: one bounded plain-data namespace per plugin ID ({ schemaVersion, data }), owned by
 	-- the plugin through BagSmith.API; core only persists and validates the shape.
 	plugins = {},

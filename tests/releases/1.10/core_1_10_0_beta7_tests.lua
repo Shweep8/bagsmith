@@ -433,7 +433,7 @@ end)()
 ;(function()
 	-- the changelog, the TOC, and the words players read
 	local f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
-	check(toc:find("## Version: 1.10.0", 1, true), "the TOC says 1.10.0 (the exact version is pinned in tests/run.lua)")
+	check(toc:find("## Version: 1.10.", 1, true), "the TOC says 1.10 (by design since 1.10.1: its patches too; the exact version is pinned in tests/run.lua)")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
 	check(section:find("the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep", 1, true) and section:find("each Helper has its own switch in Settings > Addon Sources", 1, true),

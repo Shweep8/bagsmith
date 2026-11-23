@@ -99,7 +99,9 @@ Panel.NEW = {
 	-- (1.10.0-beta15, Shweep: "why no New tag beside New Section button", "yes just add to that one button please") a
 	-- button, by its label: New Section... was there in 1.9, and what it opens is 1.10's main feature
 	buttons = { ["New Section..."] = "custom" },
-	added = {},
+	added = {
+		["1.10.1"] = { keys = { autoCloseOwnBags = "general" } },   -- (1.10.1-beta2) Auto-Close Bags I Opened
+	},
 }
 local NEW_KINDS = { "heads", "keys", "buttons" }   -- what a page holds besides itself
 Panel.NEW_COLOR = { 0.55, 0.78, 1 }   -- the soft blue of What's New's links
@@ -1758,7 +1760,15 @@ end
 -- General: how BagSmith opens, which of Blizzard's windows it stands in for, and its notices.
 pages.general = function(self, db)
 	self:Head("Opening BagSmith")
-	self:Check("replaceBlizzardBags", "Open with the Bag Keybind (B)", "Turn off to keep Blizzard's bags on B. You can still open BagSmith from the minimap button or /bs.")
+	-- (1.10.1-beta1, Shweep) the name and its help say the player's own bag key, not always B (KeyBinds.lua)
+	local bagLabel, bagHelp = ns.KeyBinds:BagKeyWords()
+	self:Check("replaceBlizzardBags", bagLabel, bagHelp)
+	-- (1.10.1-beta2, Shweep: "keep it as it is but add a setting default (true) for that so players can turn it off in
+	-- future"; the name is his pick) Greyed while Blizzard's bags are on the key: BagSmith opens and closes nothing
+	-- for a window then. (1.10.1, Shweep: "slightly improve the description ... a tad confusing as written"; his
+	-- pick of three.)
+	self:Check("autoCloseOwnBags", "Auto-Close Bags I Opened", "When you leave a vendor, the mailbox, a trade or the auction house, your bags close, even if you already had them open. Turn off, and bags you already had open stay open.",
+		(not db.replaceBlizzardBags) and { disabled = true, checked = db.autoCloseOwnBags } or nil)
 	self:Check("minimap", "Show Minimap Button", "With it off, you can still open BagSmith with /bs or from the game's addon list.")
 	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
 	-- (1.10.0-beta9) auction prices, ItemTree and Pawn have a page of their own: Addon Sources (pages.addons)
@@ -2909,6 +2919,11 @@ ns:OnSignal("SETTINGS_CHANGED", function(key)
 		if key == nil or key == "scale" then Panel:ApplyPosition() end
 		Panel:Refresh()
 	end
+end)
+-- (1.10.1-beta1) the General page names the player's bag key: a key changed while that page (or a search) is open
+-- shows at once
+ns:On("UPDATE_BINDINGS", function()
+	if Panel.frame and Panel.frame:IsShown() and (Panel.page == "general" or Panel.query) then Panel:Refresh() end
 end)
 
 ------------------------------------------------------------------------

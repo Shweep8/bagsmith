@@ -20,14 +20,20 @@ parked:Hide()
 Hooks.parked = parked   -- (read by the controller probe, to name this frame in its report)
 local originalParent = ContainerFrameContainer or UIParent
 
-local function managed(bag)
-	if not ns.db or not ns.db.replaceBlizzardBags then return false end
+-- The bags BagSmith stands in for, whatever the setting says. (1.10.1-beta1: split from managed, so Settings can
+-- tell which of the game's bag keys open BagSmith.)
+local function covers(bag)
 	for _, b in ipairs(ns.ALL_BAGS) do
 		-- (1.7.5-beta1) Forever's keyring (-1) stays Blizzard's: its keyring button opens Blizzard's keyring window,
 		-- as it did when -1 was taken for the bank. The keys also show in BagSmith's bags, in Keys.
 		if b == bag and b ~= ns.BANK and not (ns.KEYRING_WAS_BANK and b == ns.KEYRING_WAS_BANK) then return true end
 	end
 	return false
+end
+Hooks.Covers = covers
+local function managed(bag)
+	if not ns.db or not ns.db.replaceBlizzardBags then return false end
+	return covers(bag)
 end
 
 function Hooks:Install()
@@ -79,6 +85,19 @@ function Hooks:Install()
 	-- could match and be ignored while Blizzard still played its bag sound
 	-- (player report: the first press after the game menu did nothing).
 	local handled = false
+	-- (1.10.1-beta2) BagSmith's window is open because one of the game's windows opened (a vendor, the mail, a trade,
+	-- the auction house, a bank): it closes with that window. False for bags the player opened, and again whenever
+	-- the window closes, however it closes.
+	local autoOpened = false
+	-- What the window was before this frame's first bag call acted: open or shut, and opened for a window or not.
+	local frameWasOpen, frameWasAuto
+	-- The rest of this frame's bag calls belong to what was just handled.
+	local function settle(wasOpen, wasAuto)
+		if not handled then frameWasOpen, frameWasAuto = wasOpen, wasAuto end
+		handled = true
+		C_Timer.After(0, function() handled = false; frameWasOpen, frameWasAuto = nil, nil end)
+	end
+	ns:OnSignal("MAIN_HIDDEN", function() autoOpened = false end)
 	local function stackSummary()
 		local names = {}
 		for name in tostring(debugstack and debugstack() or ""):gmatch("in function [`'<]([^'>]+)") do
@@ -87,19 +106,38 @@ function Hooks:Install()
 		end
 		return table.concat(names, " < ")
 	end
-	local function request(call, kind, bag)
+	-- opener (1.10.1-beta1): the call came from one of the game's own windows asking for the bags (a vendor, the
+	-- mail, a trade, the auction house: OpenAllBags(thatWindow)). The bags end open for it, whatever a toggle inside
+	-- the same call did to BagSmith's window a moment before: when the game believes its own bags are shut, its
+	-- OpenAllBags runs ToggleBackpack and ToggleBag, and BagSmith hears those first. The bag key's own OpenAllBags
+	-- names no window, so the first press after the game menu still acts as it did.
+	-- (1.10.1-beta2, Shweep: "keep it as it is but add a setting default (true) for that so players can turn it off")
+	-- A window's CloseAllBags(thatWindow) closes BagSmith whether BagSmith opened for it or the player had the bags
+	-- open already: as it always has, now behind Auto-Close Bags I Opened (on). Off, it only closes bags that opened
+	-- for a window (autoOpened), which is the game's own rule for its bags. The bag key, Escape and the X never ask.
+	local function request(call, kind, bag, opener)
 		if not managed(bag or ns.BACKPACK) then return end
-		local before = ns.Window:IsShown()
+		local before, wasAuto = ns.Window:IsShown(), autoOpened
 		local outcome
-		if handled then
+		if opener and kind == "open" and not before then
+			ns.Window:Show()
+			-- open for that window, unless this frame's toggle had just shut bags the player had opened: those are
+			-- his again
+			if handled and frameWasOpen then autoOpened = frameWasAuto and true or false else autoOpened = true end
+			settle(before, wasAuto)
+			outcome = "opened for the game's window"
+		elseif opener and kind == "close" and before and not autoOpened and ns.db.autoCloseOwnBags == false then
+			outcome = "left open (bags you opened yourself)"
+		elseif handled then
+			-- (the game's toggle inside a window's OpenAllBags opened BagSmith in this frame: open for that window)
+			if opener and kind == "open" and before and frameWasOpen == false then autoOpened = true end
 			outcome = "ignored (this press is already handled)"
 		else
 			if kind == "toggle" then ns.Window:Toggle()
 			elseif kind == "open" and not before then ns.Window:Show()
 			elseif kind == "close" and before then ns.Window:Hide() end
 			if ns.Window:IsShown() ~= before then
-				handled = true
-				C_Timer.After(0, function() handled = false end)
+				settle(before, wasAuto)
 				outcome = "acted"
 			else
 				outcome = "no change"
@@ -135,20 +173,41 @@ function Hooks:Install()
 		request("ToggleBackpack_Combined", "toggle")
 	end)
 	-- Direct calls: cinematics, vehicles, the game menu (CloseAllWindows).
-	hook("OpenAllBags", function() request("OpenAllBags", "open") end)
-	hook("CloseAllBags", function() request("CloseAllBags", "close") end)
+	hook("OpenAllBags", function(frame) request("OpenAllBags", "open", nil, frame ~= nil) end)
+	hook("CloseAllBags", function(frame) request("CloseAllBags", "close", nil, frame ~= nil) end)
 
 	-- Blizzard opens the bags for you at merchants, mail, trade and the bank.
 	-- Those paths run OpenAllBags inside other calls, so instead of hooking
 	-- them (which double-fires with ToggleAllBags) we listen to the events.
-	local autoOpened = false
+	-- (1.10.1-beta1, a player's report: no bags at a vendor, though the bag key opened BagSmith; his /bs debug read
+	-- "ToggleBag acted; window open -> closed", called from the vendor window's OpenAllBags) Where BagSmith hears
+	-- the event before the game's window has opened its own bags, the game's OpenAllBags came next, toggled the
+	-- backpack, and BagSmith took that toggle as a press of the bag key and shut the window it had just opened. So
+	-- the game's bag calls for the rest of this frame are not presses: BagSmith is open for the window, or was
+	-- already. (A window that shows a frame or more later is covered by "opener" in request, above.)
 	local function autoShow()
-		if managed(ns.BACKPACK) and not ns.Window:IsShown() then ns.Window:Show(); autoOpened = true end
+		if not managed(ns.BACKPACK) then return end
+		local before, wasAuto = ns.Window:IsShown(), autoOpened
+		if not before then ns.Window:Show(); autoOpened = true end
+		settle(before, wasAuto)
 	end
 	local function autoHide()
 		if autoOpened and ns.Window:IsShown() then ns.Window:Hide() end
 		autoOpened = false
 	end
+	-- (1.10.1-beta2) The bank opens the bags from Window.lua (BANK_OPENED), and on Forever the game's bank window asks
+	-- for them too: the same care as autoShow. Bags still open a frame after the bank has closed were not closed with
+	-- it, so they are the player's from then on, as they always were.
+	function Hooks.OpenedFor(wasShut)
+		if not managed(ns.BACKPACK) then return end
+		local wasAuto = autoOpened
+		if wasShut then autoOpened = true end
+		settle(not wasShut, wasAuto)
+	end
+	ns:OnSignal("BANK_CLOSED", function()
+		C_Timer.After(0, function() if not ns.atBank and ns.Window:IsShown() then autoOpened = false end end)
+	end)
+	Hooks.AutoOpened = function() return autoOpened end   -- for the tests
 	for _, ev in ipairs({ "MERCHANT_SHOW", "MAIL_SHOW", "TRADE_SHOW", "AUCTION_HOUSE_SHOW" }) do ns:On(ev, autoShow) end
 	for _, ev in ipairs({ "MERCHANT_CLOSED", "MAIL_CLOSED", "TRADE_CLOSED", "AUCTION_HOUSE_CLOSED" }) do ns:On(ev, autoHide) end
 

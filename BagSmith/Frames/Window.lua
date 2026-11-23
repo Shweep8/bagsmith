@@ -365,6 +365,7 @@ function ns:OnMainHidden()
 	for _, v in pairs(W.bagViews) do v:Hide() end
 	if ns.Drawer then ns.Drawer:Hide() end
 	if ns.Popups then ns.Popups:HideAll() end
+	ns:Fire("MAIN_HIDDEN")   -- (1.10.1-beta2) the bags closed, however they closed (Hooks.lua)
 end
 
 ------------------------------------------------------------------------
@@ -677,7 +678,10 @@ ns:OnSignal("PRICE_SOURCE_CHANGED", minWidths)
 -- At a banker the dedicated bank window opens beside the main window.
 ns:OnSignal("BANK_OPENED", function()
 	if ns.Bank and ns.Bank:Replacing() then Window.bank:Show() end
+	local wasShut = not Window.main:IsShown()
 	Window.main:Show()
+	-- (1.10.1-beta2) open for the bank: the game's own bag calls in this frame are not presses of the bag key
+	if ns.Hooks and ns.Hooks.OpenedFor then ns.Hooks.OpenedFor(wasShut) end
 end)
 ns:OnSignal("BANK_CLOSED", function()
 	Window.bank:Hide()

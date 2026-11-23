@@ -29,7 +29,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local S0 = skin .. ": "
 	local n, M = boot({ skin = skin, seen = "1.9.8" })
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[1]
+	local e = WN.ENTRIES[2]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	-- (by design since 1.10.0-beta16, Shweep, 23 Nov: "our what's new card is not player friendly, it's more technical
 	-- than sells the new features"; on the rewrite: "rest looks better tho, ty". Seven bullets that lead with what the
 	-- player gets, where there were nine that read like a list of features. The checks below follow the new text.)
@@ -97,7 +97,10 @@ end)()
 	-- 1.10's NEW list (replacing 1.9's, as each release does)
 	local n, M = boot({ seen = "1.9.8", itemtree = true })
 	local P = n.SettingsPanel
-	check(P.NEW.release == "1.10" and next(P.NEW.added) == nil, "the list is 1.10's, with no point release's additions yet")
+	-- (by design since 1.10.1-beta2: 1.10.1 adds one setting, Auto-Close Bags I Opened; 1.10.0's own list is as it was)
+	local added = 0
+	for _ in pairs(P.NEW.added) do added = added + 1 end
+	check(P.NEW.release == "1.10" and added == 1 and P.NEW.added["1.10.1"] and P.NEW.added["1.10.1"].keys.autoCloseOwnBags == "general", "the list is 1.10's, with 1.10.1's one addition")
 	for _, key in ipairs({ "useItemTree", "makeRoomHoldItemTree", "deHoldItemTree", "makeRoomHoldPawn", "deHoldPawn" }) do
 		check(P:IsNew("keys", key), key .. " is NEW")
 	end
@@ -158,7 +161,8 @@ end)()
 	check(top:find("sections of your own that you fill by hand or\n  with rules", 1, true) and top:find("**Works with other addons, none required:**", 1, true), "the repository's README: sections with rules, and the addons BagSmith works with")
 	check(not readme:find("\226\128\148") and not top:find("\226\128\148"), "with no dashes")
 	f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
-	check(toc:find("## Version: 1.10.0", 1, true) and not toc:find("X-BagSmith-Dev", 1, true), "the TOC says 1.10.0 (the exact version is pinned in tests/run.lua) and carries no development marker")
+	check(toc:find("## Version: 1.10.", 1, true) and not toc:find("X-BagSmith-Dev", 1, true), "the TOC says 1.10 (by design since 1.10.1: its patches too; the exact version is pinned in tests/run.lua) and carries no development marker")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
-	check(log:find("^## 1%.10%.0\n") and log:find("\n## 1.9.8\n", 1, true), "the changelog leads with 1.10.0, then 1.9.8")
+	-- (by design since 1.10.1: its patch's section comes first)
+	check(log:find("\n## 1.10.0\n", 1, true) and log:find("\n## 1.9.8\n", 1, true) and log:find("\n## 1.10.0\n", 1, true) < log:find("\n## 1.9.8\n", 1, true), "the changelog has 1.10.0, then 1.9.8")
 end)()

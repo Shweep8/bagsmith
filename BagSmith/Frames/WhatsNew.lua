@@ -24,6 +24,14 @@ ns.WhatsNew = WN
 -- Newest first. Only notable releases get an entry; keep a handful of short
 -- bullets that say what it is and where to turn it on.
 WN.ENTRIES = {
+	-- (1.10.1-beta1) drafted with the beta for Shweep to keep, change or strike (the convention since 1.9.8). An
+	-- update under 1.10's tab: it never opens the card by itself.
+	-- (1.10.1-beta2) the fix's bullet says who had it (the game's Use Combined Bags off); a bullet for the new setting
+	{ v = "1.10.1", heading = "BagSmith 1.10.1", items = {
+		"|cfffac775Bags at Vendors:|r with the game's Use Combined Bags turned off, your bags could stay shut at vendors, the mailbox, trades and the auction house, though the bag key opened them fine. They open there now.",
+		"|cfffac775Auto-Close Bags I Opened:|r a new switch in Settings > General. Turn it off and bags you opened yourself stay open when you leave a vendor or the mailbox.",
+		"|cfffac775Your Bag Key in Settings:|r Settings > General names the key your bags are on, such as Tab, instead of always saying B.",
+	} },
 	-- (1.10.0-beta12) the 1.10 card, first written as nine bullets.
 	-- (1.10.0-beta16, Shweep, 23 Nov: "our what's new card is not player friendly, it's more technical than sells the
 	-- new features"; on the rewrite: "rest looks better tho, ty") Seven bullets, each leading with what the player
