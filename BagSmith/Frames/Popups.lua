@@ -287,7 +287,11 @@ local function chip(parent, label, onChange)
 	c:SetHeight(20)
 	c.text = label
 	function c:Paint()
-		local hex = self.on and self.quality and qualityHex(self.quality)
+		-- (1.10.0-beta15, Shweep: "yes gold in classic style") In Classic a selected chip is Blizzard's button pushed in
+		-- with gold text, and the gold is what shows it. The quality's color written into the text replaced the gold:
+		-- Common came out white beside an unselected chip's cream, and "it's hard to tell anything happened". So the
+		-- quality colors are Modern's, where the border and fill show the selection.
+		local hex = self.on and self.quality and not (ns.Classic and ns.Classic.IsOn()) and qualityHex(self.quality)
 		self.label:SetText(hex and (hex .. self.text .. "|r") or self.text)
 		self:SetActive(self.on and true or false)
 	end
@@ -356,6 +360,7 @@ function Popups:BuildFilters(view)
 		end
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
 		if ns.Classic.DressScrollBar and fr.rules then ns.Classic:DressScrollBar(fr.rules, ns.Classic.IsOn()) end
+		for _, c in ipairs(fr.checks or {}) do if c.Paint then c:Paint() end end   -- (1.10.0-beta15) the Quality chips' text follows the skin
 		if fr:IsShown() and fr.list then Popups:LayoutFilters(fr) end
 	end)
 	-- The drag bar covers the top of the panel; the close button must sit above it or the bar takes its clicks.

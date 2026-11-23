@@ -1022,6 +1022,18 @@ function MR:StillOk(o)
 		local rec = { itemID = o.itemID, quality = self:LiveQuality(o), sellPrice = select(11, itemInfo(o.itemID)) }
 		if ns.Junk and not ns.Junk:IsJunk(rec) then return false, "changed" end
 	end
+	-- (1.10.0-beta15, the beta14 audit's B14-1) The slot is the offer's (the same item, count and instance, checked
+	-- above). An offer made from a slot the game hadn't given a link for yet takes the live link, and so does the
+	-- scanned record for that slot, so the questions below and the list's own are asked about one and the same key:
+	-- before, a refusal here was kept under the live link while the list went on reading the item id's "clear" and
+	-- offered the item again. (An offer that had a link and now reads another was already refused above, as changed.)
+	-- Only this slot's record is touched.
+	if not o.link and type(info.hyperlink) == "string" and info.hyperlink ~= "" then
+		o.link = info.hyperlink
+		for _, r in ipairs(ns.items or {}) do
+			if r.bag == o.bag and r.slot == o.slot and r.itemID == o.itemID and not r.link then r.link = info.hyperlink end
+		end
+	end
 	-- Never destroy something Pawn calls an upgrade, or hasn't decided on yet,
 	-- junk-marked or not.
 	if ns.db.makeRoomHoldPawn ~= false and ns.Pawn and ns.Pawn:Active() then   -- (1.10.0-beta9: while its switch is on)

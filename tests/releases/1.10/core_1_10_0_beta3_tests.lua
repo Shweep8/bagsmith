@@ -175,7 +175,10 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	check(shownLines(f)[2].name.text == "Nothing goes here yet. Pick something on a rule.", S0 .. "and the list says to pick something")
 	click(r1.chips[3]); click(r1.chips[4])
 	check(chipTexts(r1) == "Poor, Common, Uncommon*, Rare*, Epic, Legendary" and not r1.note:IsShown() and #E.draft.rows[1].v == 2, S0 .. "Uncommon and Rare picked")
-	check(r1.chips[3].label.text:find("^|cff%x%x%x%x%x%x") ~= nil and not r1.chips[1].label.text:find("|c", 1, true), S0 .. "a picked quality lights up in its own color")
+	-- (by design since 1.10.0-beta15, Shweep: "yes gold in classic style": in its own color in Modern; in Classic the
+	-- text stays plain and Classic's selected gold shows it)
+	check(((skin == "classic" and r1.chips[3].label.text == "Uncommon") or (skin ~= "classic" and r1.chips[3].label.text:find("^|cff%x%x%x%x%x%x") ~= nil)) and not r1.chips[1].label.text:find("|c", 1, true),
+		S0 .. "a picked quality lights up: in its own color in Modern, plain text for Classic's gold (" .. tostring(r1.chips[3].label.text) .. ")")
 	check(names(E.shown.here) == "Glimmering Mail Gauntlets, Robe of Power, Seer's Belt", S0 .. "the list follows: the three uncommon and rare items, A to Z (" .. names(E.shown.here) .. ")")
 	click(r1.verb)
 	check(r1.verb.label.text == "is not" and r1.verb.active and E.draft.rows[1].n == true and #E.shown.here == 8 and #E.shown.elsewhere == 1 and E.shown.elsewhere[1].why == "Grey items always go to Junk", S0 .. "is not: everything else, and the grey pelt fits but stays in Junk (" .. #E.shown.here .. ")")

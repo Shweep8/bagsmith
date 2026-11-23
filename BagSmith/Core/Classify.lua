@@ -349,7 +349,11 @@ end
 -- (1.10.0-beta4) The older fields as rule rows, in place, for the Filters window. Nothing changes in what passes: the
 -- older fields all had to pass, and so do rows under "all of these". (Rules set to "any one of these" together with
 -- older fields is something no version saves; the rows join the others.)
-local BD_KEY, KEY_BD = { BoE = "boe", BoP = "bop", None = "none" }, { boe = "BoE", bop = "BoP", none = "None" }
+-- (1.10.0-beta15, the beta14 audit's B14-3) BoU too: the old window never offered it, but the filter always applied
+-- it (ns:BindText), so an import can carry it, and the Binding rule has had the choice since beta3. It was dropped
+-- when the field became a rule, which widened the filter.
+local BD_KEY, KEY_BD = { BoE = "boe", BoP = "bop", BoU = "bou", None = "none" }, { boe = "BoE", bop = "BoP", bou = "BoU", none = "None" }
+local BD_ORDER = { "BoE", "BoP", "BoU", "None" }
 local function sortedKeys(set)
 	local out = {}
 	for k in pairs(set) do out[#out + 1] = k end
@@ -362,7 +366,7 @@ function ns.FoldFilters(f)
 	if next(f.cat or {}) then rows[#rows + 1] = { k = "sec", v = sortedKeys(f.cat) }; f.cat = {} end
 	if next(f.bd or {}) then
 		local v = {}
-		for _, key in ipairs({ "BoE", "BoP", "None" }) do if f.bd[key] then v[#v + 1] = BD_KEY[key] end end
+		for _, key in ipairs(BD_ORDER) do if f.bd[key] then v[#v + 1] = BD_KEY[key] end end
 		if #v > 0 then rows[#rows + 1] = { k = "bind", v = v } end
 		f.bd = {}
 	end
@@ -398,6 +402,8 @@ local function foldFits(f)
 		for _ in pairs(set) do c = c + 1 end
 		if c > ns.Rules.MAX_VALUES then return false end
 	end
+	-- (1.10.0-beta15, B14-3) and a binding the rule has no word for stays in its field, whole, for the same reason
+	for key in pairs(f.bd or {}) do if not BD_KEY[key] then return false end end
 	return n <= ns.Rules.MAX_ROWS
 end
 -- The older fields a filter still carries beside its rules (they couldn't be folded in), in the window's words.

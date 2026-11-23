@@ -631,8 +631,10 @@ end
 	local f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
 	local flat = section:gsub("%s+", " ")
-	check(flat:find("While its switch is on and ItemTree hasn't answered about an item yet, that item is held back under Waiting for ItemTree, and shows by itself once ItemTree answers. Clear Soul Shards is your own action with its own count to keep, and doesn't ask ItemTree.", 1, true),
-		"the changelog: what waits, that it shows by itself, and that Clear Soul Shards doesn't ask ItemTree")
+	-- (by design since 1.10.0-beta15, the beta14 audit's B14-4: the middle sentence no longer promises the item shows
+	-- once ItemTree answers; a Keep answer leaves it held)
+	check(flat:find("While its switch is on and ItemTree hasn't answered about an item yet, that item is held back under Waiting for ItemTree. The Helper checks again by itself, and offers the item only if ItemTree doesn't say to keep it. Clear Soul Shards is your own action with its own count to keep, and doesn't ask ItemTree.", 1, true),
+		"the changelog: what waits, that the Helper checks again, and that Clear Soul Shards doesn't ask ItemTree")
 	check(not section:find("\226\128\148") and not section:find("\226\128\147"), "with no dashes")
 	f = io.open("BagSmith/Core/MakeRoom.lua"); local src = f:read("*a"); f:close()
 	local shard = src:match("function MR:DestroyNextShard%(btn%)(.-)\n%-%- Loot what now fits") or ""

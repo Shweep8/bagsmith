@@ -346,7 +346,9 @@ function RL:LayoutRow(r, row, s)
 		local c = rowChip(self, r, j)
 		local on = anyOf(row.v, o)
 		local label = o.label
-		if on and o.quality then label = (qualityHex(o.quality) or "") .. label .. (qualityHex(o.quality) and "|r" or "") end
+		-- (1.10.0-beta15, Shweep: "yes gold in classic style") the quality's color in Modern only: in Classic a selected
+		-- chip's gold text is what shows it, and a color in the text replaced the gold (Frames/Popups.lua, chip:Paint)
+		if on and o.quality and not (ns.Classic and ns.Classic.IsOn()) then label = (qualityHex(o.quality) or "") .. label .. (qualityHex(o.quality) and "|r" or "") end
 		c.option = o
 		c.label:SetText(label)
 		c.tip = not INLINE[row.k] and "Click to take this off the rule." or nil

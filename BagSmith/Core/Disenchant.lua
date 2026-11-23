@@ -750,6 +750,16 @@ function DE:LiveCheck(entry)
 		if unknownT then return false, "whether that item is tradeable could not be checked" end
 		if isTradeable then return false, "that item is still tradeable" end
 	end
+	-- (1.10.0-beta15, the beta14 audit's B14-1) The slot is the armed piece's (the same item, the same instance, checked
+	-- above). If the game now gives it a link the list didn't have, or a different one (a slot read before its link
+	-- was there; a link that changed with your level), the entry and its scanned record take the live link. The
+	-- questions below, and the list's own the next time it is drawn, are then asked about one and the same key:
+	-- before, a refusal here was kept under the live link while the list went on reading the old key's "clear" and
+	-- armed the piece again. Only this slot's record is touched.
+	if type(info.hyperlink) == "string" and info.hyperlink ~= "" and entry.link ~= info.hyperlink then
+		entry.link = info.hyperlink
+		if entry.rec then entry.rec.link = info.hyperlink end
+	end
 	-- (1.10.0-beta8) Pawn, asked fresh, while Hold Back Pawn Upgrades is on: an upgrade, or no answer yet, is a no
 	if ns.db.deHoldPawn and ns.Pawn and ns.Pawn:Active() then
 		local up = ns.Pawn:IsUpgradeLink(info.hyperlink or entry.link, true)

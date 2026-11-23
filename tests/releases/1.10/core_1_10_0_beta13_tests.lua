@@ -727,7 +727,9 @@ end)()
 	check(not flat:find("Other Addons", 1, true) and flat:find("and for filters ItemTree's Advice. Settings > Addon Sources turns it on or off.", 1, true), "the changelog's ItemTree line says Settings > Addon Sources")
 	-- (by design since 1.10.0-beta14: the second sentence names the heading and what happens next, and a third says
 	-- Clear Soul Shards is separate)
-	check(flat:find("A piece ItemTree keeps for its dust still shows in the Disenchant Helper, and the Loot Helper still offers your junk. While its switch is on and ItemTree hasn't answered about an item yet, that item is held back under Waiting for ItemTree, and shows by itself once ItemTree answers.", 1, true),
+	-- (by design since 1.10.0-beta15, the beta14 audit's B14-4: "shows by itself once ItemTree answers" was too much: a
+	-- Keep answer leaves it held)
+	check(flat:find("A piece ItemTree keeps for its dust still shows in the Disenchant Helper, and the Loot Helper still offers your junk. While its switch is on and ItemTree hasn't answered about an item yet, that item is held back under Waiting for ItemTree. The Helper checks again by itself, and offers the item only if ItemTree doesn't say to keep it.", 1, true),
 		"and says what happens when ItemTree can't answer")
 	check(not section:find("\226\128\148") and not section:find("\226\128\147"), "with no dashes")
 	-- the words a player reads at a refused click

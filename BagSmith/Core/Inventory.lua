@@ -307,8 +307,18 @@ end
 -- caller gets its own list (the same records): sorting or filtering it never touches the kept one. Inv.builds counts
 -- the builds.
 local kept, generation = {}, 0
-function Inv:Touch() generation = generation + 1 end
+-- (1.10.0-beta15, the beta14 audit's B14-2) the ids of rows the kept lists had to mark "not known yet" (no name or no
+-- quality from the game): item data arriving for one of these, and only for these, makes the lists be built again
+local waitingIDs = {}
+function Inv:Touch() generation = generation + 1; waitingIDs = {} end
 Inv.builds = 0
+-- How much of a copy the game has described: its quality (2) and its name (1), by the rules' own tests.
+local function described(r)
+	local R = ns.Rules
+	if not R then return 3 end
+	return (R.QualityKnown(r) and 2 or 0) + (R.NameKnown(r) and 1 or 0)
+end
+function Inv:WaitingOn(id) return waitingIDs[tonumber(id) or id] == true end   -- (for the tests)
 function Inv:GlobalRecords(all, only)
 	local key = (all and "all" or "realm") .. ((only and only.bank) and ":bank" or "") .. ((only and only.bags) and ":bags" or "") .. ((only and only.equipped) and ":equipped" or "")
 	local k = kept[key]
@@ -331,8 +341,15 @@ function Inv:BuildGlobalRecords(all, only)
 					local k = tostring(r.itemID)
 					local g = byKey[k]
 					if not g then
-						g = { rep = r, count = 0, chars = {}, charList = {}, places = {}, placeList = {} }
+						g = { rep = r, repScore = described(r), count = 0, chars = {}, charList = {}, places = {}, placeList = {} }
 						byKey[k] = g; order[#order + 1] = k
+					elseif g.repScore < 3 then
+						-- (1.10.0-beta15, B14-2) The group shows one copy's details. It was always the first copy, so when
+						-- that one was a row the game hadn't described and a later one was known, the whole group read
+						-- as "not known yet" (and a Quality chip hid it). Now the first copy that is better described
+						-- stands for the group: a whole copy, never one copy's name beside another's quality.
+						local score = described(r)
+						if score > g.repScore then g.rep, g.repScore = r, score end
 					end
 					g.count = g.count + (tonumber(r.count) or 1)
 					if not g.chars[c.key] then g.chars[c.key] = c; g.charList[#g.charList + 1] = c end
@@ -354,6 +371,7 @@ function Inv:BuildGlobalRecords(all, only)
 		for key, v in pairs(g.rep) do rec[key] = v end
 		rec.bag, rec.slot, rec.guid, rec.members, rec.merged, rec.stacks = nil, nil, nil, nil, nil, nil
 		rec.count = g.count
+		if g.repScore < 3 and tonumber(rec.itemID) then waitingIDs[tonumber(rec.itemID)] = true end   -- (B14-2: see above)
 		rec.display, rec.cached, rec.global, rec.maxStack, rec.isNew = true, true, true, 1, nil
 		if #g.charList == 1 then rec.who, rec.whoClass = g.charList[1].name, g.charList[1].class
 		else rec.who = ("%d characters"):format(#g.charList) end
@@ -461,6 +479,15 @@ ns:OnSignal("ADDON_READY", function()
 	-- reloads everything), a new zone or login (a character's data saved: SaveCache, Scanner.lua)
 	ns:OnSignal("SETTINGS_CHANGED", function() Inv:Touch() end)
 	ns:On("PLAYER_ENTERING_WORLD", function() Inv:Touch() end)
+	-- (1.10.0-beta15, the beta14 audit's B14-2) The game sends an item's data: if a kept Global list is waiting on that
+	-- item (a worn piece that is nowhere in the bags, say, so no bag rescan was pending), the lists are built again
+	-- and a Global Inventory on screen is drawn again. Data for any other item changes nothing here.
+	ns:On("GET_ITEM_INFO_RECEIVED", function(itemID)
+		itemID = tonumber(itemID)
+		if not (itemID and waitingIDs[itemID]) then return end
+		Inv:Touch()
+		if ns.ui and ns.ui.global and ns.RefreshViews then ns:RefreshViews(true) end
+	end)
 	-- the gold tooltip follows Shift while it's up
 	ns:On("MODIFIER_STATE_CHANGED", function(key)
 		local owner = Inv.goldOwner

@@ -137,7 +137,11 @@ end)()
 	check(stays({ mode = "all", rows = { { k = "sec", v = { "Gear" }, n = true } } }), "\"is not\" stays a rule (an older version has no word for it)")
 	check(stays({ mode = "any", rows = { { k = "sec", v = { "Gear" } }, { k = "bag", v = { "Backpack" } } } }), "so do rules under \"any one of these\"")
 	check(stays({ mode = "all", rows = { { k = "sec", v = { "Gear" } }, { k = "sec", v = { "Junk" }, n = true } } }), "and two rules of one kind")
-	check(stays({ mode = "all", rows = { { k = "bind", v = { "bou" } } } }) and stays({ mode = "all", rows = { { k = "age", v = { 2, 24 } } } }), "and a binding or a time an older version doesn't know (Binds when used; more than 9 hours)")
+	-- (by design since 1.10.0-beta15, the beta14 audit's B14-3: Binds when used goes back to its field too. An older
+	-- version's filter has always applied a BoU in that field, though its window never offered one; left as a rule it
+	-- was dropped there, which widened the filter. A time past 9 hours still stays a rule.)
+	local bou = n.UnfoldFilters({ rules = { mode = "all", rows = { { k = "bind", v = { "bou" } } } } })
+	check(bou.rules == nil and bou.bd.BoU == true and stays({ mode = "all", rows = { { k = "age", v = { 2, 24 } } } }), "Binds when used goes back to the field an older version applies; a time it doesn't know (more than 9 hours) stays a rule")
 	local mixed = n.UnfoldFilters({ rules = { mode = "all", rows = { { k = "type", v = { CLOTH } }, { k = "sec", v = { "TradeGoods" } } } } })
 	check(mixed.cat.TradeGoods and mixed.rules and #mixed.rules.rows == 1 and mixed.rules.rows[1].k == "type", "a Type rule stays a rule beside a Section that went back to its box")
 	-- a deleted section leaves a Section rule
@@ -175,8 +179,11 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local h0 = f:GetHeight()
 	-- Quality
 	click(chipOf(f, "q", 2)); M.runTimers()
-	check(main.st.filters.q[2] == true and chipOf(f, "q", 2).active and chipOf(f, "q", 2).label.text:find("^|cff") and shown(main) == "Glimmering Mail Gauntlets, Seer's Belt" and f.count.text == "2 of 9 items shown",
-		S0 .. "Uncommon lit: the two green items, 2 of 9 items shown")
+	-- (by design since 1.10.0-beta15, Shweep: "yes gold in classic style": the quality's color is written into a picked
+	-- chip's text in Modern only; in Classic the chip keeps its plain text, which Classic's selected gold then colors)
+	local qText = chipOf(f, "q", 2).label.text
+	check(main.st.filters.q[2] == true and chipOf(f, "q", 2).active and ((skin == "classic" and qText == "Uncommon") or (skin ~= "classic" and qText:find("^|cff") ~= nil)) and shown(main) == "Glimmering Mail Gauntlets, Seer's Belt" and f.count.text == "2 of 9 items shown",
+		S0 .. "Uncommon lit: the two green items, 2 of 9 items shown (its text: " .. tostring(qText) .. ")")
 	check(main.btnFilter.label.text == "Filter (1)", S0 .. "and the Filter button counts it")
 	click(chipOf(f, "q", 3)); M.runTimers()
 	check(shown(main) == "Glimmering Mail Gauntlets, Robe of Power, Seer's Belt", S0 .. "Rare too: either quality")

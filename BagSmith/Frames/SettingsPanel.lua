@@ -96,8 +96,12 @@ Panel.NEW = {
 	pages = { addons = true, sections = true, custom = true },
 	heads = { ["How an Item Finds Its Section"] = "custom" },
 	keys = { useItemTree = "addons", makeRoomHoldItemTree = "addons", deHoldItemTree = "addons", makeRoomHoldPawn = "addons", deHoldPawn = "addons" },
+	-- (1.10.0-beta15, Shweep: "why no New tag beside New Section button", "yes just add to that one button please") a
+	-- button, by its label: New Section... was there in 1.9, and what it opens is 1.10's main feature
+	buttons = { ["New Section..."] = "custom" },
 	added = {},
 }
+local NEW_KINDS = { "heads", "keys", "buttons" }   -- what a page holds besides itself
 Panel.NEW_COLOR = { 0.55, 0.78, 1 }   -- the soft blue of What's New's links
 local function release() return tostring(ns.version or ""):match("^(%d+%.%d+)") end
 -- The point version running ("1.9.1" in 1.9.1-beta3), and a version's patch number (true, from an older save: 0).
@@ -113,7 +117,7 @@ local function entriesOn(N, page)
 	local function scan(list, patch)
 		if patch > cur then return end
 		if list.pages and list.pages[page] then out[#out + 1] = { "pages", page, patch } end
-		for _, kind in ipairs({ "heads", "keys" }) do
+		for _, kind in ipairs(NEW_KINDS) do
 			for id, pg in pairs(list[kind] or {}) do if pg == page then out[#out + 1] = { kind, id, patch } end end
 		end
 	end
@@ -165,9 +169,9 @@ function Panel:MarkAllNewSeen()
 	for page in pairs(N and N.pages or {}) do pages[page] = true end
 	for _, list in pairs(N and N.added or {}) do
 		for page in pairs(list.pages or {}) do pages[page] = true end
-		for _, kind in ipairs({ "heads", "keys" }) do for _, pg in pairs(list[kind] or {}) do pages[pg] = true end end
+		for _, kind in ipairs(NEW_KINDS) do for _, pg in pairs(list[kind] or {}) do pages[pg] = true end end
 	end
-	for _, kind in ipairs({ "heads", "keys" }) do for _, pg in pairs(N and N[kind] or {}) do pages[pg] = true end end
+	for _, kind in ipairs(NEW_KINDS) do for _, pg in pairs(N and N[kind] or {}) do pages[pg] = true end end
 	for page in pairs(pages) do self:MarkPageSeen(page) end
 end
 -- (1.8.0-beta20) /bs new reset: this release's tags show again, as just after an update (at once, if Settings is open).
@@ -1621,6 +1625,8 @@ function Panel:Button(label, onClick, width)
 	b:SetActive(false)
 	-- (1.9.0-beta3, Shweep) clear of the line above: 4 px above and below
 	b:ClearAllPoints(); b:SetPoint("TOPLEFT", self.frame.child, "TOPLEFT", rowX, -(self.y + 4))
+	-- (1.10.0-beta15) a button can wear the NEW tag, to its right (a button from the pool may have worn one before)
+	newTag(b, self:IsNew("buttons", label), b, b:GetWidth() + 6)
 	self.y = self.y + 30
 end
 -- Several buttons on one row (1.2.0): { { label, onClick }, ... }, laid out left to right.
@@ -1632,6 +1638,7 @@ function Panel:Buttons(list)
 		b:SetWidth(spec[3] or math.max(80, b.label:GetStringWidth() + 20))
 		b:SetActive(false)
 		b:ClearAllPoints(); b:SetPoint("TOPLEFT", self.frame.child, "TOPLEFT", rowX + x, -(rowY + 4))   -- (1.9.0-beta3) 4 px clear
+		if b.newTag then b.newTag:Hide() end   -- (1.10.0-beta15) a button from the pool may have worn the NEW tag
 		x = x + b:GetWidth() + 6
 	end
 	self.y = rowY + 30
