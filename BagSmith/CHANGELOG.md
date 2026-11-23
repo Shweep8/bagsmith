@@ -19,13 +19,15 @@ New:
   sheets and tick the tabs. Everywhere else its items stay in their usual section, so Cloth, Leather and Herbs can
   split up your Trade Goods tab while All keeps one Trade Goods section.
 - With the ItemTree addon installed, your section and filter rules can use what it knows: Used by My Professions,
-  Needed for a Quest, An Upgrade for Me and Sold by Vendors, and for filters ItemTree's Advice. Use ItemTree in
-  Settings > General turns it on or off. ItemTree is optional, and BagSmith works the same without it.
+  Needed for a Quest, An Upgrade for Me and Sold by Vendors, and for filters ItemTree's Advice. Settings > Other
+  Addons turns it on or off. ItemTree is optional, and BagSmith works the same without it.
 - With ItemTree, the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep. They show it
-  with the other items they don't offer, and the option sits under Use ItemTree. A piece ItemTree keeps for its
-  dust still shows in the Disenchant Helper.
-- Hold Back Pawn Upgrades, in Settings > General and off until you turn it on: with Pawn installed, the Disenchant
-  Helper won't offer a piece Pawn says is an upgrade for you.
+  with the other items they don't offer, and each Helper has its own switch in Settings > Other Addons. A piece
+  ItemTree keeps for its dust still shows in the Disenchant Helper.
+- With Pawn, the Disenchant Helper can hold back a piece Pawn says is an upgrade for you. That switch is in
+  Settings > Other Addons too, and it's off until you turn it on.
+- A new Settings page, Other Addons, shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree
+  and Pawn, each in its own card with a switch for each job.
 Changed:
 - The Gear, Consumables, Trade Goods, Quest and Junk tabs show every item of their kind, grouped under your own
   sections where you have them. Before, an item in one of your sections left its tab.
@@ -34,8 +36,8 @@ Changed:
 - An item you move back to its usual section by hand stays there, even when one of your sections would take it.
 - The Disenchant Helper no longer offers an item you've marked as junk. Mark one there and it leaves the list, and
   it comes back if you take the mark off.
-- Settings > General: auction prices, ItemTree and Pawn share one card, Other Addons. Price Source is now called
-  Auction Price Source.
+- Price Source moved from Settings > General to the new Other Addons page, and is now called Auction Price Source.
+- The Loot Helper holding back Pawn upgrades is a switch now, in Settings > Other Addons. It's on, as before.
 - Classic skin: item icons and their borders are cleaner in Icons and List view, with the artwork kept inside the
   border. Bold now brightens Classic borders. Thanks to Jeor!
 

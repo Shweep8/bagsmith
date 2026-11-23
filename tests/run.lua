@@ -4500,8 +4500,9 @@ end)()
 	-- (1.10.0-beta6, by design) Other Addons (Use ItemTree), after Auction Prices
 	-- (1.10.0-beta8, by design: Shweep, "should we consider also putting the AH price stuff under Other Addons?") one
 	-- card, Other Addons, holds the price source, ItemTree and Pawn; the Auction Prices heading is gone
-	grouped("general", "Opening BagSmith | Other Addons | Tooltips | Blizzard's Interface | Notices", {
-		replaceBlizzardBags = "Opening BagSmith", minimap = "Opening BagSmith", priceSource = "Other Addons", useItemTree = "Other Addons", helpTips = "Tooltips", tipInventory = "Tooltips",
+	-- (1.10.0-beta9, by design: Shweep, "own page") that card became the Other Addons page: General has no card for it
+	grouped("general", "Opening BagSmith | Tooltips | Blizzard's Interface | Notices", {
+		replaceBlizzardBags = "Opening BagSmith", minimap = "Opening BagSmith", helpTips = "Tooltips", tipInventory = "Tooltips",
 		replaceBank = "Blizzard's Interface", hideBlizzBagBar = "Blizzard's Interface",
 		quiet = "Notices", whatsNew = "Notices",
 	})
@@ -4509,7 +4510,8 @@ end)()
 	for _, b in ipairs(P.navButtons) do order[#order + 1] = b.text.text end
 	-- (1.9.0-beta6, by design) each of Sections, Columns and Sheets gains its Global page, last (beta8: "Global Inv ...")
 	-- (by design since 1.9.0-beta22, Shweep: "rename to Automations"; was "Automations & Actions")
-	check(table.concat(order, "|") == "General|Style|Item Icons|Windows|Sections|Dynamic Sections|Custom Sections|Global Inv Sections|Columns|Bag Columns|Bank Columns|Global Inv Columns|Sheets|Bag Sheets|Bank Sheets|Global Inv Sheets|Sorting & Filters|Automations|Loot Helper|Disenchant Helper|Keybindings|Plugins|Profile|Advanced",
+	-- (1.10.0-beta9, by design: Shweep, "own page") Other Addons, between Plugins and Profile
+	check(table.concat(order, "|") == "General|Style|Item Icons|Windows|Sections|Dynamic Sections|Custom Sections|Global Inv Sections|Columns|Bag Columns|Bank Columns|Global Inv Columns|Sheets|Bag Sheets|Bank Sheets|Global Inv Sheets|Sorting & Filters|Automations|Loot Helper|Disenchant Helper|Keybindings|Plugins|Other Addons|Profile|Advanced",
 		"Settings pages: General first, Item Icons right after Style (1.5.0), Profile just before Advanced (Automations has its two helper sub-pages since 1.2.0)")
 	local stray = false
 	for _, it in ipairs(items) do if it.kind == "text" and it.label:find("^Taller bags") then stray = true end end
@@ -6453,7 +6455,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.10%.0%-beta8\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta8, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.10%.0%-beta9\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta9, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -10137,7 +10139,8 @@ end)()
 	end
 	local list, gap = visible()
 	-- (by design since 1.9.0-beta22, Shweep: "rename to Automations"; was "Automations & Actions")
-	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Plugins|Profile|Advanced" and not gap,
+	-- (by design since 1.10.0-beta9, Shweep: "own page": Other Addons, here and in the search's folded list further down)
+	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Plugins|Other Addons|Profile|Advanced" and not gap,
 		"the list is folded: sub-pages hidden, no gaps: " .. list)
 	local function nav(label) for _, b in ipairs(P.navButtons) do if b.text.text == label then return b end end end
 	check(nav("Sections").arrow:IsShown() and nav("Sections").arrow.texture:find("chev%-right") and not nav("General").arrow, "pages with sub-pages show a folded arrow")
@@ -10201,7 +10204,7 @@ end)()
 		"explanations show only with their whole card (no stray Custom Sections note): " .. text)
 	list = visible()
 	-- (by design since 1.9.0-beta22, Shweep: "rename to Automations"; was "Automations & Actions")
-	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Plugins|Profile|Advanced", "while searching the list is folded")
+	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Plugins|Other Addons|Profile|Advanced", "while searching the list is folded")
 	box:SetText(""); box:GetScript("OnTextChanged")(box, true)
 	P:Hide()
 end)()

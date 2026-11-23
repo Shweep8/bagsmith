@@ -79,8 +79,11 @@ local DEFAULTS = {
 	travelMode = false,        -- Travel Mode (the signpost beside the close button): toolbar hidden, search in the title row
 	travelLeaveBank = true,    -- Auto Travel Mode: off while the bank is open, back on after
 	travelLeaveGuildBank = true,   -- ... the guild bank (1.8.0-beta23)
+	-- Settings > Other Addons (1.10.0-beta9: one switch per job, none depending on another)
 	useItemTree = true,    -- (1.10.0-beta6) with the ItemTree addon installed, sections and filters can use what it knows
-	itemTreeHold = true,   -- (1.10.0-beta7) and the Loot Helper and Disenchant Helper hold back what it says to keep
+	makeRoomHoldItemTree = true,   -- (1.10.0-beta9; was itemTreeHold, beta7) the Loot Helper holds back what ItemTree says to keep
+	deHoldItemTree = true,         -- ... and the Disenchant Helper, except what ItemTree keeps for its dust
+	makeRoomHoldPawn = true,       -- (1.10.0-beta9) the Loot Helper holds back Pawn upgrades: as it always has, now a switch
 	deHoldPawn = false,    -- (1.10.0-beta8, Shweep: "off ... should be default") the Disenchant Helper holds back Pawn upgrades
 	tipInventory = true,   -- (1.9.0-beta1) item tooltips list your characters' counts
 	tipAHPrice = true,     -- (1.9.0-beta2) an item's tooltip shows its AH price (with a price source); was only with the AH Price column
@@ -688,6 +691,15 @@ end
 
 local function validateProfile(saved)
 	renameClashingSheets(saved)
+	-- (1.10.0-beta9) Hold Back What ItemTree Says to Keep (beta7 and beta8 only) became one switch per Helper. A
+	-- profile that had it off, or had Use ItemTree off (which switched the hold off too), keeps both off.
+	if type(saved) == "table" and saved.itemTreeHold ~= nil then
+		if saved.itemTreeHold == false or saved.useItemTree == false then
+			if saved.makeRoomHoldItemTree == nil then saved.makeRoomHoldItemTree = false end
+			if saved.deHoldItemTree == nil then saved.deHoldItemTree = false end
+		end
+		saved.itemTreeHold = nil
+	end
 	-- 0.13: the Favorite and Currency columns join once, just before Junk.
 	if type(saved) == "table" and saved.fvccCols == nil then
 		for _, key in ipairs({ "cols", "bankCols", "colOrder", "bankColOrder" }) do

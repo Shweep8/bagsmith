@@ -98,7 +98,8 @@ end)()
 	-- IT:Holds: asked on the spot, once; fresh asks again; and every way it says no
 	local it = {}
 	local n, M, main, S, R, IT = boot({ it = it })
-	check(n.db.itemTreeHold == true, "the option is on unless you turn it off")
+	-- (by design since 1.10.0-beta9: one switch per Helper, and neither depends on the rules' switch)
+	check(n.db.makeRoomHoldItemTree == true and n.db.deHoldItemTree == true, "the option is on unless you turn it off")
 	check(it.calls == 0, "(nothing asks ItemTree anything until a rule or a Helper does)")
 	local meat, vial, dust = recOf(n, 3173), recOf(n, 3372), recOf(n, 99001)
 	check(IT:Holds(meat) == true and it.calls == 1, "Bear Meat: ItemTree says keep, asked on the spot")
@@ -133,14 +134,15 @@ end)()
 	check(IT:Holds(recOf(n, 3173)) == true and it.calls == asked + 1, "after a quest is accepted, the next question is asked afresh")
 	-- the option off
 	asked = it.calls
-	n:Set("itemTreeHold", false)
+	n:Set("makeRoomHoldItemTree", false)
 	check(IT:Holds(meat) == false and IT:Holds(meat, true) == false and it.calls == asked, "Hold Back off: no, and ItemTree isn't asked")
-	n:Set("itemTreeHold", true)
+	n:Set("makeRoomHoldItemTree", true)
 	check(IT:Holds(recOf(n, 3173)) == true, "on again: held again")
 	-- Use ItemTree off
 	n:Set("useItemTree", false); pump(M)
 	asked = it.calls
-	check(IT:Holds(recOf(n, 3173)) == false and IT:Holds(recOf(n, 3173), true) == false and it.calls == asked, "Use ItemTree off: no, and ItemTree isn't asked")
+	-- (by design since 1.10.0-beta9: the rules' switch no longer switches the Helpers' holds)
+	check(IT:Holds(recOf(n, 3173)) == true and it.calls == asked + 1, "the rules switched off: the Helpers' question is still answered")
 	n:Set("useItemTree", true); pump(M)
 	check(IT:Holds(recOf(n, 3173)) == true, "on again: held again")
 	check(it.requested == 0 and (n.errors or 0) == 0, "no errors, and ItemTree was never asked to load anything")
@@ -219,12 +221,12 @@ end)()
 	n.Marks:ToggleFavorite(recOf(n, 7002)); M.runTimers(); DE:Refresh()
 	check(select(2, DE:Eligible(dagger, DE:Skill())) == "itemtree", "(the favorite mark taken off: ItemTree's word holds it again)")
 	-- the option off: offered again at once, with the Helper open
-	n:Set("itemTreeHold", false); M.runTimers()
+	n:Set("deHoldItemTree", false); M.runTimers()
 	check(#DE.entries == 3 and offered(7002) and DE.held.total == 0, "Hold Back off: the open Helper offers the dagger again at once")
-	n:Set("itemTreeHold", true); M.runTimers()
+	n:Set("deHoldItemTree", true); M.runTimers()
 	check(#DE.entries == 2 and not offered(7002), "on again: held back again")
 	n:Set("useItemTree", false); M.runTimers(); M.runTimers()
-	check(#DE.entries == 3 and offered(7002), "Use ItemTree off: the dagger is offered again")
+	check(#DE.entries == 2 and not offered(7002), "the rules switched off: the dagger is still held (by design since beta9)")
 	n:Set("useItemTree", true); M.runTimers(); M.runTimers()
 	check(#DE.entries == 2 and not offered(7002), "on again: held back again")
 	-- at the click: ItemTree is asked fresh about the armed item
@@ -348,13 +350,13 @@ do
 		check((f.heldInfo.lines[1] or ""):find("Favorite", 1, true) and (f.heldInfo.lines[1] or ""):find("Gnoll Paw", 1, true), S0 .. "a favorite ItemTree also keeps is held as a favorite (" .. tostring(f.heldInfo.lines[1]) .. ")")
 		n.Marks:ToggleFavorite(recOf(n, 9720)); M.runTimers()
 		-- the option off: the open Helper offers it again at once
-		n:Set("itemTreeHold", false); M.runTimers()
+		n:Set("makeRoomHoldItemTree", false); M.runTimers()
 		check(offered(f) == "Broken Fang,Gnoll Paw,Linen Belt" and not f.held:IsShown(), S0 .. "Hold Back off: the open Helper offers the paw again at once (" .. offered(f) .. ")")
 		check(MR:StillOk(MR:Offer(recOf(n, 9720), false, "priced", 10)) == true, S0 .. "and it can be destroyed")
-		n:Set("itemTreeHold", true); M.runTimers()
+		n:Set("makeRoomHoldItemTree", true); M.runTimers()
 		check(offered(f) == "Broken Fang,Linen Belt", S0 .. "on again: held back again (" .. offered(f) .. ")")
-		n:Set("useItemTree", false); M.runTimers(); M.runTimers()
-		check(offered(f) == "Broken Fang,Gnoll Paw,Linen Belt", S0 .. "Use ItemTree off: the paw is offered again (" .. offered(f) .. ")")
+		n:Set("useItemTree", false); M.runTimers(); M.runTimers(); MR:Refresh()
+		check(offered(f) == "Broken Fang,Linen Belt", S0 .. "the rules switched off: the paw is still held (by design since beta9) (" .. offered(f) .. ")")
 		n:Set("useItemTree", true); M.runTimers(); M.runTimers()
 		check(offered(f) == "Broken Fang,Linen Belt", S0 .. "on again: held back again")
 		-- your own junk mark is your word too
@@ -369,70 +371,17 @@ do
 	do
 		local it = { facts = facts() }
 		local n, M, MR, f = lootBoot(it, "modern", { itemTreeHold = false })
-		check(n.db.itemTreeHold == false and offered(f) == "Broken Fang,Gnoll Paw,Linen Belt" and it.calls == 0, "a profile with Hold Back off: the Helper is as it was, and ItemTree is asked nothing")
+		check(n.db.makeRoomHoldItemTree == false and offered(f) == "Broken Fang,Gnoll Paw,Linen Belt" and it.calls == 0, "a profile with Hold Back off: the Helper is as it was, and ItemTree is asked nothing")
 	end
 end
 
 for _, skin in ipairs({ "modern", "classic" }) do
-	-- Settings > General > Other Addons, in its three states
+	-- (by design since 1.10.0-beta9, Shweep: "this needs more consistency and a scalable plan": the Other Addons card
+	-- this checked, the reworded Use ItemTree row with its state line and its indented Hold Back, became a page of its
+	-- own, built differently. Its checks are in the beta9 set. The heading's color in + Add a Rule stays.)
 	local S0 = skin .. ": "
-	local function rows(P)
-		local use, hold, state, at
-		for _, w in ipairs(P.pools.check or {}) do
-			if w:IsShown() and w.key == "useItemTree" then use = w end
-			if w:IsShown() and w.key == "itemTreeHold" then hold = w end
-		end
-		for _, w in ipairs(P.pools.text or {}) do
-			local words = w.text and w.text.text
-			if w:IsShown() and type(words) == "string" and plain(words):find("^ItemTree is") then state = w end
-		end
-		return use, hold, state
-	end
-	local function x(w) return (select(4, w:GetPoint(1))) end
-	local function y(w) return -(select(5, w:GetPoint(1))) end
-	local HELP = "Adds section and filter rules that use the " .. TEAL .. " addon, such as Used by My Professions and Needed for a Quest."
-	-- (by design since 1.10.0-beta8: a second sentence says a piece kept for its dust still shows in the Disenchant Helper)
-	local HOLD = "The Loot Helper and Disenchant Helper won't offer an item that " .. TEAL .. " says to keep. A piece " .. TEAL .. " keeps for its dust still shows in the Disenchant Helper."
-
-	-- not installed
-	local n, M = boot({ it = "none", prof = { skin = skin } })
-	local P = n.SettingsPanel
-	P:Show(); P:ShowPage("general"); M.runTimers()
-	local use, hold, state = rows(P)
-	check(use and use.text.text == "Use ItemTree" and use.help.text == HELP, S0 .. "Use ItemTree: one sentence that says what it adds (" .. tostring(use and plain(use.help.text)) .. ")")
-	check(not use.help.text:find("Add a Rule", 1, true) and not plain(use.help.text):find("[%+>]"), S0 .. "with no button's name in the middle of it")
-	check(not use.box:IsEnabled() and not use.box:GetChecked(), S0 .. "not installed: the box is greyed and empty")
-	check(state and state.text.text == TEAL .. " isn't installed, so there's nothing to turn on. It's optional." and state.emphasis == nil, S0 .. "the state is on a line of its own, in the quiet color (" .. tostring(state and plain(state.text.text)) .. ")")
-	check(hold and hold.text.text == "Hold Back What ItemTree Says to Keep" and hold.help.text == HOLD and not hold.box:IsEnabled() and not hold.box:GetChecked(), S0 .. "Hold Back What ItemTree Says to Keep sits under it, greyed too")
-	check(x(hold) > x(use) and x(state) == x(use) and y(use) < y(state) and y(state) < y(hold), S0 .. "in order: the switch, its state, then the option, indented under it")
-	check(n.db.itemTreeHold == true and n.db.useItemTree == true, S0 .. "(greyed is only how it shows: what's saved is untouched)")
-	P:Hide()
-
-	-- installed and on
 	local it = {}
-	n, M = boot({ it = it, prof = { skin = skin } })
-	P = n.SettingsPanel
-	P:Show(); P:ShowPage("general"); M.runTimers()
-	use, hold, state = rows(P)
-	check(use.box:IsEnabled() and use.box:GetChecked() and use.help.text == HELP and state.text.text == TEAL .. " is installed and its rules are available.", S0 .. "installed: ticked, and the state says its rules are available")
-	check(hold.box:IsEnabled() and hold.box:GetChecked() and hold.help.text == HOLD, S0 .. "Hold Back is on, and yours to turn off")
-	hold.box:SetChecked(false); click(hold.box); pump(M)
-	use, hold, state = rows(P)
-	check(n.db.itemTreeHold == false and hold.box:IsEnabled() and not hold.box:GetChecked() and use.box:GetChecked(), S0 .. "unticked: off, and Use ItemTree stays on")
-	hold.box:SetChecked(true); click(hold.box); pump(M)
-	use, hold, state = rows(P)
-	check(n.db.itemTreeHold == true and hold.box:GetChecked(), S0 .. "ticked again: on")
-	-- Use ItemTree off: its option greys with it, and keeps what was saved
-	use.box:SetChecked(false); click(use.box); pump(M)
-	use, hold, state = rows(P)
-	check(n.db.useItemTree == false and use.box:IsEnabled() and not use.box:GetChecked() and state.text.text == TEAL .. " is installed. Rules that use it are paused until you tick this.", S0 .. "Use ItemTree unticked: the state says its rules are paused")
-	check(not hold.box:IsEnabled() and not hold.box:GetChecked() and n.db.itemTreeHold == true, S0 .. "and Hold Back greys with it, keeping what was saved")
-	use.box:SetChecked(true); click(use.box); pump(M)
-	use, hold, state = rows(P)
-	check(n.db.useItemTree == true and hold.box:IsEnabled() and hold.box:GetChecked(), S0 .. "ticked again: Hold Back comes back as it was")
-	-- the settings search finds both by the addon's name, color or not
-	check(n.SettingsPanel.ITEMTREE == TEAL, S0 .. "(the name's color is ItemTree's teal, 9fe6e1)")
-	P:Hide()
+	local n, M = boot({ it = it, prof = { skin = skin } })
 
 	-- the + Add a Rule menu's heading is in the same color
 	local menu
@@ -453,9 +402,9 @@ end
 ;(function()
 	-- a profile saved before beta7 has the option on; one that turned it off keeps it off; other values are put right
 	local n = boot({ it = {}, prof = { useItemTree = true } })
-	check(n.db.itemTreeHold == true, "a profile from before beta7: Hold Back is on")
+	check(n.db.makeRoomHoldItemTree == true and n.db.deHoldItemTree == true, "a profile from before beta7: Hold Back is on")
 	n = boot({ it = {}, prof = { itemTreeHold = false } })
-	check(n.db.itemTreeHold == false, "one that turned it off keeps it off")
+	check(n.db.makeRoomHoldItemTree == false and n.db.deHoldItemTree == false, "one that turned it off keeps it off")
 	-- the real menu draws the heading in the color it's given
 	local n2, M = boot({ it = {} })
 	n2.ShowMenu({ { text = "What ItemTree knows", title = true, color = { 0.624, 0.902, 0.882 } }, { text = "Plain heading", title = true }, { text = "A row", onClick = function() end } })
@@ -476,7 +425,7 @@ end)()
 	check(toc:find("## Version: 1.10.0", 1, true), "the TOC says 1.10.0 (the exact version is pinned in tests/run.lua)")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
-	check(section:find("the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep", 1, true) and section:find("the option sits under Use ItemTree", 1, true),
+	check(section:find("the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep", 1, true) and section:find("each Helper has its own switch in Settings > Other Addons", 1, true),
 		"the changelog's 1.10.0 section: the Helpers hold back what ItemTree says to keep")
 	check(not section:find("\226\128\148") and not section:find("\226\128\147"), "with no dashes")
 	for _, file in ipairs({ "BagSmith/Core/ItemTree.lua", "BagSmith/Core/Why.lua" }) do

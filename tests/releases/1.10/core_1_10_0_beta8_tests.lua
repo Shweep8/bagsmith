@@ -162,9 +162,10 @@ end)()
 	it.onChange("stock"); pump(M); DE:Refresh()
 	check(offeredNames(DE) == "Lupine Slippers of the Falcon, Rare Chest", "kept for their dust again: offered again")
 	-- the option off: everything is offered, as in 1.9.8
-	n:Set("itemTreeHold", false); M.runTimers()
+	-- (by design since 1.10.0-beta9: the Disenchant Helper has its own Hold Back switch)
+	n:Set("deHoldItemTree", false); M.runTimers()
 	check(offeredNames(DE) == "Dwarven Tome, Enchanted Moonstalker Cloak, Lupine Slippers of the Falcon, Rare Chest" and DE.held.total == 0, "Hold Back off: all four are offered (" .. offeredNames(DE) .. ")")
-	n:Set("itemTreeHold", true); M.runTimers()
+	n:Set("deHoldItemTree", true); M.runTimers()
 	check(offeredNames(DE) == "Lupine Slippers of the Falcon, Rare Chest", "on again: the cloak and the tome are held, the slippers are not")
 	check(it.requested == 0 and (n.errors or 0) == 0, "no errors, and ItemTree was never asked to load anything")
 end)()
@@ -333,102 +334,23 @@ do
 end
 
 -- ======== Settings > General: one Other Addons card ========
-for _, skin in ipairs({ "modern", "classic" }) do
-	local S0 = skin .. ": "
-	local function boot(opts)
-		opts = opts or {}
-		package.loaded.mock = nil
-		local M = require("mock")
-		M.put(0, 1, { id = 7001, name = "Sturdy Boots", q = 2, count = 1, class = 4, subclass = 1, price = 500, ilvl = 23, equip = "INVTYPE_FEET" })
-		_G.ItemTreeAPI = opts.it and fakeItemTree(opts.it) or nil
-		if opts.pawn then fakePawn(opts.pawn) else noPawn() end
-		_G.BagSmithCharDB = { version = 1, firstSeen = {} }
-		_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = skin } } }
-		local n = M.loadAddon("BagSmith")
-		n.version = "1.10.0-beta8"
-		M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
-		local P = n.SettingsPanel
-		P:Show(); P:ShowPage("general"); M.runTimers()
-		return n, M, P
-	end
-	local function row(P, pool, key) for _, w in ipairs(P.pools[pool] or {}) do if w:IsShown() and w.key == key then return w end end end
-	local function line(P, starts)
-		for _, w in ipairs(P.pools.text or {}) do
-			local words = w.text and w.text.text
-			if w:IsShown() and type(words) == "string" and plain(words):find(starts, 1, true) == 1 then return w end
-		end
-	end
-	local function x(w) return (select(4, w:GetPoint(1))) end
-	local function y(w) return -(select(5, w:GetPoint(1))) end
-	local function heads(P)
-		local t = {}
-		for _, w in ipairs(P.pools.head or {}) do if w:IsShown() then t[#t + 1] = { y(w), tostring(w.text and w.text.text or w.text) } end end
-		table.sort(t, function(a, b) return a[1] < b[1] end)
-		local out = {}
-		for i, h in ipairs(t) do out[i] = h[2] end
-		return table.concat(out, " | "), t
-	end
-
-	-- nothing else installed
-	local n, M, P = boot()
-	local hs, list = heads(P)
-	check(hs == "Opening BagSmith | Other Addons | Tooltips | Blizzard's Interface | Notices", S0 .. "General's cards: Auction Prices has joined Other Addons (" .. hs .. ")")
-	local seg, use, hold, pawn = row(P, "seg", "priceSource"), row(P, "check", "useItemTree"), row(P, "check", "itemTreeHold"), row(P, "check", "deHoldPawn")
-	local itLine, pawnLine = line(P, "ItemTree is"), line(P, "Pawn is")
-	check(seg and seg.text.text == "Auction Price Source", S0 .. "Price Source is now Auction Price Source (" .. tostring(seg and seg.text.text) .. ")")
-	check(seg.btns[1].label.text == "Automatic" and seg.btns[3].label.text == "Blackthornes" and (seg.btns[3]:GetPoint(1)) == "TOPRIGHT", S0 .. "its three choices still sit on the label's line")
-	check(tostring(seg.help.text):find("Which addon BagSmith gets auction prices from.", 1, true), S0 .. "with the description it had")
-	local otherY, tipsY
-	for _, h in ipairs(list) do if h[2] == "Other Addons" then otherY = h[1] elseif h[2] == "Tooltips" then tipsY = h[1] end end
-	check(otherY < y(seg) and y(seg) < y(use) and y(use) < y(itLine) and y(itLine) < y(hold) and y(hold) < y(pawn) and y(pawn) < y(pawnLine) and y(pawnLine) < tipsY,
-		S0 .. "in order under Other Addons: the price source, Use ItemTree and its line, Hold Back, then Pawn and its line")
-	check(x(hold) > x(use) and x(pawn) == x(use) and x(pawnLine) == x(use), S0 .. "ItemTree's Hold Back is indented under Use ItemTree; Pawn's row is not")
-	check(pawn.text.text == "Hold Back Pawn Upgrades" and pawn.help.text == "The Disenchant Helper won't offer a piece that the Pawn addon says is an upgrade for you. The Loot Helper already never does.",
-		S0 .. "Hold Back Pawn Upgrades says what it does, and that the Loot Helper already holds them (" .. tostring(pawn.help.text) .. ")")
-	check(not pawn.box:IsEnabled() and not pawn.box:GetChecked() and pawnLine.text.text == "Pawn isn't installed, so there's nothing to turn on. It's optional." and pawnLine.emphasis == nil,
-		S0 .. "Pawn not installed: greyed, with a quiet line that says so (" .. tostring(pawnLine.text.text) .. ")")
-	check(hold.help.text == "The Loot Helper and Disenchant Helper won't offer an item that " .. TEAL .. " says to keep. A piece " .. TEAL .. " keeps for its dust still shows in the Disenchant Helper.",
-		S0 .. "ItemTree's Hold Back says a piece kept for its dust still shows in the Disenchant Helper")
-	check(row(P, "check", "tipAHPrice") and y(row(P, "check", "tipAHPrice")) > tipsY, S0 .. "Show AH Price in Item Tooltips stays under Tooltips")
-	P:Hide()
-
-	-- Pawn installed
-	local pstate = { upgrades = {} }
-	n, M, P = boot({ pawn = pstate, it = { facts = {} } })
-	pawn, pawnLine = row(P, "check", "deHoldPawn"), line(P, "Pawn is")
-	check(pawn.box:IsEnabled() and not pawn.box:GetChecked() and n.db.deHoldPawn == false, S0 .. "Pawn installed: the box is yours to tick, and starts empty")
-	check(pawnLine.text.text == "Pawn is installed, and its upgrade arrows show on your items.", S0 .. "its line says Pawn is installed (" .. tostring(pawnLine.text.text) .. ")")
-	pawn.box:SetChecked(true); click(pawn.box); pump(M)
-	pawn = row(P, "check", "deHoldPawn")
-	check(n.db.deHoldPawn == true and pawn.box:GetChecked() and pawn.box:IsEnabled(), S0 .. "ticked: on")
-	check(n.db.itemTreeHold == true and n.db.useItemTree == true and row(P, "check", "itemTreeHold").box:GetChecked(), S0 .. "(ItemTree's switches are their own)")
-	pawn.box:SetChecked(false); click(pawn.box); pump(M)
-	check(n.db.deHoldPawn == false, S0 .. "unticked: off")
-	P:Hide()
-
-	-- Pawn installed, its bag upgrade advisor off
-	n, M, P = boot({ pawn = { upgrades = {}, advisor = false } })
-	pawn, pawnLine = row(P, "check", "deHoldPawn"), line(P, "Pawn is")
-	check(not pawn.box:IsEnabled() and not pawn.box:GetChecked()
-		and pawnLine.text.text == "Pawn is installed, but its bag upgrade advisor is off, so it marks no upgrades. You can turn that on in Pawn's options.",
-		S0 .. "Pawn's advisor off: greyed, and the line says where to turn it on (" .. tostring(pawnLine.text.text) .. ")")
-	P:Hide()
-	check((n.errors or 0) == 0, S0 .. "no errors")
-	noPawn()
-end
+-- (by design since 1.10.0-beta9, Shweep: "this needs more consistency and a scalable plan": the card this checked
+-- became the Other Addons page, with a card per addon. Its checks are in the beta9 set.)
 
 ;(function()
 	-- the words players read elsewhere, the changelog and the TOC
 	local f = io.open("BagSmith/Frames/SettingsPanel.lua"); local src = f:read("*a"); f:close()
-	local _, tips = src:gsub("Auction Price Source is in General%.", "")
-	check(tips == 2 and not src:find("[^n] Price Source is in General", 1) and not src:find("\"Price Source\"", 1, true) and not src:find("Head%(\"Auction Prices\"%)"),
-		"the AH Price column's tips say Auction Price Source, and the old label and heading are gone")
+	-- (by design since 1.10.0-beta9: the row is on the Other Addons page, under a card headed Auction Prices)
+	local _, tips = src:gsub("Auction Price Source is in Settings > Other Addons%.", "")
+	check(tips == 2 and not src:find("[^n] Price Source is in", 1) and not src:find("\"Price Source\"", 1, true),
+		"the AH Price column's tips say Auction Price Source, and the old label is gone")
 	f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
 	check(toc:find("## Version: 1.10.0", 1, true), "the TOC says 1.10.0 (the exact version is pinned in tests/run.lua)")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
-	check(section:find("A piece ItemTree keeps for its\n  dust still shows in the Disenchant Helper.", 1, true), "the changelog's 1.10.0 section: a piece kept for its dust still shows in the Disenchant Helper")
-	check(section:find("Hold Back Pawn Upgrades, in Settings > General and off until you turn it on", 1, true), "Hold Back Pawn Upgrades, off until you turn it on")
-	check(section:find("share one card, Other Addons. Price Source is now called\n  Auction Price Source.", 1, true), "and the one Other Addons card with Auction Price Source")
+	-- (by design since 1.10.0-beta9: the same things, said for the Other Addons page)
+	check(section:find("A piece\n  ItemTree keeps for its dust still shows in the Disenchant Helper.", 1, true), "the changelog's 1.10.0 section: a piece kept for its dust still shows in the Disenchant Helper")
+	check(section:find("With Pawn, the Disenchant Helper can hold back a piece Pawn says is an upgrade for you.", 1, true) and section:find("it's off until you turn it on", 1, true), "Pawn's Disenchant Helper switch, off until you turn it on")
+	check(section:find("is now called Auction Price Source.", 1, true), "and Auction Price Source")
 	check(not section:find("\226\128\148") and not section:find("\226\128\147"), "with no dashes")
 end)()

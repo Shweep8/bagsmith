@@ -3,8 +3,9 @@
 
 	ItemTree is another addon, and optional. It knows what an item is for on the character you're playing: whether a
 	profession of yours uses it, whether a quest needs it, whether it's an upgrade, whether vendors sell it, and what it
-	would do with it. With "Use ItemTree" on (Settings > General), section and filter rules can ask (Core/Rules.lua,
-	the it_ keys). BagSmith works the same without it: no ItemTree, or the setting off, and those rules fit nothing.
+	would do with it. With Section and Filter Rules on (Settings > Other Addons; the setting is useItemTree), section
+	and filter rules can ask (Core/Rules.lua, the it_ keys). BagSmith works the same without it: no ItemTree, or the
+	setting off, and those rules fit nothing. The two Helpers have switches of their own (IT:Holds).
 
 	Only its public API is used (the global ItemTreeAPI, version 1): IsReady, GetItemFacts(itemId, link),
 	RegisterReadyCallback and RegisterChangeCallback. Never RequestData: BagSmith doesn't make ItemTree load anything.
@@ -43,18 +44,21 @@ local function api()
 	if type(A) == "table" and type(A.GetItemFacts) == "function" then return A end
 end
 function IT:Installed() return api() ~= nil end
--- Installed, and "Use ItemTree" on (it is unless you turned it off).
+-- Installed, and its rules on (Settings > Other Addons > Section and Filter Rules; on unless you turned it off).
 function IT:Enabled() return api() ~= nil and not (ns.db and ns.db.useItemTree == false) end
 local wasReady = false   -- (its data doesn't unload: once ready, it isn't asked again on every item)
-function IT:Ready()
+-- ItemTree is there and its data is ready, whatever BagSmith's own switches say.
+local function ready()
 	local A = api()
-	if not (A and self:Enabled()) then return false end
-	if not hooked then self:Hook() end
+	if not A then return false end
+	if not hooked then IT:Hook() end
 	if wasReady or type(A.IsReady) ~= "function" then return true end
-	local ok, ready = pcall(A.IsReady)
-	wasReady = ok and ready == true
+	local ok, r = pcall(A.IsReady)
+	wasReady = ok and r == true
 	return wasReady
 end
+-- For the rules: ready, and the rules switched on.
+function IT:Ready() return self:Enabled() and ready() end
 
 -- ItemTree's facts for one item, as the few answers the rules read. Pure. Every field is read only where it's there
 -- (v1.2.8 has fields v1.2.7's notes didn't list, and price can be missing altogether).
@@ -119,7 +123,8 @@ end
 local function tick()
 	local A = api()
 	if not (A and IT:Ready()) then
-		queue, queued, head, ticking = {}, {}, 1, false
+		-- (the rules are off, or ItemTree isn't ready: no rule is reading anything, so there is nothing to redraw)
+		queue, queued, head, ticking, changed = {}, {}, 1, false, false
 		return
 	end
 	local clock = rawget(_G, "debugprofilestop")
@@ -173,10 +178,11 @@ end
 -- to hold an item back; it never takes one away.
 -- (1.10.0-beta8, Shweep: "This doesn't make sense to hold it back for DE helper, right?") forDisenchant: the Disenchant
 -- Helper's question. A piece ItemTree keeps for its dust is kept in order to be disenchanted, so there it isn't held.
+-- (1.10.0-beta9) Each Helper has its own switch (Settings > Other Addons), and neither depends on the rules' switch.
 function IT:Holds(rec, fresh, forDisenchant)
-	if not (ns.db and ns.db.itemTreeHold ~= false) then return false end
+	if not (ns.db and ns.db[forDisenchant and "deHoldItemTree" or "makeRoomHoldItemTree"] ~= false) then return false end
 	if type(rec) ~= "table" or not rec.itemID or rec.global or rec.empty then return false end
-	if not self:Ready() then return false end
+	if not ready() then return false end
 	local key = rec.link or rec.itemID
 	local e = known[key]
 	if e == nil or fresh then

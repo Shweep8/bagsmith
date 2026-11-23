@@ -285,7 +285,8 @@
 	end
 	local SAMPLE = {
 		{ "general", "Turn off to keep Blizzard's bags on B. You can still open BagSmith from the minimap button or /bs." },
-		{ "general", "Which addon BagSmith gets auction prices from. Automatic uses the one you have, or Auctionator if you have both." },
+		-- (by design since 1.10.0-beta9: auction prices have a card on the Other Addons page)
+		{ "addons", "Used for the AH Price column, item tooltips and both Helpers." },
 		{ "general", "Stops BagSmith's hello in chat when you log in." },
 		{ "look", "Each section spans the full width of the window." },
 		{ "icons", "Clearing your Recent Items also removes the green dots." },
@@ -306,7 +307,7 @@
 		cache[s[1]] = cache[s[1]] or pageText(s[1])
 		check(cache[s[1]]:find(s[2], 1, true) ~= nil, "Settings > " .. s[1] .. " reads: " .. s[2])
 	end
-	check(cache.general:find("Now using", 1, true) or cache.general:find("is installed", 1, true), "Price Source still says which source is in use")
+	check(cache.addons:find("Using ", 1, true) or cache.addons:find("No price addon installed", 1, true), "the Auction Prices card still says which source is in use")
 	local GONE = { "Turn off to use Blizzard's bags on B", "Tooltips that explain BagSmith's buttons", "Click any column header to sort by it; click again to flip the direction.", "Plugins work through a small public API" }
 	local all = table.concat({ cache.general, cache.sorting, cache.plugins }, "\n")
 	local stale

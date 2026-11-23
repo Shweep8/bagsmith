@@ -148,10 +148,11 @@ local MATS = "Bear Meat, Bolt of Linen Cloth, Empty Vial, Fine Thread, Leaded Vi
 -- (by design since 1.10.0-beta7, Shweep: "the description is somewhat confusing": the row's description is one
 -- sentence, the state is on a line of its own under it, and the addon's name is in its own color)
 local function plain(s) return (tostring(s or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+-- (by design since 1.10.0-beta9, Shweep: "this needs more consistency and a scalable plan": ItemTree has a card of its
+-- own on Settings > Other Addons; its state is beside the card's heading, and the switch is Section and Filter Rules)
 local function stateLine(P)
-	for _, w in ipairs(P.pools.text or {}) do
-		local words = plain(w.text and w.text.text)
-		if w:IsShown() and (words:find("^ItemTree is") or words:find("^ItemTree isn't")) then return words end
+	for _, w in ipairs(P.pools.head or {}) do
+		if w:IsShown() and w.text and w.text.text == "ItemTree" then return w.state and w.state:IsShown() and w.state.text or nil end
 	end
 end
 
@@ -198,14 +199,15 @@ end)()
 	click(f.add)
 	check(menu[#menu].text == "Optional: the ItemTree addon adds more rules here." and menu[#menu].disabled and #menu == 8, "+ Add a Rule: one quiet line about ItemTree, no rules of its own")
 	click(f.cancel)
-	-- Settings > General > Other Addons
+	-- Settings > Other Addons (by design since 1.10.0-beta9: an addon you don't have shows its card with no rows)
 	local P = n.SettingsPanel
-	P:Show(); P:ShowPage("general"); M.runTimers()
+	P:Show(); P:ShowPage("addons"); M.runTimers()
 	local row
 	for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == "useItemTree" then row = w end end
-	check(row and row.text.text == "Use ItemTree" and not row.box:IsEnabled() and not row.box:GetChecked(), "Use ItemTree is listed, greyed and unticked")
-	check(plain(row.help.text) == "Adds section and filter rules that use the ItemTree addon, such as Used by My Professions and Needed for a Quest."
-		and stateLine(P) == "ItemTree isn't installed, so there's nothing to turn on. It's optional.", "it says what the switch adds, and that ItemTree is optional")
+	check(row == nil and stateLine(P) == "Not installed", "ItemTree's card is listed, with no switch to tick: Not installed")
+	local said
+	for _, w in ipairs(P.pools.text or {}) do if w:IsShown() and w.text.text == "BagSmith works with these addons when you have them. None is needed." then said = true end end
+	check(said, "and the page says none of them is needed")
 	P:Hide()
 	check(n.db.useItemTree == true, "(the setting itself is on, for the day ItemTree is installed)")
 	check((n.errors or 0) == 0, "no errors")
@@ -290,19 +292,20 @@ end
 	check(menu[#menu].text == "ItemTree is turned off. Turn it on in Settings to add its rules." and menu[#menu].disabled, "+ Add a Rule: one line that says where to turn it on")
 	click(f.cancel)
 	local P = n.SettingsPanel
-	P:Show(); P:ShowPage("general"); M.runTimers()
+	P:Show(); P:ShowPage("addons"); M.runTimers()
 	local row
 	for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == "useItemTree" then row = w end end
-	check(row and row.box:IsEnabled() and not row.box:GetChecked() and stateLine(P) == "ItemTree is installed. Rules that use it are paused until you tick this.", "Settings: installed and off, ready to tick")
+	check(row and row.text.text == "Section and Filter Rules" and row.box:IsEnabled() and not row.box:GetChecked() and stateLine(P) == "Installed", "Settings: installed and off, ready to tick")
 	row.box:SetChecked(true); click(row.box); pump(M)
 	row = nil
 	for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == "useItemTree" then row = w end end
-	check(n.db.useItemTree == true and row and row.box:GetChecked() and stateLine(P) == "ItemTree is installed and its rules are available.", "ticked: on, and it says its rules are available")
+	check(n.db.useItemTree == true and row and row.box:GetChecked() and stateLine(P) == "Installed", "ticked: on")
 	check(inSection(n, mats) == MATS and it.calls == asked + 9, "and the section fills again, each item asked afresh")
 	local heads = {}
 	for _, w in ipairs(P.pools.head or {}) do if w:IsShown() then heads[#heads + 1] = tostring(w.text and w.text.text or w.text) end end
-	-- (by design since 1.10.0-beta8: the Auction Prices card joined Other Addons)
-	check(table.concat(heads, " | "):find("Opening BagSmith | Other Addons | Tooltips", 1, true), "it sits under its own heading, Other Addons (" .. table.concat(heads, " | ") .. ")")
+	-- (by design since 1.10.0-beta8: the Auction Prices card joined Other Addons; since beta9: a page of its own)
+	table.sort(heads)
+	check(table.concat(heads, " | ") == "Auction Prices | ItemTree | Pawn", "it has its own card on the Other Addons page (" .. table.concat(heads, " | ") .. ")")
 	P:Hide()
 	-- ItemTree raising an error is no answer, not an error of BagSmith's
 	it.raise = { [3173] = true }

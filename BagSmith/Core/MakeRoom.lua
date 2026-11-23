@@ -571,7 +571,8 @@ function MR:Suggestions(waiting, judge)
 			elseif r.hasNoValue or (r.sellPrice or 0) <= 0 then why = "novalue"
 			elseif ns.Marks and ns.Marks:IsFavorite(r.itemID) then why = "favorite"
 			elseif self:IsProtected(r.itemID) then why = "protected"
-			elseif ns.Pawn and ns.Pawn:IsUpgrade(r) then why = "pawn"
+			-- (1.10.0-beta9) a switch now, on unless you turn it off (Settings > Other Addons > Pawn)
+			elseif ns.db.makeRoomHoldPawn ~= false and ns.Pawn and ns.Pawn:IsUpgrade(r) then why = "pawn"
 			elseif ns.GearSets then
 				local sets, unreadable = ns.GearSets:SetsAt(r.bag, r.slot)
 				if unreadable then why = "unknown" elseif sets then why = "gearset" end
@@ -1017,7 +1018,7 @@ function MR:StillOk(o)
 	end
 	-- Never destroy something Pawn calls an upgrade, or hasn't decided on yet,
 	-- junk-marked or not.
-	if ns.Pawn and ns.Pawn:Active() then
+	if ns.db.makeRoomHoldPawn ~= false and ns.Pawn and ns.Pawn:Active() then   -- (1.10.0-beta9: while its switch is on)
 		local up = ns.Pawn:IsUpgradeLink(info.hyperlink or o.link, true)   -- asked fresh, right before destroying
 		if up == true then return false, "upgrade" end
 		if up == nil then return false, "pawn" end
@@ -2134,7 +2135,7 @@ function MR:Install()
 	ns:OnSignal("PRICE_SOURCE_CHANGED", repriced)
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
 		if key == "makeRoomValue" then repriced(); return end
-		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" and key ~= "itemTreeHold" and key ~= "useItemTree" then return end
+		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" and key ~= "makeRoomHoldItemTree" and key ~= "makeRoomHoldPawn" then return end
 		if MR.shardBatch and not MR.shardConfirmed and ns.db and ns.db.makeRoomAsk then MR.shardBatch = nil end
 		if MR.frame and MR.frame:IsShown() then MR:Refresh() end
 	end)

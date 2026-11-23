@@ -23,7 +23,9 @@ end
 -- always in sync with the profile; widgets are pooled by type.
 ------------------------------------------------------------------------
 -- (1.8.0-beta6, Shweep) the page side 15% wider: 510 px beside the page list, now 587 (the window 680 to 757)
-local NAV_W, WIN_W, WIN_H = 170, 757, 588   -- (1.9.0-beta6, Shweep) 5% taller (was 560): the Global sub-pages
+-- (1.10.0-beta9) 612: one more page in the list (Other Addons), and it still keeps full spacing with a page's three
+-- sub-pages open, in both skins, as 1.9.0-beta6 chose (Shweep then: "we may want to make it 5-10% taller"; 560 at first)
+local NAV_W, WIN_W, WIN_H = 170, 757, 612   -- (1.9.0-beta6, Shweep) 5% taller (was 560): the Global sub-pages
 local SEARCH_W = 200   -- NAV_W fits the longest page name (1.9.0-beta22: "Automations & Actions" is "Automations")
 -- A third field names the page an entry sits under: it's listed (indented)
 -- only while that page or one of its sub-pages is open.
@@ -33,7 +35,8 @@ local PAGES = {
 	{ "columns", "Columns" }, { "bagcols", "Bag Columns", "columns" }, { "bankcols", "Bank Columns", "columns" }, { "globalcols", "Global Inv Columns", "columns" },
 	{ "sheets", "Sheets" }, { "bagsheets", "Bag Sheets", "sheets" }, { "banksheets", "Bank Sheets", "sheets" }, { "globalsheets", "Global Inv Sheets", "sheets" },
 	{ "sorting", "Sorting & Filters" }, { "automation", "Automations" }, { "loothelper", "Loot Helper", "automation" }, { "dehelper", "Disenchant Helper", "automation" },
-	{ "keys", "Keybindings" }, { "plugins", "Plugins" }, { "profile", "Profile" }, { "advanced", "Advanced" },
+	-- (1.10.0-beta9, Shweep: "own page") Other Addons, beside Plugins
+	{ "keys", "Keybindings" }, { "plugins", "Plugins" }, { "addons", "Other Addons" }, { "profile", "Profile" }, { "advanced", "Advanced" },
 }
 -- (1.9.0-beta8, Shweep: "in each's header in settings and in the settings left hand can each also get their icon") the
 -- sub-pages' icons, one color like the text, before the name in the list and in the page's heading
@@ -48,6 +51,7 @@ Panel.PAGE_ICON = {
 	window = MEDIA_PATH .. "ui-set-windows.tga", sections = MEDIA_PATH .. "ui-set-sections.tga", columns = MEDIA_PATH .. "ui-set-columns.tga",
 	sheets = MEDIA_PATH .. "ui-set-sheets.tga", sorting = MEDIA_PATH .. "ui-set-filter.tga", automation = MEDIA_PATH .. "ui-set-auto.tga",
 	keys = MEDIA_PATH .. "ui-set-keys.tga", plugins = MEDIA_PATH .. "ui-set-plugins.tga", profile = MEDIA_PATH .. "ui-set-profile.tga",
+	addons = MEDIA_PATH .. "ui-set-addons.tga",   -- (1.10.0-beta9, Shweep: "go w/ first icon") three blocks and a fourth set apart
 	advanced = MEDIA_PATH .. "ui-set-advanced.tga",
 }
 -- (1.9.0-beta10, Shweep: "all these icons in settings should use the accent color - but dimmed") the accent, dimmed;
@@ -646,6 +650,8 @@ end
 
 -- info (1.5.0-beta3): an optional { title, lines, keywords } for an info icon beside the heading; its words are
 -- searchable.
+-- info.state (1.10.0-beta9): a few quiet words at the right end of the heading's line (an addon's state on the Other
+-- Addons page: "Installed"); info.stateOn draws them in the text color, otherwise muted.
 function Panel:Head(text, info)
 	self:CloseCard()
 	if self.seek and not self.seekY and not self.filter and tostring(text):lower() == self.seek then self.seekY = self.y end   -- (beta18) Open's heading
@@ -675,6 +681,12 @@ function Panel:Head(text, info)
 		h.info:Show()
 	elseif h.info then
 		h.info:Hide()
+	end
+	if info and info.state then
+		if not h.state then h.state = fs(h); h.state:SetPoint("BOTTOMRIGHT", -2, 7) end
+		h.state:SetText(info.state); h.state:SetTextColor(Skins:Color(info.stateOn and "text" or "muted")); h.state:Show()
+	elseif h.state then
+		h.state:SetText(""); h.state:Hide()
 	end
 	local tagX = (h.text:GetStringWidth() or 0) + 6 + ((h.info and h.info:IsShown()) and 20 or 0)   -- (from the text)
 	newTag(h, self:IsNew("heads", text), h.text, tagX)   -- (beta18)
@@ -971,7 +983,8 @@ function Panel:Dropdown(key, label, choices, help, binding)
 			local value = binding and binding.get() or ns.db[settingKey]
 			-- (1.8.0-beta2, Shweep) a group: a long list scrolls inside the menu, the current one in view
 			for _, c in ipairs(pr.choices or {}) do
-				items[#items + 1] = { text = c.label, checked = c.key == value, font = c.path, group = true, radio = true, onClick = function() if binding then binding.set(c.key) else ns:Set(settingKey, c.key) end end }
+				-- (1.10.0-beta9) c.disabled: listed, but it can't be picked (a price addon you don't have)
+				items[#items + 1] = { text = c.label, checked = c.key == value, font = c.path, group = true, radio = true, disabled = c.disabled or nil, onClick = function() if binding then binding.set(c.key) else ns:Set(settingKey, c.key) end end }
 			end
 			items.listRows = 20   -- (1.8.0-beta22, after FlareUI) twenty at a time before it scrolls
 			ns.ShowMenu(items, btn)
@@ -1675,60 +1688,72 @@ pages.profile = function(self, db)
 	self:Button("Import Profile", function() ns.ShareWindow("import") end, 160)
 end
 
+-- Other Addons (1.10.0-beta9; Shweep: "this needs more consistency and a scalable plan"). What BagSmith does with
+-- other addons, in cards that are all built the same way:
+--   * an ADDON card for an addon that knows something only it knows (ItemTree, Pawn): the heading is its name, with its
+--     state at the right end of the heading's line; one sentence on what it knows; then one row per thing BagSmith
+--     does with it. A row is named by the job, in the same words on every card, and switches one thing only.
+--   * a JOB card where several addons can supply the same thing (Auction Prices): the heading is the job, the state
+--     says which addon is in use, the choice is a list (it stays one row however many there are), and a "Works with"
+--     line names them all from AH.SOURCES. A new price addon needs no change here.
+-- An addon you don't have shows its heading, state and sentence only. Cards are in A to Z order by heading.
+-- A new row never changes what a player already has.
+pages.addons = function(self, db)
+	self:Text("BagSmith works with these addons when you have them. None is needed.")
+	-- Auction Prices: a job card
+	do
+		local AH = ns.AH
+		local using = AH:SourceName()
+		local names, choices = {}, { { key = "auto", label = "Automatic" } }
+		for _, k in ipairs(AH.ORDER) do
+			local has = AH:Installed(k)
+			names[#names + 1] = ("%s (%s)"):format(AH.SOURCES[k].name, has and "installed" or "not installed")
+			choices[#choices + 1] = { key = k, label = has and AH.SOURCES[k].name or (AH.SOURCES[k].name .. " (not installed)"), disabled = not has or nil }
+		end
+		self:Head("Auction Prices", { noIcon = true, state = using and ("Using %s"):format(using) or "No price addon installed", stateOn = using and true or false })
+		self:Text("Used for the AH Price column, item tooltips and both Helpers.")
+		if using then
+			local help = "Automatic uses the first one you have, in the order listed."
+			local picked = db.priceSource ~= "auto" and AH.SOURCES[db.priceSource]
+			if picked and not AH:Installed(db.priceSource) then help = help .. (" %s isn't installed, so BagSmith uses %s."):format(picked.name, using) end
+			self:Dropdown("priceSource", "Auction Price Source", choices, help)
+		end
+		self:Text("Works with: " .. table.concat(names, ", "))
+	end
+	-- ItemTree: an addon card
+	do
+		local IT = ns.ItemTree
+		local installed = IT and IT:Installed()
+		self:Head("ItemTree", { noIcon = true, state = installed and "Installed" or "Not installed", stateOn = installed and true or false })
+		self:Text("Knows what your items are for on this character.")
+		if installed then
+			self:Check("useItemTree", "Section and Filter Rules", "Adds rules such as Used by My Professions and Needed for a Quest.")
+			self:Check("makeRoomHoldItemTree", "Hold Back in the Loot Helper", "Won't offer an item ItemTree says to keep.")
+			self:Check("deHoldItemTree", "Hold Back in the Disenchant Helper", "Won't offer a piece ItemTree says to keep, unless it's kept for its dust.")
+		end
+	end
+	-- Pawn: an addon card
+	do
+		local P = ns.Pawn
+		local present = P and P:Present()
+		local active = present and P:Active()
+		self:Head("Pawn", { noIcon = true, state = not present and "Not installed" or (active and "Installed" or "Installed, bag upgrade advisor off"), stateOn = active and true or false })
+		self:Text("Knows which gear is an upgrade for you. Its green arrows show on your icons.")
+		if present then
+			if not active then self:Text("Pawn's bag upgrade advisor is off, so it marks no upgrades for now. You can turn it on in Pawn's options.") end
+			self:Check("makeRoomHoldPawn", "Hold Back in the Loot Helper", "Won't offer a piece Pawn says is an upgrade.")
+			self:Check("deHoldPawn", "Hold Back in the Disenchant Helper", "Won't offer a piece Pawn says is an upgrade.")
+		end
+	end
+end
+
 -- General: how BagSmith opens, which of Blizzard's windows it stands in for, and its notices.
--- (1.10.0-beta7) The ItemTree addon's name, in the color that marks what comes from it (Shweep: "can we color the addon name?").
-Panel.ITEMTREE = "|cff9fe6e1ItemTree|r"
 pages.general = function(self, db)
 	self:Head("Opening BagSmith")
 	self:Check("replaceBlizzardBags", "Open with the Bag Keybind (B)", "Turn off to keep Blizzard's bags on B. You can still open BagSmith from the minimap button or /bs.")
 	self:Check("minimap", "Show Minimap Button", "With it off, you can still open BagSmith with /bs or from the game's addon list.")
 	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
-	-- (1.6.0) where auction prices come from, for the AH Price column and the Loot and Disenchant Helpers (on General:
-	-- they matter to the helpers as much as the column, Shweep)
-	-- (1.10.0-beta8, Shweep: "should we consider also putting the AH price stuff under Other Addons?") one card for
-	-- what BagSmith does with other addons: auction prices, ItemTree, Pawn. Was two cards, Auction Prices and Other Addons.
-	self:Head("Other Addons")
-	local using = ns.AH:SourceName()
-	local installed = {}
-	for _, k in ipairs(ns.AH.ORDER) do if ns.AH:Installed(k) then installed[#installed + 1] = ns.AH.SOURCES[k].name end end
-	local now = using and ("Now using %s."):format(using) or "Neither Auctionator nor Blackthornes Tradeskills is installed."
-	if using and #installed < 2 and db.priceSource ~= "auto" and ns.AH.SOURCES[db.priceSource] and not ns.AH:Installed(db.priceSource) then
-		now = ("%s isn't installed, so BagSmith uses %s."):format(ns.AH.SOURCES[db.priceSource].name, using)
-	end
-	self:Seg("priceSource", "Auction Price Source", { { "auto", "Automatic" }, { "auctionator", "Auctionator" }, { "blackthornes", "Blackthornes" } },
-		"Which addon BagSmith gets auction prices from. Automatic uses the one you have, or Auctionator if you have both. " .. now)
-	-- (1.10.0-beta6) ItemTree: optional, always listed, and the switch says which of three states it's in
-	do
-		-- (1.10.0-beta7, Shweep: "the description is somewhat confusing"; his pick of the wording, the state on a line of
-		-- its own, and the addon's name in its own color)
-		local IT = ns.ItemTree
-		local installed = IT and IT:Installed()
-		local on = installed and db.useItemTree ~= false
-		local name = Panel.ITEMTREE
-		self:Check("useItemTree", "Use ItemTree", ("Adds section and filter rules that use the %s addon, such as Used by My Professions and Needed for a Quest."):format(name),
-			not installed and { disabled = true, checked = false } or nil)
-		self:Text(not installed and ("%s isn't installed, so there's nothing to turn on. It's optional."):format(name)
-			or (on and ("%s is installed and its rules are available."):format(name) or ("%s is installed. Rules that use it are paused until you tick this."):format(name)))
-		-- (1.10.0-beta7) the Helpers hold back what ItemTree says to keep
-		self:Indented(function()
-			-- (1.10.0-beta8) a piece ItemTree keeps in order to disenchant it stays in the Disenchant Helper
-			self:Check("itemTreeHold", "Hold Back What ItemTree Says to Keep",
-				("The Loot Helper and Disenchant Helper won't offer an item that %s says to keep. A piece %s keeps for its dust still shows in the Disenchant Helper."):format(name, name),
-				not on and { disabled = true, checked = false } or nil)
-		end)
-	end
-	-- (1.10.0-beta8, Shweep: "Yes to pawn and we can add setting"; "off for holding it back should be default") Pawn:
-	-- its arrows and the Loot Helper's protection are as they were, always on. The switch is the Disenchant Helper's.
-	do
-		local P = ns.Pawn
-		local present = P and P:Present()
-		local active = present and P:Active()
-		self:Check("deHoldPawn", "Hold Back Pawn Upgrades", "The Disenchant Helper won't offer a piece that the Pawn addon says is an upgrade for you. The Loot Helper already never does.",
-			not active and { disabled = true, checked = false } or nil)
-		self:Text(not present and "Pawn isn't installed, so there's nothing to turn on. It's optional."
-			or (active and "Pawn is installed, and its upgrade arrows show on your items."
-			or "Pawn is installed, but its bag upgrade advisor is off, so it marks no upgrades. You can turn that on in Pawn's options."))
-	end
+	-- (1.10.0-beta9) auction prices, ItemTree and Pawn have a page of their own: Other Addons (pages.addons)
 	-- (1.6.0) tips on BagSmith's own controls
 	self:Head("Tooltips")   -- (1.9.0-beta2, Shweep) was "Tips"
 	-- (1.9.0-beta1, Shweep)
@@ -1905,7 +1930,8 @@ pages.loothelper = function(self, db)
 			{ disabled = db.makeRoomAsk and true or nil, checked = db.makeRoomAsk and true or nil, keywords = "destroy destroyed destroying confirm confirmation" })
 	end)
 	-- The Loot Exclusion List: one line here, the list in its own window.
-	self:Text("Favorites, gear-set items, quest items, Pawn upgrades and items you protect are never suggested for destroying.")
+	-- (1.10.0-beta9) Pawn upgrades left this sentence: holding them back is a switch now, with ItemTree's, in Other Addons
+	self:Text("Favorites, gear-set items, quest items and items you protect are never suggested for destroying. Settings > Other Addons sets what Pawn and ItemTree hold back.")
 	self:Head("Loot Exclusion List")
 	self:Text("Items the Loot Helper won't make room for. This list only affects the Loot Helper.")
 	self:Text("The helpers never destroy or disenchant favorites, but junk selling still sells grey favorites.")
@@ -2238,7 +2264,7 @@ local function columnsPage(self, db, bank)
 			-- AH Price: always listed, greyed out until a price addon is installed (1.6.0: Auctionator or Blackthornes Tradeskills).
 			local ok = ns.AH:Available()
 			colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil, disabled = not ok,
-				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in General.") or ns.AH.INSTALL_HINT }
+				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in Settings > Other Addons.") or ns.AH.INSTALL_HINT }
 		else colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil } end
 	end
 	self:List(colItems,
@@ -2346,7 +2372,7 @@ pages.globalcols = function(self, db)
 		if id == "ah" then
 			local ok = ns.AH:Available()
 			return { id = id, label = ns.COL_LABEL[id], checked = checked, disabled = not ok,
-				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in General.") or ns.AH.INSTALL_HINT }
+				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in Settings > Other Addons.") or ns.AH.INSTALL_HINT }
 		end
 		return { id = id, label = ns.COL_LABEL[id], checked = checked }
 	end

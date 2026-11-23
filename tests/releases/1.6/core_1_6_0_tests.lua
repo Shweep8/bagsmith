@@ -91,11 +91,15 @@
 	check(n.db.priceSource == "auto", "a saved value that isn't a source becomes Automatic")
 	n, M = boot({ auctionator = { [2592] = 40 }, bts = { [2592] = 55 } })
 	local P = n.SettingsPanel
-	P:Show(); M.runTimers(); P:ShowPage("general"); M.runTimers()
+	-- (by design since 1.10.0-beta9, Shweep: "own page"; "AH addons doesnt scale if more of those added": the row is
+	-- Auction Price Source, a list, on the Other Addons page, and its card's heading says which source is in use)
+	P:Show(); M.runTimers(); P:ShowPage("addons"); M.runTimers()
 	local seg
-	for _, w in ipairs(P.pools.seg or {}) do if w:IsShown() and w.key == "priceSource" then seg = w end end
-	check(seg ~= nil, "(beta2) the General page has the Price Source row")
-	check(seg and seg.help and tostring(seg.help.text):find("Auctionator", 1, true), "its help line says which source is in use")
+	for _, w in ipairs(P.pools.dropdown or {}) do if w:IsShown() and w.key == "priceSource" then seg = w end end
+	check(seg ~= nil, "(beta2) the Other Addons page has the Auction Price Source row")
+	local using
+	for _, w in ipairs(P.pools.head or {}) do if w:IsShown() and w.text.text == "Auction Prices" then using = w.state and w.state.text end end
+	check(using == "Using Auctionator", "its card says which source is in use (" .. tostring(using) .. ")")
 
 	-- ---- the TOC loads both before BagSmith
 	local toc = io.open("BagSmith/BagSmith.toc"):read("*a")
@@ -103,7 +107,9 @@
 	check(deps:find("Auctionator", 1, true) and deps:find("Blackthornes_TS", 1, true), "both are optional dependencies, so they load first (" .. deps .. ")")
 	P:ShowPage("columns"); M.runTimers()
 	local onColumns = false
-	for _, w in ipairs(P.pools.seg or {}) do if w:IsShown() and w.key == "priceSource" then onColumns = true end end
+	for _, pool in ipairs({ "seg", "dropdown" }) do
+		for _, w in ipairs(P.pools[pool] or {}) do if w:IsShown() and w.key == "priceSource" then onColumns = true end end
+	end
 	check(not onColumns, "(beta2) and no longer on the Columns page")
 
 	-- ======== beta2 ========

@@ -32,15 +32,8 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	check(not c.helpBelow and py(c.help) > -30, S .. "a checkbox row: its help beside the box, as before (" .. tostring(py(c.help)) .. ")")
 
 	-- Price Source: the help under the three buttons, the full width
-	P:ShowPage("general"); M.runTimers()
-	local ps = row(P, "seg", "priceSource")
-	check(ps and ps.helpBelow, S .. "Price Source: its help runs under the buttons")
-	local top = -py(ps.help)
-	check(top >= 4 + 22 + 4, S .. "below the buttons, not over them (" .. top .. ")")
-	local total = 0
-	for _, b in ipairs(ps.btns) do if b:IsShown() then total = total + b.w + 2 end end
-	local beside = ps:GetWidth() - total - 16
-	check((ps.help.width or 0) > beside + 100, S .. "and much wider than the room the buttons left (" .. tostring(ps.help.width) .. " vs " .. beside .. ")")
+	-- (by design since 1.10.0-beta9: Price Source is Auction Price Source, a list on the Other Addons page, with a help
+	-- of one short line; the row this was written for is gone, and the rule is still checked on every row below)
 	-- every row that moved its help: below its control, and shorter than beside
 	local moved, bad = 0, {}
 	for _, page in ipairs({ "general", "look", "window", "icons", "automation", "sorting" }) do
