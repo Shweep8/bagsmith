@@ -97,7 +97,10 @@ end)()
 	-- 1.10's NEW list (replacing 1.9's, as each release does)
 	local n, M = boot({ seen = "1.9.8", itemtree = true })
 	local P = n.SettingsPanel
-	check(P.NEW.release == "1.10" and next(P.NEW.added) == nil, "the list is 1.10's, with no point release's additions yet")
+	-- (by design since 1.10.1-beta2: 1.10.1 adds one setting, Auto-Close Bags I Opened; 1.10.0's own list is as it was)
+	local added = 0
+	for _ in pairs(P.NEW.added) do added = added + 1 end
+	check(P.NEW.release == "1.10" and added == 1 and P.NEW.added["1.10.1"] and P.NEW.added["1.10.1"].keys.autoCloseOwnBags == "general", "the list is 1.10's, with 1.10.1's one addition")
 	for _, key in ipairs({ "useItemTree", "makeRoomHoldItemTree", "deHoldItemTree", "makeRoomHoldPawn", "deHoldPawn" }) do
 		check(P:IsNew("keys", key), key .. " is NEW")
 	end

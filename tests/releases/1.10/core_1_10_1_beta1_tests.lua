@@ -285,25 +285,18 @@ do
 	bind({ OPENALLBAGS = { "TAB" } }); P:Refresh()
 	check(row().text.text == "Open with the Bag Keybind (Tab)", "Open All Bags on Tab: (Tab)")
 
+	-- (by design since 1.10.1-beta2: the name gives one key, the main one, and the help says when there are more; the
+	-- forms with two keys and with a count, checked here in beta1, are gone. The beta2 set has the full list.)
 	bind({ OPENALLBAGS = { "B" }, TOGGLEBACKPACK = { "F12" } }); P:Refresh()
-	check(row().text.text == "Open with the Bag Keybind (B or F12)" and row().help.text == "Turn off to keep Blizzard's bags on B or F12." .. HELP,
-		"a key on each: both, Open All Bags first: " .. row().text.text)
-	bind({ OPENALLBAGS = { "B", "SHIFT-B" }, TOGGLEBACKPACK = { "B" } }); P:Refresh()
-	check(row().text.text == "Open with the Bag Keybind (B or Shift-B)", "the same key on both shows once, and a second key is spelled out: " .. row().text.text)
-	-- more than two: the name gives the first two and a count, the help lists them all
+	check(row().text.text == "Open with the Bag Keybind (B)" and row().help.text == "Turn off to keep Blizzard's bags on B and your other bag keys." .. HELP,
+		"a key on each: one key in the name, and the help says there are others: " .. row().text.text)
 	bind({ OPENALLBAGS = { "B", "SHIFT-B" }, TOGGLEBACKPACK = { "F12", "CTRL-ALT-F12" } }); P:Refresh()
-	check(row().text.text == "Open with the Bag Keybind (B, Shift-B and 2 more)" and #KB:BagKeys() == 4, "four keys: the first two and a count in the name: " .. row().text.text)
-	check(row().help.text == "Turn off to keep Blizzard's bags on your bag keys: B, Shift-B, F12 and Ctrl-Alt-F12." .. HELP, "and all four in its help: " .. row().help.text)
+	check(#KB:BagKeys() == 4, "four keys are known")
 
 	-- (Shweep: "a secondary keybind ... and there is a keybind for opening bags and reagent bag") a bag's own key and
 	-- the reagent bag's open BagSmith too, so they count
 	bind({ TOGGLEREAGENTBAG1 = { "SHIFT-R" } }); P:Refresh()
 	check(row().text.text == "Open with the Bag Keybind (Shift-R)", "only the reagent bag's key set: it is the bag key (not Not Set): " .. row().text.text)
-	bind({ TOGGLEBAG1 = { "F8" }, TOGGLEBAG4 = { "F11" } }); P:Refresh()
-	check(row().text.text == "Open with the Bag Keybind (F8 or F11)", "only keys for single bags: those: " .. row().text.text)
-	bind({ OPENALLBAGS = { "B" }, TOGGLEBACKPACK = { "F12" }, TOGGLEREAGENTBAG1 = { "SHIFT-R" }, TOGGLEBAG1 = { "F8" }, TOGGLEBAG2 = { "F9" }, TOGGLEBAG3 = { "F10" }, TOGGLEBAG4 = { "F11" } }); P:Refresh()
-	check(row().text.text == "Open with the Bag Keybind (B, F12 and 5 more)", "a key on every bag action: Open All Bags and Toggle Backpack lead: " .. row().text.text)
-	check(row().help.text == "Turn off to keep Blizzard's bags on your bag keys: B, F12, Shift-R, F8, F9, F10 and F11." .. HELP, "and the help lists each: " .. row().help.text)
 	-- each of those keys does open BagSmith: the same bags its ToggleBag hook acts for
 	for _, a in ipairs(KB.BAG_ACTIONS) do
 		if a[2] then
@@ -323,11 +316,11 @@ do
 	-- no key on either
 	bind({}); P:Refresh()
 	check(#KB:BagKeys() == 0 and row().text.text == "Open with the Bag Keybind (Not Set)", "no key on either: (Not Set): " .. row().text.text)
-	check(row().help.text == "No key opens your bags right now. Set one in the game's Key Bindings, under Open All Bags or Toggle Backpack." .. HELP,
+	check(row().help.text == "No key opens your bags right now. Set one in the game's Key Bindings, under Toggle Backpack or Open All Bags." .. HELP,   -- (by design since beta2: Toggle Backpack first)
 		"and its help says where to set one: " .. row().help.text)
 	_G.BINDING_NAME_OPENALLBAGS, _G.BINDING_NAME_TOGGLEBACKPACK = "Alle Taschen", "Rucksack"
 	P:Refresh()
-	check(row().help.text:find("under Alle Taschen or Rucksack.", 1, true), "in the game's own names for the two where it has them: " .. row().help.text)
+	check(row().help.text:find("under Rucksack or Alle Taschen.", 1, true), "in the game's own names for the two where it has them: " .. row().help.text)   -- (by design since beta2: Toggle Backpack first)
 	_G.BINDING_NAME_OPENALLBAGS, _G.BINDING_NAME_TOGGLEBACKPACK = nil, nil
 
 	-- a key changed while the page is open shows at once; on another page nothing is drawn again for it
@@ -358,9 +351,10 @@ do
 	local WN = n.WhatsNew
 	check(BagSmithDB.whatsNewSeen == "1.10.0", "(set up: this player has seen the 1.10 card)")
 	local e = WN.ENTRIES[1]
-	check(e.v == "1.10.1" and e.heading == "BagSmith 1.10.1" and #e.items == 2 and not e.opens and WN.ENTRIES[2].v == "1.10.0", "What's New: 1.10.1's entry is first, two bullets, and is an ordinary update")
-	check(plain(e.items[1]):find("^Bags at Vendors: ") and plain(e.items[2]):find("^Your Bag Key in Settings: "), "its bullets: Bags at Vendors, Your Bag Key in Settings")
-	check(not (e.items[1] .. e.items[2]):find("\226\128\148"), "no dashes in them")
+	-- (by design since 1.10.1-beta2: three bullets, the new setting's between the two)
+	check(e.v == "1.10.1" and e.heading == "BagSmith 1.10.1" and #e.items == 3 and not e.opens and WN.ENTRIES[2].v == "1.10.0", "What's New: 1.10.1's entry is first, three bullets, and is an ordinary update")
+	check(plain(e.items[1]):find("^Bags at Vendors: ") and plain(e.items[3]):find("^Your Bag Key in Settings: "), "its bullets: Bags at Vendors first, Your Bag Key in Settings last")
+	check(not table.concat(e.items, " "):find("\226\128\148"), "no dashes in them")
 	check(#WN:UnseenReleases() == 0 and not WN:UnseenOpener() and not WN:Pending(), "coming from 1.10.0: the card does not open by itself for this update")
 	frame(M); ToggleAllBags(); M.runTimers(); M.runTimers()
 	check(n.Window:IsShown() and not (BagSmithWhatsNew and BagSmithWhatsNew:IsShown()), "opening the bags: no card")
@@ -383,5 +377,5 @@ do
 	check(top and top:find("Fixed:\n%- Bags that stayed shut at vendors, the mailbox, trades and the auction house%.") and top:find("Changed:\n%- Settings > General: Open with the Bag Keybind names the key your bags are really on"),
 		"with the fix and the Settings line")
 	check(top and not top:find("\226\128\148"), "and no dashes")
-	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.10%.1%-beta1\n"), "the TOC version is 1.10.1-beta1")
+	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.10%.1"), "the TOC version is 1.10.1's (by design since beta2: the exact one is pinned in tests/run.lua)")
 end

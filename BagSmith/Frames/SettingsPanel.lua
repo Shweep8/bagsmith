@@ -99,7 +99,9 @@ Panel.NEW = {
 	-- (1.10.0-beta15, Shweep: "why no New tag beside New Section button", "yes just add to that one button please") a
 	-- button, by its label: New Section... was there in 1.9, and what it opens is 1.10's main feature
 	buttons = { ["New Section..."] = "custom" },
-	added = {},
+	added = {
+		["1.10.1"] = { keys = { autoCloseOwnBags = "general" } },   -- (1.10.1-beta2) Auto-Close Bags I Opened
+	},
 }
 local NEW_KINDS = { "heads", "keys", "buttons" }   -- what a page holds besides itself
 Panel.NEW_COLOR = { 0.55, 0.78, 1 }   -- the soft blue of What's New's links
@@ -1761,6 +1763,11 @@ pages.general = function(self, db)
 	-- (1.10.1-beta1, Shweep) the name and its help say the player's own bag key, not always B (KeyBinds.lua)
 	local bagLabel, bagHelp = ns.KeyBinds:BagKeyWords()
 	self:Check("replaceBlizzardBags", bagLabel, bagHelp)
+	-- (1.10.1-beta2, Shweep: "keep it as it is but add a setting default (true) for that so players can turn it off in
+	-- future"; the name is his pick) Greyed while Blizzard's bags are on the key: BagSmith opens and closes nothing
+	-- for a window then.
+	self:Check("autoCloseOwnBags", "Auto-Close Bags I Opened", "Leaving a vendor, the mailbox, a trade or the auction house closes your bags even if you opened them yourself. Turn off to keep those open. Bags that opened by themselves still close.",
+		(not db.replaceBlizzardBags) and { disabled = true, checked = db.autoCloseOwnBags } or nil)
 	self:Check("minimap", "Show Minimap Button", "With it off, you can still open BagSmith with /bs or from the game's addon list.")
 	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
 	-- (1.10.0-beta9) auction prices, ItemTree and Pawn have a page of their own: Addon Sources (pages.addons)

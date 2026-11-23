@@ -1,8 +1,14 @@
 ## 1.10.1
 
+New:
+- Auto-Close Bags I Opened (Settings > General), on as it has always worked. Turn it off and bags you opened yourself
+  stay open when you leave a vendor, the mailbox, a trade or the auction house. Bags that opened by themselves still
+  close.
+
 Fixed:
-- Bags that stayed shut at vendors, the mailbox, trades and the auction house. For some players the game's own bag
-  call closed BagSmith the instant it opened, so nothing showed up. Opening with your bag key always worked.
+- Bags that stayed shut at vendors, the mailbox, trades and the auction house. With the game's Use Combined Bags
+  turned off, the game's own bag call could close BagSmith the instant it opened, so nothing showed up. Opening with
+  your bag key always worked.
 
 Changed:
 - Settings > General: Open with the Bag Keybind names the key your bags are really on, such as Tab, instead of always
