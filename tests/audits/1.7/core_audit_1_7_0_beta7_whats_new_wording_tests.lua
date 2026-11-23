@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 -- The known collapsed-header limitation versus the shipped draft What's New promise.
 package.loaded.mock=nil
 local M=require('mock')
@@ -13,7 +14,7 @@ check(complete and #needs==0,'documented behavior: unseen quests under collapsed
 check(not MR:NeededForQuest('Linen Cloth',needs),'collapsed-before-first-read objective cannot protect a material')
 -- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 -- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
-local first=n.WhatsNew.ENTRIES[11]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+local first=n.WhatsNew.ENTRIES[12]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 check(first.v=='1.7.0','reviewing draft 1.7 card')
 print('FIRST BULLET: '..first.items[1])
 check(not first.items[1]:find('never offers what you still need for a quest',1,true) or first.items[1]:find('collapsed',1,true),'draft first bullet must qualify unconditional quest protection')

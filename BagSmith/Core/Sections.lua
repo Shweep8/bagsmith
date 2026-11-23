@@ -7,7 +7,9 @@
 	  1. marked as junk: Junk (so junk always sells);
 	  2. a favorite, while the Favorites section is on: Favorites;
 	  3. the section you moved it to;
-	  4. its usual section by type (Core/Classify.lua).
+	  4. (1.10.0-beta1) the first custom section, in your Custom Sections order, whose rules it fits (Core/Rules.lua);
+	     grey items are left to Junk;
+	  5. its usual section by type (Core/Classify.lua).
 
 	Moves are by item ID (every copy). Custom sections have ids "c1", "c2"...
 	and sit in Section Order with the built-in ones. Each section can be
@@ -27,11 +29,23 @@ for _, k in ipairs(ns.GEAR_KINDS) do S.BUILTIN[#S.BUILTIN + 1] = ns.GEAR_ID[k] e
 local BUILTIN_SET = {}
 for _, id in ipairs(S.BUILTIN) do BUILTIN_SET[id] = true end
 S.BUILTIN_SET = BUILTIN_SET
-local SPECIAL_LABEL = { ["~recent"] = "Recent Items", ["~fav"] = "Favorites", ["~gs"] = "Gear Sets", ["~ky"] = "Keys", ["~rb"] = "Reagent Bag", Junk = "Junk" }
+local SPECIAL_LABEL = { ["~recent"] = "Recent Items", ["~fav"] = "Favorites", ["~gs"] = "Gear Sets", ["~ky"] = "Keys", ["~rb"] = "Reagent Bag", Junk = "Junk",
+	["~all"] = "All Items" }   -- (1.10.0-beta10) All Items has a place in Section Order
 
 function S:Customs() return (ns.db and ns.db.customSections) or {} end
+-- (1.10.0-beta11) Sections to start from (Settings > Custom Sections): each opens the editor with its name and rules
+-- filled in, for the player to look over and create. Types by the game's own numbers (Trade Goods 7: Cloth 5, Herb
+-- 9, as Shweep's game lists them), so they read in the player's language.
+S.EXAMPLES = {
+	{ name = "Cloth", rules = { mode = "all", rows = { { k = "type", v = { "7:5" } } } } },
+	{ name = "Herbs", rules = { mode = "all", rows = { { k = "type", v = { "7:9" } } } } },
+	{ name = "Gear to Sell", rules = { mode = "all", rows = { { k = "bind", v = { "boe" } }, { k = "usable", v = { "yes" }, n = true } } } },
+	{ name = "Food and Drink", rules = { mode = "all", rows = { { k = "cons", v = { "Food", "Drink" } } } } },
+}
 -- Pinned sections (1.4.0): item sections (built-in or custom) shown at the top, after Recent; in All view their
 -- items leave the main list for their own section. By Bag ignores pins.
+-- (1.10.0-beta10) In All view, All Items keeps its own place in Section Order: a pinned section that comes after it
+-- there shows below it. The menu entry is Pin Section / Unpin Section (it was Pin to Top).
 function S:Pinnable(id) return type(id) == "string" and id ~= "" and id:sub(1, 1) ~= "~" and not id:match("^gs:") end
 function S:PinnedSet() return (ns.db and type(ns.db.pinnedSections) == "table") and ns.db.pinnedSections or {} end
 function S:Pinned(id) return self:PinnedSet()[id] == true end
@@ -141,10 +155,179 @@ function S:OwnCategory(rec)
 	return own
 end
 
--- The section a record goes to, before junk marks (the scanner applies those).
-function S:Apply(rec, own)
+-- (1.10.0-beta1) The first custom section whose rules the item fits, in Custom Sections order (its priority: the
+-- higher section gets an item first). Grey items never: they stay in Junk unless you move one yourself.
+-- sheet (1.10.0-beta5): the tab asked about; nil for "everywhere", where only the sections shown on every sheet
+-- count; S.ANY for "on any tab at all".
+function S:RuleSection(rec, own, skip, sheet)
+	if (own or rec.ownCat) == "Junk" or rec.quality == 0 then return nil end
+	local Rules = ns.Rules
+	if not Rules then return nil end
+	for _, c in ipairs(self:Customs()) do
+		if c.rules and c.id ~= skip and self:OnSheet(c, sheet) and Rules:Fits(c.rules, rec) then return c.id end
+	end
+	return nil
+end
+-- The section a record goes to, before junk marks (the scanner applies those). With no sheet this is its section
+-- everywhere, the one a record carries as rec.cat; with one, its section on that tab (see S:CatOn).
+function S:Apply(rec, own, sheet)
 	own = own or rec.ownCat or ns:Categorize(rec)
-	return self:MovedTo(rec.itemID) or own
+	local moved = self:MovedTo(rec.itemID)
+	if moved then
+		local c = self:Custom(moved)
+		if not c or self:OnSheet(c, sheet) then return moved end
+		-- (moved by hand into a section that isn't shown here: here it goes where it otherwise would)
+	end
+	return self:RuleSection(rec, own, nil, sheet) or own
+end
+
+------------------------------------------------------------------------
+-- Sections on sheets (1.10.0-beta5)
+--
+-- A custom section shows on every sheet, or only on some: c.sheets, a list of tab ids ("All", "TradeGoods", "Bank")
+-- and names of your own sheets; nil means every sheet. On a tab where it isn't shown, the section isn't there at all:
+-- its items go where they otherwise would (the next of your sections that fits and is shown there, else their usual
+-- section), whether a rule or your own hand put them in it.
+--
+-- A record's saved section, rec.cat, is its section EVERYWHERE: the sections that only show on some sheets are left
+-- out of it, so anything that reads rec.cat without knowing a tab sees the plain answer. S:CatOn(rec, sheet) is the
+-- section on one tab; the views ask it for the tab they're showing.
+------------------------------------------------------------------------
+S.ANY = true
+function S:OnSheet(c, sheet)
+	local list = c and c.sheets
+	if not list or sheet == S.ANY then return true end
+	if not sheet then return false end
+	for _, name in ipairs(list) do if name == sheet then return true end end
+	return false
+end
+-- Saved or typed sheets, made sound: unique names, at most 24; nil when none are left (every sheet).
+function S.CleanSheets(v)
+	if type(v) ~= "table" then return nil end
+	local out, seen = {}, {}
+	for _, name in ipairs(v) do
+		if #out >= 24 then break end
+		if type(name) == "string" and name ~= "" and #name <= 40 and not seen[name] then seen[name] = true; out[#out + 1] = name end
+	end
+	if #out == 0 then return nil end
+	return out
+end
+function S:Sheets(id) local c = self:Custom(id); return c and c.sheets or nil end
+function S:SetSheets(id, sheets)
+	local c = self:Custom(id)
+	if not c then return false end
+	c.sheets = S.CleanSheets(sheets)
+	ns:Fire("SETTINGS_CHANGED", "customSections")
+	self:Reapply(); self:RefreshManager()
+	return true
+end
+function S:AnyScoped()
+	for _, c in ipairs(self:Customs()) do if c.sheets then return true end end
+	return false
+end
+-- The section a record is in on one tab. The same as rec.cat unless one of your sections only shows on some sheets.
+function S:CatOn(rec, sheet)
+	local cat = rec.cat
+	if not sheet or cat == "Junk" or rec.empty or not rec.itemID or rec.global or rec.display or not self:AnyScoped() then return cat end
+	-- where you put it, when that section is shown here
+	local moved = self:MovedTo(rec.itemID)
+	if moved then
+		local c = self:Custom(moved)
+		if not c or self:OnSheet(c, sheet) then return moved end
+	end
+	-- else the first of your sections shown here that it fits; else its saved section (which already is its usual one,
+	-- or the first section on every sheet that it fits)
+	return self:RuleSection(rec, rec.ownCat, nil, sheet) or cat
+end
+-- The kind of item a built-in tab goes by: junk is Junk; an item in one of BagSmith's own sections (its usual one, or
+-- one you moved it to) is that; an item in one of YOUR sections is still its usual kind, so it stays on its kind's
+-- tab, grouped under your section there.
+function S:KindOf(rec)
+	local cat = rec.cat
+	if cat and not self:IsCustom(cat) then return cat end
+	return rec.ownCat or (rec.itemID and ns:Categorize(rec)) or cat
+end
+-- The tabs a section can be set to show on, for the editor: BagSmith's own (but Gear Sets, which lists sets, not
+-- sections), then your sheets (the bags' and the bank's, a name once). { { id, label }, ... }
+function S:TabChoices()
+	local out, seen = {}, {}
+	local function add(id, label) if not seen[id] then seen[id] = true; out[#out + 1] = { id = id, label = label } end end
+	for _, id in ipairs(ns.db.tabOrder or {}) do if ns.TAB_LABEL[id] and id ~= "GearSets" then add(id, ns.TAB_LABEL[id]) end end
+	for _, id in ipairs({ "All", "Gear", "Consumables", "TradeGoods", "Quest", "Junk", "Bank" }) do add(id, ns.TAB_LABEL[id]) end
+	for _, key in ipairs({ "sheets", "bankSheets" }) do
+		for _, sh in ipairs(ns.db[key] or {}) do if type(sh) == "table" and type(sh.n) == "string" then add(sh.n, sh.n) end end
+	end
+	return out
+end
+function S:TabLabel(id) return ns.TAB_LABEL[id] or tostring(id) end
+-- "Trade Goods", "All and Trade Goods": where a section shows, in words; "" for every sheet.
+function S:SheetsText(sheets)
+	if type(sheets) ~= "table" or #sheets == 0 then return "" end
+	local names = {}
+	for i, id in ipairs(sheets) do names[i] = self:TabLabel(id) end
+	if #names <= 2 then return table.concat(names, " and ") end
+	return table.concat(names, ", ", 1, #names - 1) .. " and " .. names[#names]
+end
+-- Is this item on that tab at all, before a search or the Filter button? bank: the record is in the bank. memo: a
+-- table a caller keeps while it asks about many items, so a sheet's filters are read once.
+function S:OnTab(rec, sheet, bank, memo)
+	if not sheet or sheet == S.ANY or sheet == "All" then return true end
+	if sheet == "Bank" then return bank and true or false end
+	if sheet == "GearSets" then return false end
+	if ns.TAB_LABEL[sheet] then
+		local kind = self:KindOf(rec)
+		return kind == sheet or ns.PARENT_CAT[kind] == sheet
+	end
+	-- one of your sheets: its own saved filters decide (the bags' sheets for your bags, the bank's for the bank)
+	local key = (bank and "b:" or "m:") .. sheet
+	local pred = memo and memo[key]
+	if pred == nil then
+		pred = false
+		for _, sh in ipairs(ns.db[bank and "bankSheets" or "sheets"] or {}) do
+			if sh.n == sheet then pred = ns:FilterPredicate(ns.CleanFilters(sh.f), sheet); break end
+		end
+		if memo then memo[key] = pred end
+	end
+	return pred and pred(rec) and true or false
+end
+-- One of your sheets was renamed or deleted: the sections set to show on it follow. (The bags and the bank each have
+-- their own sheets, and a name can be in both: the name is only dropped when neither has it any more.)
+local function sheetExists(name)
+	for _, key in ipairs({ "sheets", "bankSheets" }) do
+		for _, sh in ipairs(ns.db[key] or {}) do if sh.n == name then return true end end
+	end
+	return false
+end
+function S:SheetRenamed(old, new)
+	if old == new then return end
+	local changed = false
+	for _, c in ipairs(self:Customs()) do
+		if c.sheets then
+			for i, name in ipairs(c.sheets) do
+				if name == old then
+					if sheetExists(old) then table.insert(c.sheets, i + 1, new) else c.sheets[i] = new end
+					c.sheets = S.CleanSheets(c.sheets)
+					changed = true
+					break
+				end
+			end
+		end
+	end
+	if changed then ns:Fire("SETTINGS_CHANGED", "customSections"); self:Reapply(); self:RefreshManager() end
+end
+function S:SheetDeleted(name)
+	if ns.TAB_LABEL[name] or sheetExists(name) then return end
+	local changed = false
+	for _, c in ipairs(self:Customs()) do
+		if c.sheets then
+			for i = #c.sheets, 1, -1 do if c.sheets[i] == name then table.remove(c.sheets, i); changed = true end end
+			if #c.sheets == 0 then
+				c.sheets = nil
+				ns:Print("The section \"%s\" was only shown on the sheet %s; it now shows on every sheet.", c.name, name)
+			end
+		end
+	end
+	if changed then ns:Fire("SETTINGS_CHANGED", "customSections"); self:Reapply(); self:RefreshManager() end
 end
 -- Re-sort what's already scanned after a move, without a rescan.
 -- (1.5.0-beta9) Split Consumables changed: every consumable works out its own section again.
@@ -181,12 +364,14 @@ function S:Move(itemID, to)
 	if not (itemID and self:CanTake(to)) then return false end
 	local moves = ns.db.sectionMoves
 	-- Moving an item to its own section just undoes the move.
-	local own
+	-- (1.10.0-beta1) Unless a rule would take it: then the move back is kept, or the rule would take it straight back.
+	local own, found
 	for _, list in ipairs({ ns.items or {}, ns.bankItems or {} }) do
-		for _, rec in ipairs(list) do if rec.itemID == itemID then own = rec.ownCat or ns:Categorize(rec); break end end
+		for _, rec in ipairs(list) do if rec.itemID == itemID then own = rec.ownCat or ns:Categorize(rec); found = rec; break end end
 		if own then break end
 	end
-	if own and own == to then moves[itemID] = nil else moves[itemID] = to end
+	-- (1.10.0-beta5: on any tab, so a section that only shows on some sheets doesn't take it back there either)
+	if own and own == to and not (found and self:RuleSection(found, own, nil, S.ANY)) then moves[itemID] = nil else moves[itemID] = to end
 	self:Reapply()
 	self:RefreshManager()
 	return true
@@ -232,11 +417,126 @@ function S:Create(name)
 	ns.db.sectionNextId = n + 2
 	table.insert(ns.db.customSections, { id = id, name = name })
 	-- Into Section Order just before Other (or at the end).
+	-- (1.10.0-beta10) with no Other in the order, just before All Items, so a new section starts above it once pinned
 	local order, at = ns.db.laneOrder, nil
 	for i, x in ipairs(order) do if x == "Other" then at = i; break end end
+	if not at then at = ns.IndexOf(order, "~all") end
 	table.insert(order, at or (#order + 1), id)
 	ns:Fire("SETTINGS_CHANGED", "customSections")
 	return id
+end
+-- (1.10.0-beta1) A section's rules (Core/Rules.lua), cleaned before they're kept; nil or nothing usable removes them.
+function S:SetRules(id, rules)
+	local c = self:Custom(id)
+	if not c then return false end
+	c.rules = ns.Rules and ns.Rules.Clean(rules) or nil
+	ns:Fire("SETTINGS_CHANGED", "customSections")
+	self:Reapply(); self:RefreshManager()
+	return true
+end
+function S:Rules(id) local c = self:Custom(id); return c and c.rules or nil end
+-- A new section with rules, last in priority.
+function S:CreateWithRules(name, rules)
+	local clean = ns.Rules and ns.Rules.Clean(rules)
+	if not clean then return nil, "Tick at least one thing for the items to have in common." end
+	local id, why = self:Create(name)
+	if not id then return nil, why end
+	self:SetRules(id, clean)
+	return id
+end
+-- Its place in your Custom Sections list (1 = first, the highest priority), and moving it up or down.
+function S:Priority(id) for i, c in ipairs(self:Customs()) do if c.id == id then return i end end end
+function S:Reorder(id, delta)
+	local list, i = ns.db.customSections, self:Priority(id)
+	local j = i and (i + delta)
+	if not (i and j and j >= 1 and j <= #list) then return false end
+	list[i], list[j] = list[j], list[i]
+	ns:Fire("SETTINGS_CHANGED", "customSections")
+	self:Reapply(); self:RefreshManager()
+	return true
+end
+-- What a set of rules would do right now, over your bags and bank (each item once): here, the items that would land in
+-- the section; elsewhere, the ones that fit but are decided first, as { rec, why }. skip: the section being edited (its
+-- own rules don't count against it); a new section is last in priority, so every other rule section comes first.
+-- sheets (1.10.0-beta5): the tabs the section is set to show on (nil: every sheet). An item counts where it is on one
+-- of those tabs at all, and only the sections shown there can come first.
+function S:PreviewRules(rules, skip, sheets)
+	local here, elsewhere, seen = {}, {}, {}
+	local Rules = ns.Rules
+	if not (Rules and Rules:HasRules(rules)) then return here, elsewhere end
+	sheets = S.CleanSheets(sheets)
+	local order, at = self:Customs(), nil
+	for i, c in ipairs(order) do if c.id == skip then at = i end end
+	local bank = ns.bankScanned and ns.bankItems or (ns.SavedBank and ns:SavedBank()) or ns.bankItems or {}
+	local memo = {}
+	-- why the item doesn't land in the section on one tab (nil: it does)
+	local function whyNot(rec, sheet)
+		local own = rec.ownCat or ns:Categorize(rec)
+		if ns.Junk and ns.Junk:Marked(rec.itemID) then return "You marked it as junk" end
+		if own == "Junk" or rec.quality == 0 then return "Grey items always go to Junk" end
+		if ns.db.favSection and ns.Marks and ns.Marks:IsFavorite(rec.itemID) then return "You starred it, so it stays in Favorites" end
+		if ns.GearSets and ns.GearSets:Showing() and ns.GearSets:SetsOf(rec) then return "It's in a gear set" end
+		local moved = self:MovedTo(rec.itemID)
+		if moved and moved ~= skip then
+			-- (a section you put it in only keeps it where that section is shown)
+			local c = self:Custom(moved)
+			if not c or self:OnSheet(c, sheet) then return ("You put it in %s yourself"):format(self:Label(moved)) end
+		elseif moved then
+			return nil
+		end
+		-- a rule section above this one (every one, for a new section) that is shown here gets it first
+		for i, c in ipairs(order) do
+			if at and i >= at then break end
+			if c.rules and c.id ~= skip and self:OnSheet(c, sheet) and Rules:Fits(c.rules, rec) then return ("%s is higher on your list"):format(c.name) end
+		end
+		return nil
+	end
+	for listIndex, list in ipairs({ ns.items or {}, bank }) do
+		for _, rec in ipairs(list) do
+			if rec.itemID and not rec.empty and not seen[rec.itemID] and Rules:Fits(rules, rec) then
+				local lands, why, onAny = false, nil, false
+				for _, sheet in ipairs(sheets or { false }) do
+					sheet = sheet or nil
+					if self:OnTab(rec, sheet, listIndex == 2, memo) then
+						onAny = true
+						local w = whyNot(rec, sheet)
+						if not w then lands = true; break end
+						why = why or w
+					end
+				end
+				if onAny then
+					seen[rec.itemID] = true
+					if lands then here[#here + 1] = rec else elsewhere[#elsewhere + 1] = { rec = rec, why = why } end
+				end
+			end
+		end
+	end
+	return here, elsewhere
+end
+-- How many different items are in a section: the ones you put there, and the ones in your bags and bank right now.
+-- (1.10.0-beta5: a section that only shows on some sheets counts what it holds on those.)
+function S:SectionCount(id)
+	local seen, n = {}, 0
+	for item, to in pairs(self:Moves()) do if to == id and not seen[item] then seen[item] = true; n = n + 1 end end
+	local c = self:Custom(id)
+	local tabs = c and c.sheets
+	local memo = {}
+	for listIndex, list in ipairs({ ns.items or {}, ns.bankItems or {} }) do
+		for _, rec in ipairs(list) do
+			if rec.itemID and not seen[rec.itemID] then
+				local inIt = false
+				if tabs then
+					for _, sheet in ipairs(tabs) do
+						if self:OnTab(rec, sheet, listIndex == 2, memo) and self:CatOn(rec, sheet) == id then inIt = true; break end
+					end
+				else
+					inIt = rec.cat == id
+				end
+				if inIt then seen[rec.itemID] = true; n = n + 1 end
+			end
+		end
+	end
+	return n
 end
 function S:Rename(id, name)
 	local c = self:Custom(id)
@@ -268,21 +568,18 @@ function S:Delete(id)
 	for _, list in ipairs(lists) do
 		for i = #list, 1, -1 do if list[i] == id then table.remove(list, i) end end
 	end
+	-- (1.10.0-beta4: in either form, the older box or a Section rule)
 	for _, v in pairs(ns.views or {}) do
 		local f = v.st and v.st.filters
-		if f and f.cat then f.cat[id] = nil end
+		if f then ns.DropFilterSection(f, id) end
 	end
 	-- Saved sheets filtered on it lose it too; one filtered only by it now
 	-- shows every category, and chat says so.
 	local label = (deleted and deleted.name) or id
 	for _, key in ipairs({ "sheets", "bankSheets" }) do
 		for _, sh in ipairs(ns.db[key] or {}) do
-			local cat = sh.f and sh.f.cat
-			if type(cat) == "table" and cat[id] then
-				cat[id] = nil
-				if not next(cat) then
-					ns:Print("Sheet \"%s\" was filtered by the section %s; it now shows every category.", sh.n or "?", label)
-				end
+			if type(sh.f) == "table" and ns.DropFilterSection(sh.f, id) then
+				ns:Print("Sheet \"%s\" was filtered by the section %s; it now shows every category.", sh.n or "?", label)
 			end
 		end
 	end
@@ -329,21 +626,22 @@ function S:Where()
 end
 -- The section a record shows under for hiding (gear sets, all together as
 -- "~gs", then Favorites, count as their own).
-function S:EffectiveSection(rec)
+-- sheet (1.10.0-beta5): the tab the record is shown on, where a section that only shows on some sheets counts.
+function S:EffectiveSection(rec, sheet)
 	local GS = ns.GearSets
 	if GS and GS:Showing() and GS:SetsOf(rec) then return "~gs" end
 	if rec.cat ~= "Junk" and ns.db.favSection and ns.Marks and rec.itemID and ns.Marks:IsFavorite(rec.itemID) then return "~fav" end
-	return rec.cat
+	return self:CatOn(rec, sheet)
 end
 -- In a section hidden where you are (whether or not Show Them is on).
-function S:WouldHide(rec)
+function S:WouldHide(rec, sheet)
 	local where = self:Where()
 	if not where or not rec or rec.empty then return false end
-	return not self:Shown(self:EffectiveSection(rec), where)
+	return not self:Shown(self:EffectiveSection(rec, sheet), where)
 end
-function S:HiddenNow(rec)
+function S:HiddenNow(rec, sheet)
 	if ns.ui.showHidden then return false end
-	return self:WouldHide(rec)
+	return self:WouldHide(rec, sheet)
 end
 function S:HidingAny()
 	local where = self:Where()

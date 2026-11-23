@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 ;(function()
 	-- ======== 1.7.0-beta8: the answer to the 1.7.0-beta7 audit ========
 	-- F1: quests with no quest ID that share a title kept only one reading; a failed read borrowed another's.
@@ -195,7 +196,7 @@
 		local n = boot()
 		-- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 		-- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
-		local first = n.WhatsNew.ENTRIES[11].items[1]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+		local first = n.WhatsNew.ENTRIES[12].items[1]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 		check(first:find("never offers what you still need for a quest, unless its heading is collapsed in your quest log.", 1, true), "the 1.7 card's first bullet names the collapsed-heading limit")
 		check(n.MakeRoom:HowItDecides()[3] == "Anything you still need for a quest is never on the list, unless its heading is collapsed in your quest log.", "as the (i) does (unchanged)")
 	end

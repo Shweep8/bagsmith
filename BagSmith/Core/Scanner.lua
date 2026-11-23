@@ -128,10 +128,22 @@ end
 
 -- firstStamp: the first-seen time for an item not seen before (the bank's use
 -- the session's start: anything first seen there was already yours).
+-- (1.10.0-beta16, the beta15 audit's B15-1) The link each item instance in the bags and bank was last read with (its
+-- unique id -> its link). A later read of the same instance that can't give a link takes this one, so an item that
+-- has been named once stays named. It is the instance's own link only: never another copy's, never looked up by item
+-- id, and only where the client gives instances at all. Pruned to what is held at the end of each scan.
+ns.instanceLinks = ns.instanceLinks or {}
+local function linkItem(link) return type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil end
 local function readSlot(bag, slot, now, bagIndex, firstStamp)
 	local info = C_Container.GetContainerItemInfo(bag, slot)
 	if not info or not info.itemID then return nil end
 	local link = info.hyperlink
+	if link == "" then link = nil end
+	local guid = guidFor(bag, slot)
+	if guid then
+		if link then ns.instanceLinks[guid] = link
+		elseif linkItem(ns.instanceLinks[guid]) == info.itemID then link = ns.instanceLinks[guid] end
+	end
 	local rec = {
 		bag = bag, slot = slot, bagIndex = bagIndex, itemID = info.itemID, link = link,
 		icon = info.iconFileID, quality = info.quality, count = info.stackCount or 1,   -- (1.5.1-beta3) a missing quality stays unknown for now
@@ -163,6 +175,9 @@ local function readSlot(bag, slot, now, bagIndex, firstStamp)
 	else
 		ns.pendingInfo = true
 		if C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(info.itemID) end
+		-- (1.10.0-beta13, the beta12 audit's F5) with no name from the game or from the item's link, the "Item 1234"
+		-- above is only for showing: marked, as an unknown quality is, so no rule reads it as the item's name
+		if not (link and (link:match("%[(.-)%]") or "") ~= "") then rec.nameUnknown = true end
 	end
 	-- (1.5.1-beta3, the beta2 audit's L4) The bag's own quality first, then the item's cached quality; only then
 	-- common, marked as unknown so nothing destructive treats it as known to be common. (Before, a quality the bag
@@ -183,8 +198,7 @@ local function readSlot(bag, slot, now, bagIndex, firstStamp)
 	if ns.Junk and ns.Junk:Marked(rec.itemID) then rec.cat = "Junk" end
 	-- In one of your gear sets (the game's equipment sets): their names.
 	if ns.GearSets then ns.GearSets:Tag(rec) end
-	local guid = guidFor(bag, slot)
-	rec.guid = guid
+	rec.guid = guid   -- (read at the top, for the link)
 	ns.hasGuids = ns.hasGuids or (guid ~= nil)
 	-- A stack that grew: whether that's new is decided after the scan, once
 	-- it's known whether you hold more of the item than before.
@@ -506,10 +520,39 @@ function ns:Scan()
 		end
 	end
 	ns:ScheduleCacheSave()
+	-- (1.10.0-beta16) the links kept per instance: only for what is still held
+	do
+		local held = {}
+		for _, list in ipairs({ ns.items or {}, ns.bankItems or {} }) do
+			for _, r in ipairs(list) do if r.guid then held[r.guid] = true end end
+		end
+		for g in pairs(ns.instanceLinks) do if not held[g] then ns.instanceLinks[g] = nil end end
+	end
 	-- Recount token items before the windows redraw (they read the totals).
 	if ns.Currency then ns.Currency:Invalidate() end
 	ns:Fire("ITEMS_CHANGED")
 	return items
+end
+-- (1.10.0-beta16, B15-1) The link of the item a record stands for, read from its slot now. Only when the slot still
+-- holds that item and, where the client gives instances, that same instance; a record with no instance is not matched
+-- to a slot that has one. The record takes the link, and the instance keeps it. nil when the slot can't say.
+function ns:LinkNow(rec)
+	if type(rec) ~= "table" or rec.global or rec.cached or not (rec.bag and rec.slot and rec.itemID) then return nil end
+	local ok, info = pcall(C_Container.GetContainerItemInfo, rec.bag, rec.slot)
+	if not ok or type(info) ~= "table" or info.itemID ~= rec.itemID then return nil end
+	local link = info.hyperlink
+	if type(link) ~= "string" or link == "" then return nil end
+	local guid = guidFor(rec.bag, rec.slot)
+	if guid ~= rec.guid then return nil end
+	rec.link = link
+	if guid then ns.instanceLinks[guid] = link end
+	return link
+end
+-- A final check validated this slot's instance and read its link: the instance keeps it for later reads.
+function ns:KeepLink(bag, slot, itemID, link)
+	if type(link) ~= "string" or link == "" or linkItem(link) ~= itemID then return end
+	local guid = guidFor(bag, slot)
+	if guid then ns.instanceLinks[guid] = link end
 end
 
 -- This character's bank as last saved (for use before the bank is visited
@@ -551,7 +594,9 @@ end
 -- Character cache (for the alt viewer)
 ------------------------------------------------------------------------
 local KEEP = { "bag", "slot", "bagIndex", "itemID", "link", "icon", "quality", "count", "name", "where", "ilvl", "minLevel",
-	"itemType", "itemSubType", "equipLoc", "sellPrice", "classID", "subclassID", "bindType", "isBound", "hasNoValue", "cat", "firstSeen", "guid", "maxStack", "ownCat", "isQuest", "isCraftingReagent", "gearSets" }
+	"itemType", "itemSubType", "equipLoc", "sellPrice", "classID", "subclassID", "bindType", "isBound", "hasNoValue", "cat", "firstSeen", "guid", "maxStack", "ownCat", "isQuest", "isCraftingReagent", "gearSets",
+	-- (1.10.0-beta14, the beta13 re-audit's R3) what was only filled in for showing stays marked when it is saved
+	"qualityUnknown", "nameUnknown" }
 local function serialize(list)
 	local out = {}
 	for i, rec in ipairs(list) do
@@ -699,8 +744,10 @@ function ns:CachedRecords(key, bank)
 		local rec = {}
 		for k, v in pairs(s) do rec[k] = v end
 		rec.count = rec.count or 1
-		rec.quality = rec.quality or 1
-		rec.name = rec.name or "?"
+		-- (1.10.0-beta14, R3) a quality or a name the save doesn't have is filled in for showing, and marked: before, a
+		-- row saved while the game hadn't sent its quality read back as a known Common
+		if rec.quality == nil then rec.quality, rec.qualityUnknown = 1, true end
+		if rec.name == nil then rec.name, rec.nameUnknown = "?", true end
 		-- The section comes from the current profile on every read: the item's own
 		-- category (saved, or worked out again for older saves), then this
 		-- profile's moves. A saved "Junk" (that character's marks) stays.
@@ -735,7 +782,9 @@ end
 -- a Clean Up runs (ns.cleanupUntil, View.lua), the bags are scanned at most every CLEANUP_STEP seconds, the last change
 -- included (each scan reads the bags as they are then); the windows lay out once more when it ends (NoteCleanup).
 ns.CLEANUP_STEP = 0.25
-local function rescan()
+local rescan
+function ns:RescanSoon() rescan() end   -- (1.10.0-beta16) for a Helper whose record no longer matches its slot
+rescan = function()
 	ns.rescanPending = true
 	if ns.cleanupUntil and GetTime() < ns.cleanupUntil then
 		if ns.cleanupScanQueued then return end

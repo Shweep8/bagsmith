@@ -1,3 +1,17 @@
+-- (by design since 1.10.0-beta12) this set tests the NEW tags with 1.9's list, which the panel's own list (each
+-- release's) replaced: 1.9's, as it stood at 1.9.8, is put back after the addon loads
+local function NEW19()
+	return { release = "1.9",
+		pages = { general = true, window = true, icons = true, look = true, sections = true, columns = true, sheets = true,
+			globalsections = true, globalcols = true, globalsheets = true },
+		heads = {},
+		keys = { tipInventory = "general", tipAHPrice = "general", bagSlotCount = "window", borderWeight = "icons", iconLayout = "look", footerTextScale = "look", globalResize = "window" },
+		added = {
+			["1.9.1"] = { keys = { splitViewPinnedWide = "look" } },
+			["1.9.2"] = { keys = { unusableOverlay = "icons" } },
+			["1.9.4"] = { keys = { sectionValues = "sections" } },
+		} }
+end
 -- ======== 1.9.2-beta1 (Shweep, 18 Nov) ========
 -- Jeor's Unusable Item Overlay (Shweep8/bagsmith#15), with Shweep's follow-ups: the tooltip re-reads (each item-data,
 -- tooltip-data, level, skill, spell or reputation event cleared every answer and read every item again), "Unusable Item
@@ -20,7 +34,7 @@ local function boot(opts)
 	if opts.tip then _G.C_TooltipInfo = { GetHyperlink = opts.tip } else _G.C_TooltipInfo = nil end
 	-- (1.9.2-beta2) the game's "Requires Level %d" (the mock has none, so beta1's red pieces never turned red)
 	_G.ITEM_MIN_LEVEL = "Requires Level %d"
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	n.version = opts.version or "1.9.2-beta1"
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	return n, M

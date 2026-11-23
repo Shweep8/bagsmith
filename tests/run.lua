@@ -477,11 +477,13 @@ check(okc and #ns.Buttons.byBag[3] == 18, "no buttons created in combat")
 check(main.statusText.text:find("new bag slots"), "status explains the wait: " .. tostring(main.statusText.text))
 M.combat = false; M.fire("PLAYER_REGEN_ENABLED")
 check(#ns.Buttons.byBag[3] == 20 and ns.Buttons:Get(3, 20):IsShown(), "buttons created after combat and the item appears")
--- filter panel rebuilds its Where list when bags change
+-- the Filters window's bags follow the bag set
+-- (by design since 1.10.0-beta4: the Where boxes are the Bag rule; its choices are the bags the window shows, read
+-- fresh each time they're drawn)
 ns.Popups:ToggleFilters(main)
 local found = false
-for _, c in ipairs(ns.Popups.filter.checks) do if c.label.text == "Traveler's Backpack" then found = true end end
-check(found, "filter panel lists the new bag")
+for _, o in ipairs(ns.Popups.filter.list:Options("bag")) do if o.label == "Traveler's Backpack" then found = true end end
+check(found, "the Filters window's Bag rule lists the new bag")
 ns.Popups:ToggleFilters(main)
 M.bags[1][19] = nil; M.bags[3][20] = nil
 
@@ -547,11 +549,11 @@ ns:Set("skin", "modern")
 if not main:IsShown() then ToggleAllBags() end
 ns:Set("skin", "modern"); ns:Set("border", "all")
 local rb = ns.Buttons:Get(0, 1)  -- rare staff
-check(M.modernFrame(rb) and not rb.qRing:IsShown() and not rb.qFrame:IsShown() and not rb.frameBG:IsShown(), "modern list: one four-edge outline without the old frame")
+check(M.modernFrame(rb) and not rb.qRing and not rb.qFrame:IsShown() and not rb.frameBG:IsShown(), "modern list: one four-edge outline without the old frame")
 ns:Set("skin", "classic")
-check(rb.qRing:IsShown() and not rb.qFrame:IsShown() and not rb.frameBG:IsShown() and not rb.slotBG:IsShown(), "classic list: plain icon with a thin ring, no slot art")
+check(rb.qFrame:IsShown() and not rb.qRing and not rb.frameBG:IsShown() and not rb.slotBG:IsShown(), "classic list: masked icon with a textured frame, no slot art")
 ns:Set("view", "icons")
-check(rb.qFrame:IsShown() and not rb.qRing:IsShown() and rb.slotBG:IsShown(), "classic icon cells: Blizzard slot art and Blizzard's rarity frame")
+check(rb.qFrame:IsShown() and not rb.qRing and rb.slotBG:IsShown(), "classic icon cells: Blizzard slot art and the textured rarity frame")
 ns:Set("skin", "modern")
 check(M.modernFrame(rb) and not rb.frameBG:IsShown() and not rb.slotBG:IsShown(), "modern icon cells: four-edge outline without slot art")
 ns:Set("view", "list")
@@ -568,7 +570,7 @@ check(rb.IconBorder and not rb.IconBorder:IsShown(), "Blizzard's own border stay
 ns:Set("dense", true); ns:Set("skin", "classic"); ns:RefreshViews(true)
 local drb = ns.Buttons:Get(0, 1)
 check(drb.h == 22 and drb.icon.w == 16, "compact rows shrink the icon with the row: " .. tostring(drb.icon.w))
-check(drb.qRing:IsShown() and not drb.qFrame:IsShown(), "classic compact rows keep the thin ring")
+check(drb.qFrame:IsShown() and not drb.qRing, "classic compact rows share the textured frame")
 ns:Set("skin", "modern")
 check(M.modernFrame(drb) and not drb.frameBG:IsShown(), "modern outline follows the smaller icon")
 ns:Set("dense", false)
@@ -942,18 +944,21 @@ check(main.scroll.ScrollBar:IsShown(), "scrollbar when the cap is hit")
 ns:Set("maxH", 720); main.scroll.GetHeight = origScrollGH
 
 -- Filter panel height follows the number of bag rows
+-- (by design since 1.10.0-beta4: the bags are the Bag rule's choices, so the window grows when that rule's line wraps)
 if not main:IsShown() then ToggleAllBags() end
 ns.Popups:OpenFilters(main, "browse")
 local pf = ns.Popups.filter
+pf.list:AddRow("bag")
 local h1 = pf.h
 -- one long bag row: add many bags with long names to force a second row
 local savedNames = {}
 for k, v in pairs(M.bagNames) do savedNames[k] = v end
 M.bagNames[1] = "An Extraordinarily Long Bag Name One"; M.bagNames[2] = "An Extraordinarily Long Bag Name Two"; M.bagNames[3] = "An Extraordinarily Long Bag Name Three"
 ns:Scan(); ns.Popups.filter:Hide(); ns.Popups:OpenFilters(main, "browse")
-check(pf.h > h1, ("panel grows when the Where list wraps: %s -> %s"):format(tostring(h1), tostring(pf.h)))
+check(pf.h > h1, ("panel grows when the Bag rule's choices wrap: %s -> %s"):format(tostring(h1), tostring(pf.h)))
 M.bagNames = savedNames; ns:Scan(); ns.Popups.filter:Hide(); ns.Popups:OpenFilters(main, "browse")
 check(pf.h == h1, "and shrinks back with fewer rows")
+pf.list:RemoveRow(1)
 ns.Popups.filter:Hide()
 
 -- Responsive toolbar
@@ -1042,9 +1047,15 @@ check(bad.ageMin == nil and bad.ageMax == nil, "values outside 0 to 9 or not who
 check(ns.FilterCount({ q = {}, cat = {}, t = {}, bd = {}, w = {}, ageMin = 1 }) == 1, "an age window counts as one filter")
 ns.Popups:OpenFilters(main, "browse")
 local pf = ns.Popups.filter
-check(pf.ageMin.text == "4" and pf.ageMax.text == "9", "the filter panel shows the window's age range")
-pf.ageMin:SetText("1"); pf.ageMin.scripts.OnTextChanged(pf.ageMin)
-check(ns.ui.filters.ageMin == 1, "typing in the age field sets the filter")
+-- (by design since 1.10.0-beta4: the Age boxes are a Time in Bags rule, and the filter is kept as that rule)
+do   -- (a block: the main chunk has no room for more locals)
+	local ageRow = pf.list.rows[1]
+	check(ageRow and ageRow:IsShown() and ageRow.label.text == "Time in Bags" and ageRow.verb.label.text == "between" and ageRow.num[1].boxes[1].text == "4" and ageRow.num[2].boxes[1].text == "9",
+		"the Filters window shows the window's age range, as a Time in Bags rule")
+	ageRow.num[1].boxes[1]:SetText("1"); ageRow.num[1].boxes[1].scripts.OnTextChanged(ageRow.num[1].boxes[1], true)
+	local ageRule = ns.ui.filters.rules and ns.ui.filters.rules.rows[1]
+	check(ageRule and ageRule.k == "age" and ageRule.v[1] == 1 and ageRule.v[2] == 9, "typing in its box sets the filter")
+end
 local legend = false
 for _, cb in ipairs(pf.checks) do if cb.groupKey == "q" and cb.key == 5 then legend = true end end
 check(legend, "Legendary is in the rarity section")
@@ -1369,7 +1380,7 @@ ns:Set("debug", true)   -- before the hold: a settings change ends a hold, as it
 main.frame.IsMouseOver = function() return true end
 local keep01 = M.bags[0][1]; M.bags[0][1] = nil
 M.fire("BAG_UPDATE_DELAYED"); M.runTimers()
-check(gr.rec.empty and not gr.frameBG:IsShown() and not gr.frameEdge:IsShown() and not gr.qRing:IsShown(), "a gap row leaves no ghost of the icon frame")
+check(gr.rec.empty and not gr.frameBG:IsShown() and not gr.frameEdge:IsShown() and not gr.qFrame:IsShown() and not gr.defaultFrame:IsShown(), "a gap row leaves no ghost of the icon frame")
 -- pin: a move nobody asked for is undone while held
 local o1, o2, o3 = main.scroll.GetVerticalScroll, main.scroll.SetVerticalScroll, main.scroll.GetHeight
 local o4 = main.child.GetHeight
@@ -2088,14 +2099,13 @@ end)()
 				for slot, q in pairs({ [1] = 3, [2] = 1, [3] = 0 }) do
 					local b = n6.Buttons:Get(0, slot)
 					local colored = setting == "all" or (setting == "unc" and q >= 2)
-					local frame = M.modernFrame(b) or (b.qRing:IsShown() and b.qRing) or (b.qFrame:IsShown() and b.qFrame)
-					local both = (b.qRing:IsShown() and b.qFrame:IsShown()) or (M.modernFrame(b) and (b.qRing:IsShown() or b.qFrame:IsShown()))
+					local frame = M.modernFrame(b) or (b.qFrame:IsShown() and b.qFrame) or (b.defaultFrame:IsShown() and b.defaultFrame)
+					local both = (b.defaultFrame:IsShown() and b.qFrame:IsShown()) or (M.modernFrame(b) and (b.defaultFrame:IsShown() or b.qFrame:IsShown()))
 					local neutralColor = frame and frame.color and frame.color[1] == N[1] and frame.color[2] == N[2]
 					local defaultSlot = skin == "classic" and (q < 2 or not colored)
-					local defaultRow = defaultSlot and view == "list"
-					local invalid = (defaultSlot and not defaultRow and frame) or (defaultRow and
-						(not frame or not b.qRing:IsShown() or frame.color[1] ~= .72 or frame.color[2] ~= .72 or both)) or (not defaultSlot and
-						(not frame or both or (colored and neutralColor) or (not colored and not neutralColor)))
+					local invalid = not frame or both or (defaultSlot and
+						(not b.defaultFrame:IsShown() or frame.color[1] ~= .72 or frame.color[2] ~= .72)) or (not defaultSlot and
+						((colored and neutralColor) or (not colored and not neutralColor)))
 					if invalid then
 						ok = false; why = ("%s/%s/%s q%d"):format(skin, view, setting, q)
 					end
@@ -2109,7 +2119,7 @@ end)()
 	for _, b in ipairs(n6.Buttons.all) do if not b.hasItem then empty = b; break end end
 	n6.Buttons:SetMode(empty, "cell"); n6.Buttons:Blank(empty, { bag = 0, slot = 9 })
 	n6.Buttons:RefreshSkin()
-	check(empty and not M.modernFrame(empty) and not empty.qRing:IsShown() and not empty.qFrame:IsShown(), "empty slots get no frame, also after a skin refresh")
+	check(empty and not M.modernFrame(empty) and not empty.defaultFrame:IsShown() and not empty.qFrame:IsShown(), "empty slots get no frame, also after a skin refresh")
 	n6.ui.bagWindows = false; n6:Set("view", "list"); n6:Set("border", "all"); n6:RefreshViews(true)
 
 	-- Filter's right edge = the end of the toolbar (the View group), any skin, any width.
@@ -3667,9 +3677,12 @@ end)()
 	check(not anyShown and copyShown, "collapsing All Items hides the rest and keeps Recent")
 	main:ToggleLane("~all")
 	-- Not draggable.
+	-- (by design since 1.10.0-beta10, a player's request via Shweep: All Items is in Section Order, so its title drags
+	-- like the others)
 	hs = headers()
 	hs[2]:GetScript("OnDragStart")(hs[2])
-	check(nS.dragLane == nil, "All Items can't be dragged")
+	check(nS.dragLane == "~all", "All Items' title drags, now that it has a place in Section Order")
+	nS.dragLane = nil; hs[2]:SetAlpha(1)
 	-- Recent moved down in Section Order: All Items first, then Recent.
 	table.remove(nS.db.laneOrder, nS.IndexOf(nS.db.laneOrder, "~recent")); table.insert(nS.db.laneOrder, "~recent")
 	nS:RefreshViews(true); hs = headers()
@@ -4487,8 +4500,12 @@ end)()
 	})
 	-- (1.6.0, by design) Auction Prices (Price Source, moved from Columns) and Tips (Show Help Tips) on General
 	-- (1.9.0-beta2, by design) the heading reads Tooltips (Shweep), with Show Inventory in Item Tooltips first
-	grouped("general", "Opening BagSmith | Auction Prices | Tooltips | Blizzard's Interface | Notices", {
-		replaceBlizzardBags = "Opening BagSmith", minimap = "Opening BagSmith", priceSource = "Auction Prices", helpTips = "Tooltips", tipInventory = "Tooltips",
+	-- (1.10.0-beta6, by design) Other Addons (Use ItemTree), after Auction Prices
+	-- (1.10.0-beta8, by design: Shweep, "should we consider also putting the AH price stuff under Other Addons?") one
+	-- card, Other Addons, holds the price source, ItemTree and Pawn; the Auction Prices heading is gone
+	-- (1.10.0-beta9, by design: Shweep, "own page") that card became the Other Addons page: General has no card for it
+	grouped("general", "Opening BagSmith | Tooltips | Blizzard's Interface | Notices", {
+		replaceBlizzardBags = "Opening BagSmith", minimap = "Opening BagSmith", helpTips = "Tooltips", tipInventory = "Tooltips",
 		replaceBank = "Blizzard's Interface", hideBlizzBagBar = "Blizzard's Interface",
 		quiet = "Notices", whatsNew = "Notices",
 	})
@@ -4496,8 +4513,11 @@ end)()
 	for _, b in ipairs(P.navButtons) do order[#order + 1] = b.text.text end
 	-- (1.9.0-beta6, by design) each of Sections, Columns and Sheets gains its Global page, last (beta8: "Global Inv ...")
 	-- (by design since 1.9.0-beta22, Shweep: "rename to Automations"; was "Automations & Actions")
-	check(table.concat(order, "|") == "General|Style|Item Icons|Windows|Sections|Dynamic Sections|Custom Sections|Global Inv Sections|Columns|Bag Columns|Bank Columns|Global Inv Columns|Sheets|Bag Sheets|Bank Sheets|Global Inv Sheets|Sorting & Filters|Automations|Loot Helper|Disenchant Helper|Keybindings|Plugins|Profile|Advanced",
-		"Settings pages: General first, Item Icons right after Style (1.5.0), Profile just before Advanced (Automations has its two helper sub-pages since 1.2.0)")
+	-- (1.10.0-beta9, by design: Shweep, "own page") Other Addons, between Plugins and Profile
+	-- (1.10.0-beta10, by design: Shweep, "can we call it Addon Sources"; "let's move plugins above advanced") Addon
+	-- Sources after Keybindings, and Plugins between Profile and Advanced (Profile was just before Advanced since 1.5.0)
+	check(table.concat(order, "|") == "General|Style|Item Icons|Windows|Sections|Dynamic Sections|Custom Sections|Global Inv Sections|Columns|Bag Columns|Bank Columns|Global Inv Columns|Sheets|Bag Sheets|Bank Sheets|Global Inv Sheets|Sorting & Filters|Automations|Loot Helper|Disenchant Helper|Keybindings|Addon Sources|Profile|Plugins|Advanced",
+		"Settings pages: General first, Item Icons right after Style (1.5.0), Plugins just above Advanced (Automations has its two helper sub-pages since 1.2.0)")
 	local stray = false
 	for _, it in ipairs(items) do if it.kind == "text" and it.label:find("^Taller bags") then stray = true end end
 	check(not stray, "\"Taller bags scroll\" is the Max Height setting's help, not a stray line")
@@ -6440,7 +6460,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.9%.8\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.9.8, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.10%.0\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -6954,8 +6974,8 @@ end)()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	ToggleAllBags(); M.runTimers()
 	local b = n.Buttons:Get(0, 1)
-	check(b.qFrame:IsShown() and b.qFrame.points[1][2] == b.icon and b.qFrame.points[1][4] == -2 * n.Buttons.PixelSize(b) and b.qFrame.points[2][4] == 2 * n.Buttons.PixelSize(b) and b.icon.points[1][2] == b and b.icon.points[1][4] == 0 and b.icon.points[2][4] == 0,
-		"Classic: full-slot icon retains a two-screen-pixel frame margin")
+	check(b.qFrame:IsShown() and b.qFrame.points[1][2] == b.icon and b.qFrame.points[1][4] == 0 and b.qFrame.points[2][4] == 0 and b.icon.points[1][2] == b and b.icon.points[1][4] == 0 and b.icon.points[2][4] == 0,
+		"Classic: frame matches the full-slot icon bounds")
 end)()
 
 ;(function()
@@ -7205,7 +7225,8 @@ end)()
 	local alltxt = table.concat(txt, " ")
 	check(csec == 1 and vis.Gear and vis.Gear[1] == false and vis.Gear[2] == true and vis["~fav"] and vis.c1, "Settings: the custom section, and Show at Vendor / Show at AH checkboxes for each section (Gear unchecked at vendors)")
 	-- (1.6.0-beta4, by design) the approved wording (item 41): the same order in one sentence
-	check(alltxt:find("An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, or its usual section.", 1, true) and movedText:find(("moved %d item"):format(S:MoveCount())), "Settings explains which section wins, and counts the moved items")
+	-- (by design since 1.10.0-beta11: your own sections' rules are named in it; they have had their place since beta1)
+	check(alltxt:find("An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, one of your sections whose rules it fits, or its usual section.", 1, true) and movedText:find(("moved %d item"):format(S:MoveCount())), "Settings explains which section wins, and counts the moved items")
 	P:Hide()
 	-- The moved-items window.
 	S:ManageMoves()
@@ -8446,38 +8467,42 @@ end)()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	ToggleAllBags(); M.runTimers()
 	local S, main, P = n.Sections, n.Window.main, n.Popups
+	-- (by design since 1.10.0-beta4: the "Type / Sections" boxes are the Section rule. Its choices are read fresh each
+	-- time they're drawn, so there are no boxes to keep in step; a rule that names a section follows it instead.)
 	local function catLabels(f)
 		local t = {}
-		for _, c in ipairs(f.catPool or {}) do if c:IsShown() then t[#t + 1] = c.label.text end end
+		for _, o in ipairs(f.list:Options("sec")) do t[#t + 1] = o.label end
 		return table.concat(t, "|")
 	end
-	local function catBox(f, key) for _, c in ipairs(f.catPool or {}) do if c:IsShown() and c.key == key then return c end end end
+	local function catBox(f, key) for _, o in ipairs(f.list:Options("sec")) do if o.v[1] == key then return o end end end
 	P:OpenFilters(main, "browse")
 	local f = P.filter
-	check(f and f.catAfter and catLabels(f):find("Gear") and not catLabels(f):find("Healing"), "the Filter panel lists the built-in categories")
+	check(f and f.list and catLabels(f):find("Gear") and not catLabels(f):find("Healing"), "the Filters window's Section rule lists the built-in categories")
 	-- A new section appears while the panel is open.
 	local id = S:Create("Healing"); M.runTimers()
-	check(catLabels(f):find("Healing") and catBox(f, id), "a new custom section appears in the open panel")
+	check(catLabels(f):find("Healing") and catBox(f, id), "a new custom section appears among them")
 	-- Renamed: the new name shows.
 	S:Rename(id, "Potions"); M.runTimers()
 	check(catLabels(f):find("Potions") and not catLabels(f):find("Healing"), "a renamed section shows its new name")
-	-- Deleted: gone, and a stale click can't hide everything.
-	local box = catBox(f, id)
+	-- Deleted: gone, and a rule that named it lets go of it.
+	f.list.draft.rows[1] = { k = "sec", v = { id } }; f.list:Changed(); M.runTimers()
+	check(main.st.filters.rules and main.st.filters.rules.rows[1].v[1] == id, "(a Section rule names it)")
 	S:Delete(id); M.runTimers()
-	check(not catBox(f, id) and not catLabels(f):find("Potions"), "a deleted section is gone from the panel")
-	box.key = id   -- (as if a stale checkbox were still wired to it)
-	box:GetScript("OnClick")(box)
-	box:SetChecked(true); box:GetScript("OnClick")(box)
-	check(not main.st.filters.cat[id], "a stale checkbox for a deleted section can't put it into the filter")
-	-- Everything below Category moved to make room, and moves back.
-	local rows0, y0 = f.catRows, f.catAfter.points[1][5]
+	check(not catBox(f, id) and not catLabels(f):find("Potions"), "a deleted section is gone from the choices")
+	check(main.st.filters.rules == nil and #f.list.draft.rows == 0, "and from the rule that named it: a deleted section can't stay in the filter")
+	-- A rule with many sections picked wraps, and the window grows; it shrinks back when they're gone.
+	local h0 = f:GetHeight()
 	local tall = {}
 	for i = 1, 12 do tall[i] = S:Create(("Long Section Name %02d"):format(i)) end
 	M.runTimers()
-	check(f.catRows > 1 and f.catAfter.points[1][5] < f.catAfterTop, "many sections wrap to more rows, and the rows below move down")
+	local picked = {}
+	for i = 1, 12 do picked[i] = tall[i] end
+	f.list.draft.rows[1] = { k = "sec", v = picked }; f.list:Changed(); M.runTimers()
+	local h1 = f:GetHeight()
+	check(h1 > h0 + 60, "many sections on one rule wrap to more lines, and the rows below move down")
 	for i = 1, 12 do S:Delete(tall[i]) end
 	M.runTimers()
-	check(f.catRows == rows0 and f.catAfter.points[1][5] == y0, "and move back up when they're gone")
+	check(f:GetHeight() == h0 and #f.list.draft.rows == 0, "and move back up when they're gone")
 	-- Switching profiles shows that profile's sections.
 	local a = S:Create("Alpha")
 	n.Profiles:Use("Other"); M.runTimers()
@@ -8566,18 +8591,18 @@ end)()
 	n.Profiles:Use("Default"); n:Set("autoSellJunk", false)
 	C_Container.UseContainerItem = realUse
 	-- F4: a section name shaped like the panel's bookkeeping can't fool its refresh.
+	-- (by design since 1.10.0-beta4: the Section rule's choices are read fresh each time, with no bookkeeping to fool)
 	local P = n.Popups
 	P:OpenFilters(main, "browse")
 	local f = P.filter
 	local tricky = S:Create("A|c2=B"); M.runTimers()
-	local sig1 = f.catSig
 	f:Hide()
 	S:Rename(tricky, "A"); S:Create("B"); M.runTimers()
 	P:OpenFilters(main, "browse")
 	local labels = {}
-	for _, c in ipairs(f.catPool) do if c:IsShown() then labels[#labels + 1] = c.label.text end end
+	for _, o in ipairs(f.list:Options("sec")) do labels[#labels + 1] = o.label end
 	local joined = table.concat(labels, "|")
-	check(f.catSig ~= sig1 and joined:find("|A|") and joined:find("|B$") and not joined:find("A|c2=B", 1, true), "a rename plus a new section is seen even with a delimiter-shaped name: " .. joined)
+	check(joined:find("|A|") and joined:find("|B$") and not joined:find("A|c2=B", 1, true), "a rename plus a new section is seen even with a delimiter-shaped name: " .. joined)
 	f:Hide()
 end)()
 
@@ -8862,18 +8887,19 @@ end)()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	ToggleAllBags(); M.runTimers()
 	local P, main = n.Popups, n.Window.main
-	-- The Filters window: the frames everything below Category rides on have real heights
+	-- The Filters window: the frames its rules and everything below them ride on have real heights
 	-- (the client draws nothing on a frame with no size, children included).
+	-- (by design since 1.10.0-beta4: the rules scroll in one frame, and one frame below them holds the rest)
 	P:OpenFilters(main, "browse")
 	local f = P.filter
-	check(f.catAfter:GetHeight() > 50 and f.after:GetHeight() > 50, ("the sub-frames below Category have heights (%d and %d)"):format(f.catAfter:GetHeight(), f.after:GetHeight()))
+	check(f.tail:GetHeight() > 50 and f.rules:GetHeight() > 0 and f.rulesChild:GetHeight() > 0, ("the frames for the rules and below them have heights (%d and %d)"):format(f.rules:GetHeight(), f.tail:GetHeight()))
 	local labels = {}
 	for _, c in ipairs(f.checks) do if c:IsShown() and c.label then labels[c.label.text] = true end end
-	check(labels["New Items Only"] and labels["Backpack"] ~= nil or true, "the Other row's checkbox is built")
-	check(f.sheetBox and f.saveBtn and f.ageMin and f.ageMax, "the Age and Save as a Sheet rows exist")
-	-- Bind, Where, Other, Age and the sheet section all descend from catAfter or after (so a sized frame draws them).
+	check(labels["New"] and labels["Usable by Me"] and labels["Uncommon"], "the Quality and Quick picks chips are built")
+	check(f.sheetBox and f.saveBtn and f.sectionBtn and f.count and f.add, "the count, + Add a Rule and the Keep these filters row exist")
+	-- The sheet section descends from the frame below the rules, + Add a Rule from the rules' own (so a sized frame draws them).
 	local function descends(r, of) local x = r; for _ = 1, 6 do if x == of then return true end x = x.GetParent and x:GetParent() end return false end
-	check(descends(f.sheetBox, f.catAfter) and descends(f.ageMin, f.catAfter), "the sheet box and the age fields sit on the sized sub-frame")
+	check(descends(f.sheetBox, f.tail) and descends(f.saveBtn, f.tail) and descends(f.add, f.rulesChild), "the sheet box sits on the sized frame below the rules, + Add a Rule on the rules' own")
 	f:Hide()
 	-- Settings: every row inside a card stays within the card's width.
 	local S = n.SettingsPanel
@@ -8954,17 +8980,19 @@ end)()
 	ToggleAllBags(); M.runTimers()
 	n.Popups:OpenFilters(n.Window.main, "browse")
 	local f = n.Popups.filter
-	local found, oldName = false, false
-	for _, r in ipairs(f.regions or {}) do end
+	-- (by design since 1.10.0-beta4: the window's headings are Quality and Quick picks; the "Type / Sections" row, once
+	-- "Category", is the Section rule now)
+	local found, picks, oldName = false, false, false
 	local function scan(frame)
 		for _, c in ipairs(frame.children or {}) do scan(c) end
 		for _, r in ipairs(frame.regions or {}) do
-			if r.text == "Type / Sections" then found = true end
-			if r.text == "Category" then oldName = true end
+			if r.text == "Quality" then found = true end
+			if r.text == "Quick picks" then picks = true end
+			if r.text == "Type / Sections" or r.text == "Category" then oldName = true end
 		end
 	end
 	scan(f)
-	check(found and not oldName, "the Filters panel heads its category row \"Type / Sections\"")
+	check(found and picks and not oldName, "the Filters window is headed Quality and Quick picks; the old category row is a rule now")
 	f:Hide()
 end)()
 
@@ -9857,7 +9885,11 @@ end)()
 	check(lastIs(n.db.laneOrder, "~gs") and n.IndexOf(n.db.tabOrder, "GearSets") == n.IndexOf(n.db.tabOrder, "Bank") - 1,
 		"a beta profile's Gear Sets moves to the bottom, and its tab to just before Bank")
 	n.Profiles:Use("Mine"); M.runTimers()
-	check(n.db.laneOrder[2] == "~gs" and n.db.tabOrder[1] == "GearSets", "where you'd moved them yourself, they stay")
+	-- (by design since 1.10.0-beta10: All Items joins Section Order right before the first dynamic section after the
+	-- item sections, here Gear Sets; Gear Sets itself is still where it was put, second of the others)
+	local others = {}
+	for _, id in ipairs(n.db.laneOrder) do if id ~= "~all" then others[#others + 1] = id end end
+	check(others[2] == "~gs" and n.db.tabOrder[1] == "GearSets", "where you'd moved them yourself, they stay")
 	n.Profiles:Use("Old"); M.runTimers()
 	check(lastIs(n.db.laneOrder, "~gs") and n.IndexOf(n.db.tabOrder, "GearSets") == n.IndexOf(n.db.tabOrder, "Bank") - 1, "a profile from before 0.15 gets both in their new places")
 	n.Profiles:Use("Default"); M.runTimers()
@@ -9913,7 +9945,8 @@ end)()
 	P:ShowPage("custom")
 	local csec
 	for _, w in ipairs(P.pools.csec) do if w:IsShown() then csec = w end end
-	check(heads() == "Custom Sections" and csec and csec.id and shown("check", "showEmptySections"), "your sections are on Custom Sections")
+	-- (by design since 1.10.0-beta11: the page ends with a card, How an Item Finds Its Section)
+	check(heads() == "Custom Sections|How an Item Finds Its Section" and csec and csec.id and shown("check", "showEmptySections"), "your sections are on Custom Sections")
 	P:Hide()
 	M.removeEquipmentSets()
 end)()
@@ -9954,7 +9987,7 @@ end)()
 			for _, w in ipairs(pool) do
 				if w:IsShown() and w.points[1] and w.points[1][2] == P.frame.child then
 					local label = (w.text and w.text.text) or (w.label and w.label.text) or ""
-					rows[#rows + 1] = { y = -w.points[1][5], kind = kind, label = label, key = w.key, h = w.h or 0, w = w }
+					rows[#rows + 1] = { y = -w.points[1][5], x = w.points[1][4], kind = kind, label = label, key = w.key, h = w.h or 0, w = w }
 				end
 			end
 		end
@@ -9992,7 +10025,9 @@ end)()
 	local bad, last = 0, nil
 	for _, r in ipairs(results()) do
 		if r.kind ~= "card" and r.kind ~= "sep" then   -- (cards sit behind rows, hairlines on their edges, by design)
-			if last and r.y < last.y + last.h - 0.01 then bad = bad + 1 end
+			-- (by design since 1.10.0-beta11: buttons side by side on one row, as Custom Sections' examples are, share a
+			-- line without overlapping: the same y at another x)
+			if last and r.y < last.y + last.h - 0.01 and not (r.y == last.y and r.x ~= last.x) then bad = bad + 1 end
 			last = r
 		end
 	end
@@ -10117,7 +10152,9 @@ end)()
 	end
 	local list, gap = visible()
 	-- (by design since 1.9.0-beta22, Shweep: "rename to Automations"; was "Automations & Actions")
-	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Plugins|Profile|Advanced" and not gap,
+	-- (by design since 1.10.0-beta9, Shweep: "own page": Other Addons, here and in the search's folded list further down)
+	-- (by design since 1.10.0-beta10: it is Addon Sources, and Plugins sits just above Advanced)
+	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Addon Sources|Profile|Plugins|Advanced" and not gap,
 		"the list is folded: sub-pages hidden, no gaps: " .. list)
 	local function nav(label) for _, b in ipairs(P.navButtons) do if b.text.text == label then return b end end end
 	check(nav("Sections").arrow:IsShown() and nav("Sections").arrow.texture:find("chev%-right") and not nav("General").arrow, "pages with sub-pages show a folded arrow")
@@ -10181,7 +10218,7 @@ end)()
 		"explanations show only with their whole card (no stray Custom Sections note): " .. text)
 	list = visible()
 	-- (by design since 1.9.0-beta22, Shweep: "rename to Automations"; was "Automations & Actions")
-	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Plugins|Profile|Advanced", "while searching the list is folded")
+	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Addon Sources|Profile|Plugins|Advanced", "while searching the list is folded")
 	box:SetText(""); box:GetScript("OnTextChanged")(box, true)
 	P:Hide()
 end)()
@@ -10375,32 +10412,33 @@ end)()
 	-- (1.7.0-beta6, by design) the 1.7 entry leads now; every older entry one place down again (each check kept)
 	-- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 	-- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
-	local e17 = WN.ENTRIES[11]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
+	local e17 = WN.ENTRIES[12]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	-- (1.7.0-beta12, by design: Shweep's review) the 1.7 card has nine bullets (its body scrolls): up to nine
 	check(e17.v == "1.7.0" and e17.heading == "BagSmith 1.7" and #e17.items >= 2 and #e17.items <= 9 and table.concat(e17.items, " "):find("Split Gear by Binding:", 1, true), "What's New leads with a 1.7 entry: Split Gear by Binding among its bullets")
-	local e = WN.ENTRIES[12]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	local e = WN.ENTRIES[13]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	local text = table.concat(e.items, " ")
 	check(e.v == "1.6.0" and e.heading == "BagSmith 1.6" and #e.items >= 2 and #e.items <= 8 and text:find("Blackthornes Tradeskills Prices:", 1, true) and text:find("Quest Starters:", 1, true), "What's New leads with a 1.6 entry: Blackthornes prices and Quest Starters among its bullets")
 	-- (1.5.1) the 1.5.1 entry: the Loot Helper's new destroy default and its two settings
-	e = WN.ENTRIES[13]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	e = WN.ENTRIES[14]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	text = table.concat(e.items, " ")
 	check(e.v == "1.5.1" and e.heading == "BagSmith 1.5.1" and #e.items >= 2 and #e.items <= 8 and text:find("Faster Destroying:", 1, true) and text:find("Ask Before Destroying", 1, true) and text:find("Always Ask for Rare or Better", 1, true) and not text:find("\226\128\148"), "What's New leads with a 1.5.1 entry: the destroy default and its two settings")
 	-- (1.5.0) the 1.5 entry: Icon Corners and marks from other addons
-	e = WN.ENTRIES[14]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
-	check(e.v == "1.5.0" and e.heading == "BagSmith 1.5" and #e.items >= 2 and #e.items <= 8 and text:find("Icon Corners:", 1, true) and text:find("Marks from Other Addons:", 1, true) and not text:find("\226\128\148"), "What's New leads with a 1.5 entry: Icon Corners, marks from other addons")
 	e = WN.ENTRIES[15]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
-	check(e.v == "1.4.0" and e.heading == "BagSmith 1.4" and #e.items >= 3 and #e.items <= 8 and text:find("Sort: Off:", 1, true) and text:find("Pinned Sections:", 1, true) and text:find("By Section:", 1, true), "What's New leads with a 1.4 entry: Sort Off, pinned sections, By Section")
+	check(e.v == "1.5.0" and e.heading == "BagSmith 1.5" and #e.items >= 2 and #e.items <= 8 and text:find("Icon Corners:", 1, true) and text:find("Marks from Other Addons:", 1, true) and not text:find("\226\128\148"), "What's New leads with a 1.5 entry: Icon Corners, marks from other addons")
 	e = WN.ENTRIES[16]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
-	check(e.v == "1.3.0" and e.heading == "BagSmith 1.3" and #e.items >= 3 and #e.items <= 8 and text:find("Loot Helper:", 1, true) and text:find("Why Things Are Left Out:", 1, true) and text:find("Exclusion Lists:", 1, true), "What's New leads with a 1.3 entry: the Loot Helper, why things are left out, the Exclusion Lists")
+	check(e.v == "1.4.0" and e.heading == "BagSmith 1.4" and #e.items >= 3 and #e.items <= 8 and text:find("Sort: Off:", 1, true) and text:find("Pinned Sections:", 1, true) and text:find("By Section:", 1, true), "What's New leads with a 1.4 entry: Sort Off, pinned sections, By Section")
 	e = WN.ENTRIES[17]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
-	check(e.v == "1.2.0" and e.heading == "BagSmith 1.2" and #e.items >= 3 and #e.items <= 8 and text:find("Disenchant Helper:", 1, true) and text:find("Fewer Yes/No Boxes:", 1, true) and text:find("Mail and Trade:", 1, true), "What's New leads with a 1.2 entry: the Disenchant Helper, fewer yes/no boxes, mail and trade")
+	check(e.v == "1.3.0" and e.heading == "BagSmith 1.3" and #e.items >= 3 and #e.items <= 8 and text:find("Loot Helper:", 1, true) and text:find("Why Things Are Left Out:", 1, true) and text:find("Exclusion Lists:", 1, true), "What's New leads with a 1.3 entry: the Loot Helper, why things are left out, the Exclusion Lists")
 	e = WN.ENTRIES[18]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
-	check(e.v == "1.1.0" and e.heading == "BagSmith 1.1" and #e.items >= 3 and #e.items <= 8 and text:find("Item Level on Icons:", 1, true) and text:find("List View:", 1, true) and text:find("Classic Style:", 1, true) and text:find("Smoother Scrolling:", 1, true) and text:find("Pawn Arrow:", 1, true), "the 1.1 entry follows: the item level feature, List view, Classic style, smoother scrolling, the Pawn arrow")
+	check(e.v == "1.2.0" and e.heading == "BagSmith 1.2" and #e.items >= 3 and #e.items <= 8 and text:find("Disenchant Helper:", 1, true) and text:find("Fewer Yes/No Boxes:", 1, true) and text:find("Mail and Trade:", 1, true), "What's New leads with a 1.2 entry: the Disenchant Helper, fewer yes/no boxes, mail and trade")
 	e = WN.ENTRIES[19]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	check(e.v == "1.1.0" and e.heading == "BagSmith 1.1" and #e.items >= 3 and #e.items <= 8 and text:find("Item Level on Icons:", 1, true) and text:find("List View:", 1, true) and text:find("Classic Style:", 1, true) and text:find("Smoother Scrolling:", 1, true) and text:find("Pawn Arrow:", 1, true), "the 1.1 entry follows: the item level feature, List view, Classic style, smoother scrolling, the Pawn arrow")
+	e = WN.ENTRIES[20]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	check(e.v == "1.0.0" and e.heading == "BagSmith 1.0" and #e.items >= 2 and #e.items <= 8, "the 1.0 entry follows")
 	check(text:find("Thank you:", 1, true) and text:find("Discord", 1, true) and text:find("Plugins:", 1, true) and text:find("Coming soon, BagSmith Gamepad Plugin:", 1, true) and text:find("alpha testing", 1, true) and text:find("testers", 1, true),
 		"it thanks the players, invites them to the Discord, introduces plugins, and announces the Gamepad companion as coming soon with testers wanted at beta")
-	local e15 = WN.ENTRIES[20]   -- (1.9.0-beta9, by design: one place down)   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	local e15 = WN.ENTRIES[21]   -- (1.9.0-beta9, by design: one place down)   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	local text15 = table.concat(e15.items, " ")
 	check(e15.v == "0.15.0" and e15.heading == "BagSmith 0.15" and #e15.items >= 5 and #e15.items <= 8 and text15:find("Gear Sets:", 1, true) and text15:find("Settings Search:", 1, true) and text15:find("Recent Items:", 1, true) and text15:find("Tidier Settings:", 1, true),
 		"the 0.15 entry follows, covering gear sets, Settings search, Recent Items and the reorganized Settings")
@@ -10894,7 +10932,7 @@ end)()
 ;(function()
 	-- 0.15.0 (prod): one clean 0.15.0 changelog section; the sword-and-shield replaces the helmet everywhere.
 	local log = io.open("BagSmith/CHANGELOG.md"):read("*a")
-	check(log:find("^## 1%.9%.8\n") and log:find("\n## 1%.9%.7\n") and log:find("\n## 1%.9%.6\n") and log:find("\n## 1%.9%.5\n") and log:find("\n## 1%.9%.4\n") and log:find("\n## 1%.9%.3\n") and log:find("\n## 1%.9%.2\n") and log:find("\n## 1%.9%.1\n") and log:find("\n## 1%.9%.0\n") and log:find("\n## 1%.8%.0\n") and log:find("\n## 1%.7%.5\n") and log:find("\n## 1%.7%.4\n") and log:find("\n## 1%.7%.3\n") and log:find("\n## 1%.7%.2\n") and log:find("\n## 1%.7%.1\n") and log:find("\n## 1%.7%.0\n") and log:find("\n## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.9.8 (the release in progress; 1.9.8, by design), then 1.9.7, 1.9.6, 1.9.5, 1.9.4, 1.9.3, 1.9.2, 1.9.1, 1.9.0, 1.8.0, 1.7.5, 1.7.4, 1.7.3, 1.7.2, 1.7.1, 1.7.0, 1.6.3, 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
+	check(log:find("^## 1%.10%.0\n") and log:find("\n## 1%.9%.8\n") and log:find("\n## 1%.9%.7\n") and log:find("\n## 1%.9%.6\n") and log:find("\n## 1%.9%.5\n") and log:find("\n## 1%.9%.4\n") and log:find("\n## 1%.9%.3\n") and log:find("\n## 1%.9%.2\n") and log:find("\n## 1%.9%.1\n") and log:find("\n## 1%.9%.0\n") and log:find("\n## 1%.8%.0\n") and log:find("\n## 1%.7%.5\n") and log:find("\n## 1%.7%.4\n") and log:find("\n## 1%.7%.3\n") and log:find("\n## 1%.7%.2\n") and log:find("\n## 1%.7%.1\n") and log:find("\n## 1%.7%.0\n") and log:find("\n## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.10.0 (the release in progress; 1.10.0, by design), then 1.9.8, 1.9.7, 1.9.6, 1.9.5, 1.9.4, 1.9.3, 1.9.2, 1.9.1, 1.9.0, 1.8.0, 1.7.5, 1.7.4, 1.7.3, 1.7.2, 1.7.1, 1.7.0, 1.6.3, 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
 	local section = log:match("(## 0%.15%.0\n.-)\n## ") or ""
 	local bad = false
 	for _, w in ipairs({ "colour", "favourite", "behaviour", "cancelled", "helmet", "\226\128\148" }) do if section:find(w) then bad = true end end

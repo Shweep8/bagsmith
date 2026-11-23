@@ -380,7 +380,16 @@ function S:ItemMenu(rec, owner)
 	local function guard(fn) return function() if ns.db == db then fn() end end end
 	local moved = S:MovedTo(id)
 	local own = rec.ownCat or ns:Categorize(rec)
-	local current = moved or own
+	-- (1.10.0-beta5) the section it's in on the tab the menu was opened from (a section can show on some tabs only)
+	local sheet
+	do
+		local x, depth = owner, 0
+		while x and depth < 10 do
+			if type(x.view) == "table" and x.view.st then sheet = x.view.st.sheet; break end
+			x = x.GetParent and x:GetParent(); depth = depth + 1
+		end
+	end
+	local current = S:Apply(rec, own, sheet)   -- (1.10.0-beta1) where you put it, or the section whose rules it fits
 	local q = rec.quality or 1
 	local qc = (ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]) or nil
 	local items = { { text = rec.name or ("Item " .. id), title = true, big = true, gap = not moved, color = qc and { qc.r, qc.g, qc.b } or nil } }
@@ -400,9 +409,14 @@ function S:ItemMenu(rec, owner)
 	for _, sec in ipairs(S:Targets()) do
 		-- The item's default section is marked; picking it moves the item back.
 		local label = S:Label(sec) .. (sec == own and " (default)" or "")
+		-- (1.10.0-beta5) a section that isn't shown on this tab says where it is
+		local sc = S:Custom(sec)
+		if sc and sc.sheets and not S:OnSheet(sc, sheet) then label = ("%s (on %s)"):format(label, S:SheetsText(sc.sheets)) end
 		items[#items + 1] = { text = "   " .. label, checked = sec == current, group = true, onClick = guard(function() S:Move(id, sec) end) }
 	end
-	items[#items + 1] = { text = "   New Section...", onClick = guard(function() S:PromptNew(id) end), gap = true }
+	items[#items + 1] = { text = "   New Section...", onClick = guard(function() S:PromptNew(id) end) }
+	-- (1.10.0-beta1) a section that fills itself with items like this one
+	items[#items + 1] = { text = "   New Section From This Item...", onClick = guard(function() S:PromptFromItem(rec) end), gap = true }
 	if ns.Marks then
 		local fav = ns.Marks:IsFavorite(id)
 		items[#items + 1] = { text = fav and "Remove from Favorites" or "Favorite", icon = STAR, iconTint = fav and { 1, 0.82, 0 } or nil, onClick = guard(function() ns.Marks:ToggleFavorite(rec) end) }
@@ -482,7 +496,7 @@ function S:DropOnSection(laneId)
 		local name = rec.name or "That item"
 		if self:Pinned(own) then
 			if cur ~= own then
-				ns:Print("%s stays at the top: its own section, %s, is pinned too. Unpin %s, or move it to another section.", name, self:Label(own), self:Label(own))
+				ns:Print("%s stays in a pinned section: its own section, %s, is pinned too. Unpin %s, or move it to another section.", name, self:Label(own), self:Label(own))
 			else
 				ns:Print("%s belongs in %s, which is pinned. Unpin %s, or move it to another section.", name, self:Label(own), self:Label(own))
 			end
@@ -566,7 +580,7 @@ function S:IntoAllItems(itemID)
 	if not rec then return false end
 	local own = self:OwnCategory(rec)
 	if self:Pinned(own) then
-		ns:Print("%s stays at the top: its own section, %s, is pinned too. Unpin %s, or move it to another section.", rec.name or "That item", self:Label(own), self:Label(own))
+		ns:Print("%s stays in a pinned section: its own section, %s, is pinned too. Unpin %s, or move it to another section.", rec.name or "That item", self:Label(own), self:Label(own))
 		return false
 	end
 	S:Move(itemID, own)
@@ -599,10 +613,12 @@ function S:SectionMenu(laneId, owner)
 		return ns.ShowMenu(items, owner)
 	end
 	-- Pin to Top (1.4.0): item sections only (not Recent, Favorites, Keys, Reagent Bag, gear sets or All Items).
+	-- (1.10.0-beta10, Shweep) Pin Section / Unpin Section: a pinned section can sit below All Items now, so "to Top"
+	-- no longer says it
 	if S:Pinnable(laneId) then
 		local pinned = S:Pinned(laneId)
-		items[#items + 1] = { text = pinned and "Unpin" or "Pin to Top", onClick = function() if same() then S:SetPinned(laneId, not S:Pinned(laneId)) end end,
-			tip = pinned and "Back to its usual place." or "Shown at the top, after Recent. In All view its items get their own section there.", gap = true }
+		items[#items + 1] = { text = pinned and "Unpin Section" or "Pin Section", onClick = function() if same() then S:SetPinned(laneId, not S:Pinned(laneId)) end end,
+			tip = pinned and "Back to its usual place." or "Shown ahead of your other sections, after Recent. In All view its items get their own section, above or below All Items by its place in Section Order.", gap = true }
 	end
 	-- (Recent, Keys and Reagent Bag are views of other sections, so they have no toggles.)
 	if laneId ~= "~recent" and laneId ~= "~ky" and laneId ~= "~rb" then
@@ -613,6 +629,9 @@ function S:SectionMenu(laneId, owner)
 		local c = S:Custom(laneId)
 		items[#items + 1] = { text = "Show When Empty", checked = c and c.showEmpty ~= false, disabled = not ns.db.showEmptySections,
 			onClick = function() if same() then local cc = S:Custom(laneId); if cc then S:SetShowEmpty(laneId, cc.showEmpty == false) end end end, gap = true }
+		-- (1.10.0-beta3) its name and its rules, in the editor
+		items[#items + 1] = { text = "Edit Section...", onClick = function() if same() then S:EditSection(laneId) end end,
+			tip = "Change its name, and the rules that fill it by itself." }
 		items[#items + 1] = { text = "Rename...", onClick = function() if same() then S:PromptRename(laneId) end end }
 		items[#items + 1] = { text = "Delete...", onClick = function() if same() then S:ConfirmDelete(laneId) end end }
 	end
@@ -733,6 +752,185 @@ function S:ManageMoves()
 	self:RefreshMovedWindow()
 end
 
+------------------------------------------------------------------------
+-- New Section From This Item (1.10.0-beta1): a section that fills itself. Tick what the items should have in common
+-- with the one you picked; the list below shows what would go in it right now, from your bags and bank.
+------------------------------------------------------------------------
+local FW, FPAD, FROW, FMAX = 380, 14, 22, 8
+function S:FromItemWindow()
+	local f = self.fromFrame
+	if f then return f end
+	f = CreateFrame("Frame", "BagSmithSectionFromItem", UIParent, "BackdropTemplate")
+	f:SetSize(FW, 320); f:SetFrameStrata("DIALOG"); f:SetClampedToScreen(true); f:EnableMouse(true)
+	f:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
+	f:SetMovable(true); f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	local function text(template, width)
+		local t = f:CreateFontString(nil, "OVERLAY", template or "GameFontHighlightSmall")
+		t:SetJustifyH("LEFT"); t:SetWidth(width or (FW - FPAD * 2)); t:SetWordWrap(false)
+		return t
+	end
+	f.title = text("GameFontNormalLarge"); f.title:SetPoint("TOPLEFT", 12, -12); f.title:SetText("New Section From This Item")
+	f.icon = f:CreateTexture(nil, "ARTWORK"); f.icon:SetSize(26, 26); f.icon:SetPoint("TOPLEFT", FPAD, -40)
+	f.item = text("GameFontNormal", FW - FPAD * 2 - 34); f.item:SetPoint("LEFT", f.icon, "RIGHT", 8, 0)
+	f.nameLabel = text(); f.nameLabel:SetPoint("TOPLEFT", FPAD, -76); f.nameLabel:SetText("Section name")
+	f.edit = CreateFrame("EditBox", "BagSmithSectionFromItemName", f, "InputBoxTemplate")
+	f.edit:SetHeight(22); f.edit:SetPoint("TOPLEFT", FPAD + 6, -92); f.edit:SetPoint("TOPRIGHT", -FPAD, -92)
+	f.edit:SetAutoFocus(false); f.edit:SetMaxLetters(40)
+	f.ask = text(); f.ask:SetPoint("TOPLEFT", FPAD, -124); f.ask:SetText("Put items in it that have the same:")
+	f.checks, f.rows = {}, {}
+	f.head = text(); f.sub = text(); f.more = text(); f.also = text(); f.err = text()
+	f.also:SetWordWrap(true); f.err:SetWordWrap(true); f.err:SetTextColor(1, 0.4, 0.4)
+	local function create()
+		if ns.db ~= S.fromDB then f:Hide() return end   -- the profile changed: this was for the old one
+		local id, why = S:CreateWithRules(f.edit:GetText(), S:FromItemRules())
+		if not id then f.err:SetText(why or ""); S:RefreshFromItem(); return end
+		f:Hide()
+	end
+	f.create = ns.TextButton(f, "Create Section", 116, create); f.create:SetHeight(24); f.create:SetPoint("BOTTOMRIGHT", -12, 12)
+	f.cancel = ns.TextButton(f, "Cancel", 70, function() f:Hide() end); f.cancel:SetHeight(24); f.cancel:SetPoint("RIGHT", f.create, "LEFT", -6, 0)
+	f.edit:SetScript("OnEnterPressed", create)
+	f.edit:SetScript("OnEscapePressed", function() f:Hide() end)
+	f:SetScript("OnHide", function() f.edit:ClearFocus() end)
+	f.classicSpec = ns.Classic.DialogSpec(f, { restore = function() Skins:ApplyBackdrop(f); local s = Skins:Current(); f:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1) end })
+	Skins:Register(f, function(fr)
+		Skins:ApplyBackdrop(fr); local s = Skins:Current(); fr:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1)
+		fr.title:SetTextColor(unpack(s.heading))
+		for _, t in ipairs({ fr.nameLabel, fr.sub, fr.more, fr.also }) do t:SetTextColor(unpack(s.muted)) end
+		fr.ask:SetTextColor(unpack(s.text)); fr.head:SetTextColor(unpack(s.heading))
+		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
+	end)
+	f:Hide()
+	ns:CloseOnEscape(f, function() f:Hide() end)
+	ns:CombatWindow(f)
+	self.fromFrame = f
+	return f
+end
+-- The rules the ticked boxes make: every ticked detail must be the same ("all").
+function S:FromItemRules()
+	local f = self.fromFrame
+	local rows = {}
+	for _, fact in ipairs(f and f.facts or {}) do
+		if f.on[fact.k] then rows[#rows + 1] = { k = fact.k, v = { fact.v } } end
+	end
+	return { mode = "all", rows = rows }
+end
+local function fromCheck(f, i)
+	local c = f.checks[i]
+	if c then return c end
+	c = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate"); c:SetSize(22, 22)
+	c.label = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	c.label:SetJustifyH("LEFT"); c.label:SetWordWrap(false); c.label:SetWidth(FW - FPAD * 2 - 30)
+	c.label:SetPoint("LEFT", c, "RIGHT", 2, 0)
+	c:SetScript("OnClick", function(b)
+		f.on[b.key] = b:GetChecked() and true or nil
+		f.err:SetText("")
+		S:RefreshFromItem()
+	end)
+	f.checks[i] = c
+	return c
+end
+local function fromRow(f, i)
+	local r = f.rows[i]
+	if r then return r end
+	r = CreateFrame("Frame", nil, f); r:SetSize(FW - FPAD * 2, FROW - 2); r:EnableMouse(true)
+	r.icon = r:CreateTexture(nil, "ARTWORK"); r.icon:SetSize(18, 18); r.icon:SetPoint("LEFT", 2, 0)
+	r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); r.name:SetPoint("LEFT", r.icon, "RIGHT", 6, 0)
+	r.name:SetPoint("RIGHT", -4, 0); r.name:SetJustifyH("LEFT"); r.name:SetWordWrap(false)
+	r:SetScript("OnEnter", function(self)
+		if not (self.id and ns.TooltipsOK()) then return end
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetHyperlink(self.link or ("item:" .. self.id)); GameTooltip:Show()
+	end)
+	r:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	f.rows[i] = r
+	return r
+end
+local function qualityColor(q)
+	local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q or 1]
+	if c then return c.r, c.g, c.b end
+	return 1, 1, 1
+end
+function S:RefreshFromItem()
+	local f = self.fromFrame
+	if not (f and f:IsShown()) then return end
+	local s = Skins:Current()
+	-- the details to tick
+	local y = -142
+	for i, fact in ipairs(f.facts) do
+		local c = fromCheck(f, i)
+		c.key = fact.k
+		c:ClearAllPoints(); c:SetPoint("TOPLEFT", FPAD, y)
+		c:SetChecked(f.on[fact.k] and true or false)
+		c.label:SetText(("%s: %s"):format(fact.label, fact.text)); c.label:SetTextColor(unpack(s.text))
+		c:Show(); c.label:Show()
+		y = y - FROW
+	end
+	for i = #f.facts + 1, #f.checks do f.checks[i]:Hide(); f.checks[i].label:Hide() end
+	-- what it would do
+	local here, elsewhere = self:PreviewRules(self:FromItemRules(), nil)
+	f.preview = { here = here, elsewhere = elsewhere }
+	y = y - 10
+	f.head:ClearAllPoints(); f.head:SetPoint("TOPLEFT", FPAD, y)
+	f.head:SetText(#here == 1 and "Would go in this section: 1 item" or ("Would go in this section: %d items"):format(#here))
+	y = y - 15
+	f.sub:ClearAllPoints(); f.sub:SetPoint("TOPLEFT", FPAD, y)
+	local ticked = next(f.on) ~= nil
+	f.sub:SetText(not ticked and "Tick at least one to see what goes in." or (#here == 0 and "Nothing in your bags or bank would go here right now." or "Looking at your bags and bank."))
+	y = y - 18
+	local shown = math.min(#here, FMAX)
+	for i = 1, shown do
+		local rec, r = here[i], fromRow(f, i)
+		r.id, r.link = rec.itemID, rec.link
+		r.icon:SetTexture(rec.icon)
+		r.name:SetText(rec.name or ("Item " .. tostring(rec.itemID))); r.name:SetTextColor(qualityColor(rec.quality))
+		r:ClearAllPoints(); r:SetPoint("TOPLEFT", FPAD, y); r:Show()
+		y = y - FROW
+	end
+	for i = shown + 1, #f.rows do f.rows[i]:Hide() end
+	f.more:ClearAllPoints(); f.more:SetPoint("TOPLEFT", FPAD + 26, y)
+	f.more:SetShown(#here > shown)
+	if #here > shown then f.more:SetText(("and %d more"):format(#here - shown)); y = y - 16 end
+	-- the ones that fit but are decided first, with why
+	f.also:ClearAllPoints(); f.also:SetPoint("TOPLEFT", FPAD, y - 4)
+	f.also:SetShown(#elsewhere > 0)
+	if #elsewhere > 0 then
+		local parts = {}
+		for i = 1, math.min(#elsewhere, 4) do
+			local e = elsewhere[i]
+			parts[#parts + 1] = ("%s (%s)"):format(e.rec.name or "?", e.why)
+		end
+		if #elsewhere > 4 then parts[#parts + 1] = ("%d more"):format(#elsewhere - 4) end
+		f.also:SetText("Fits, but stays somewhere else: " .. table.concat(parts, "; ") .. ".")
+		local lines = math.max(1, math.ceil((f.also:GetStringWidth() or 0) / (FW - FPAD * 2)))
+		y = y - 4 - lines * 13
+	end
+	f.err:ClearAllPoints(); f.err:SetPoint("TOPLEFT", FPAD, y - 6)
+	if (f.err:GetText() or "") ~= "" then y = y - 20 end
+	f:SetHeight(-y + 50)
+end
+function S:PromptFromItem(rec)
+	if not (rec and rec.itemID and ns.Rules) then return end
+	local f = self:FromItemWindow()
+	self.fromDB = ns.db
+	f.rec = rec
+	f.facts = ns.Rules:FactsOf(rec)
+	-- its type is ticked to start with; the rest are yours to add
+	f.on = {}
+	if f.facts[1] then f.on[f.facts[1].k] = true end
+	f.icon:SetTexture(rec.icon)
+	f.item:SetText(rec.name or ("Item " .. tostring(rec.itemID))); f.item:SetTextColor(qualityColor(rec.quality))
+	-- a name to start from: the kind of item ("Cloth"), yours to change
+	local start = (type(rec.itemSubType) == "string" and rec.itemSubType ~= "" and rec.itemSubType) or (type(rec.itemType) == "string" and rec.itemType) or ""
+	f.err:SetText("")
+	f.edit:SetText(start)
+	if ns.Classic then ns.Classic:RefreshTitle(f) end
+	f:Show(); f.edit:SetFocus(); f.edit:HighlightText()
+	self:RefreshFromItem()
+	return f
+end
+
 ns:OnSignal("ADDON_READY", function()
 	ns:On("GET_ITEM_INFO_RECEIVED", function() if S.movedFrame and S.movedFrame:IsShown() then S:RefreshMovedWindow() end end)
+	-- (1.10.0-beta1) the preview follows your bags while the window is up
+	ns:OnSignal("ITEMS_CHANGED", function() if S.fromFrame and S.fromFrame:IsShown() then S:RefreshFromItem() end end)
 end)

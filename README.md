@@ -14,14 +14,16 @@ are on CurseForge and under this repository's Releases.
 ## Features
 
 - **List or Icons view**, in a Classic look that matches the game or a flat Modern one.
-- **Sections:** items grouped by type, by bag, or all together; sections of your own, pinned sections, and an
-  optional split of Consumables into Food, Drink, Potions and more.
+- **Sections:** items grouped by type, by bag, or all together; sections of your own that you fill by hand or
+  with rules, pinned sections, and an optional split of Consumables into Food, Drink, Potions and more.
 - **Sorting, Merge Stacks and search,** with filters and saved views as tabs (sheets).
 - **Your bank and other characters,** including their bags, gold and currencies.
 - **Item icons that tell you more:** item level, junk, gear sets, Pawn upgrades and cooldowns, with Icon Corners
   to choose what shows where, and marks from other addons too.
 - **Helpers:** marking and selling junk, a Disenchant Helper for enchanters, and optional auto-confirm for some
   yes/no boxes, all off until you turn them on.
+- **Works with other addons, none required:** auction prices from Auctionator or Blackthornes Tradeskills, and
+  what ItemTree and Pawn know about your items.
 - **Plugins:** a public API for other addons, and a gamepad companion, BagSmith Gamepad (in alpha).
 
 ## Installing

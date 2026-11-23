@@ -1,3 +1,17 @@
+-- (by design since 1.10.0-beta12) this set tests the NEW tags with 1.9's list, which the panel's own list (each
+-- release's) replaced: 1.9's, as it stood at 1.9.8, is put back after the addon loads
+local function NEW19()
+	return { release = "1.9",
+		pages = { general = true, window = true, icons = true, look = true, sections = true, columns = true, sheets = true,
+			globalsections = true, globalcols = true, globalsheets = true },
+		heads = {},
+		keys = { tipInventory = "general", tipAHPrice = "general", bagSlotCount = "window", borderWeight = "icons", iconLayout = "look", footerTextScale = "look", globalResize = "window" },
+		added = {
+			["1.9.1"] = { keys = { splitViewPinnedWide = "look" } },
+			["1.9.2"] = { keys = { unusableOverlay = "icons" } },
+			["1.9.4"] = { keys = { sectionValues = "sections" } },
+		} }
+end
 ;(function()
 	-- ======== 1.9.0-beta5 (Shweep, 16 Nov): Global Inventory, simpler ========
 	-- "What if we just only have the accordion view and simplify this": beta4's All Rows is gone. "disabled buttons, tabs
@@ -18,7 +32,7 @@
 	} }
 	local oldES = _G.C_EquipmentSet   -- a client with equipment sets, so Gear Sets shows
 	_G.C_EquipmentSet = { GetEquipmentSetIDs = function() return {} end, GetEquipmentSetInfo = function() end, GetItemLocations = function() end, UseEquipmentSet = function() end }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	check(BagSmithDB.globalInv.rows == nil, "a saved All Rows is dropped at load")
 	n.Window:Show(); M.runTimers(); M.runTimers()
@@ -116,7 +130,7 @@ end)()
 	local M = require("mock")
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { view = "icons", grp = "type", compactCategories = true } }, whatsNewSeen = "1.8.0" }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	n.version = "1.9.0-beta5"
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	check(n.SettingsPanel:IsNew("keys", "iconLayout"), "Icon Layout is NEW in 1.9")
@@ -138,7 +152,7 @@ end)()
 	local M = require("mock")
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = "classic" } } }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	n.Window:Show(); M.runTimers(); M.runTimers()
 	local V = n.Window.main

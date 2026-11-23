@@ -24,6 +24,25 @@ ns.WhatsNew = WN
 -- Newest first. Only notable releases get an entry; keep a handful of short
 -- bullets that say what it is and where to turn it on.
 WN.ENTRIES = {
+	-- (1.10.0-beta12) the 1.10 card, first written as nine bullets.
+	-- (1.10.0-beta16, Shweep, 23 Nov: "our what's new card is not player friendly, it's more technical than sells the
+	-- new features"; on the rewrite: "rest looks better tho, ty") Seven bullets, each leading with what the player
+	-- gets. The ItemTree sentence keeps the two exceptions the beta12 audit asked for (F8). The Disenchant Helper and
+	-- junk line left the card; it is in the changelog. The reminder below is as it was ("we lost the reminder": it
+	-- stays).
+	{ v = "1.10.0", heading = "BagSmith 1.10", items = {
+		"|cfffac775Sections That Sort Themselves:|r done dragging every new item to the right spot? Tell a section what belongs in it, like cloth, or gear that binds when equipped, and your loot files itself from then on. Click the pencil beside a section in Settings > Custom Sections. You'll see what lands there before you save.",
+		"|cfffac775Start in One Click:|r Alt+Left-click any item and pick New Section From This Item, and BagSmith sets up a section for things like it. Or pick a ready-made one in Settings > Custom Sections: Cloth, Herbs, Gear to Sell, or Food and Drink.",
+		"|cfffac775Simpler Filters:|r the Filters window is rebuilt around the same rules. Narrow your bags down in a couple of clicks, and when you like what you see, Save as Section keeps it for good.",
+		"|cfffac775Tabs Your Way:|r show a section on every tab or only the ones you pick, so Cloth, Leather and Herbs can break up your Trade Goods tab while All stays tidy. Your Gear, Consumables, Trade Goods, Quest and Junk tabs now show everything of their kind, too.",
+		"|cfffac775All Items, Where You Want It:|r using Sections: All? Drag the All Items title to put your pinned sections and Favorites above or below it. Pin to Top is now called Pin Section.",
+		"|cfffac775Friends With Your Other Addons:|r have ItemTree? Your sections can sort by what it knows, like Used by My Professions or Needed for a Quest, and the Loot Helper and Disenchant Helper won't offer what it says to keep, apart from your junk and gear it keeps for its dust. Everything BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree and Pawn now lives in Settings > Addon Sources, each with its own switch. Auction Price Source moved there too. All of it is optional.",
+		"|cfffac775A Cleaner Classic Look:|r sharper item icons and borders in the Classic skin. Thanks to Jeor!",
+	},
+	-- (1.10.0-beta13, the beta12 audit's F6; Shweep: "yes as a reminder") Someone who comes straight from 1.9.7 or
+	-- earlier never saw 1.9.8's note: this card opens instead, and closing it marks that note seen. They get it here,
+	-- in his own words, as one more bullet. Nobody else does (WN:Items).
+	remind = { before = "1.9.8", text = "|cfff09595Reminder:|r if two of your characters share a first name, Global Inventory and tooltips won't be 100% accurate until you've logged in to each of them and visited the bank on each. Apologies, I wish this had been caught sooner." } },
 	-- (1.9.2-beta1, Shweep) a release's updates have entries of their own, shown under its tab: 1.9.2 (Jeor's red tint)
 	-- and 1.9.1 (which had no card), as Shweep approved them
 	-- (1.9.8-beta1, after Shweep's "this should have had a card in what's new" on 1.9.7: an entry is drafted for every
@@ -111,7 +130,7 @@ WN.ENTRIES = {
 		"|cfffac775Smoother Clean Up:|r Clean Up Bags no longer makes your game stutter while it sorts, even with Clean Up Bags When Opened on.",
 	} },
 	{ v = "1.6.0", heading = "BagSmith 1.6", items = {
-		"|cfffac775Blackthornes Tradeskills Prices:|r BagSmith can now take auction prices from Blackthornes Tradeskills as well as Auctionator. It uses whichever you have; with both, pick one in Settings > General > Price Source.",
+		"|cfffac775Blackthornes Tradeskills Prices:|r BagSmith can now take auction prices from Blackthornes Tradeskills as well as Auctionator. It uses whichever you have; with both, pick one in Settings > Addon Sources > Auction Prices.",
 		"|cfffac775Quest Starters:|r an item that begins a quest now wears a yellow \"!\" in the top left of its icon until you accept the quest. You can move it to another corner in Settings > Item Icons.",
 		"|cfffac775See-Through Windows:|r turn down Background Opacity to let the world show through your bags' frame (or the whole window), and turn on Fade While Moving to dim your bags while you run. Both are in Settings > Windows > Opacity.",
 		"|cfffac775Fewer Tips:|r know your way around? Turn off Show Help Tooltips in Settings > General to stop the tooltips on BagSmith's buttons and columns. Item tooltips stay.",
@@ -277,6 +296,29 @@ function WN:Pending()
 	return ns.db and ns.db.whatsNew ~= false and (#self:UnseenReleases() > 0 or self:UnseenOpener() ~= nil)
 end
 function WN:MarkSeen() BagSmithDB.whatsNewSeen = base(ns.version) end
+-- (1.10.0-beta13) A card's bullets for this player: its own, and its reminder when they came here straight from a
+-- version older than the one the reminder is from (WN.owed).
+WN.owed = {}
+function WN:Items(e)
+	local r = e and e.remind
+	if not (r and self.owed[r.before]) then return e.items end
+	local out = {}
+	for i, text in ipairs(e.items) do out[i] = text end
+	out[#out + 1] = r.text
+	return out
+end
+-- Which reminders are owed, noted at load before anything is marked seen: the last What's New this account closed was
+-- older than the release a reminder is from. Nothing is saved: it lasts until the next load, by when the card that
+-- carries it has been seen and closed (or is still waiting, and it is noted again).
+function WN:NoteReminders()
+	self.owed = {}
+	local seen = type(BagSmithDB) == "table" and BagSmithDB.whatsNewSeen or nil
+	if type(seen) ~= "string" then return end   -- (a first install: nothing was skipped)
+	for _, e in ipairs(self.ENTRIES) do
+		local r = e.remind
+		if r and newer(r.before, seen) and not newer(e.v, ns.version) then self.owed[r.before] = true end
+	end
+end
 -- An update's notes you haven't opened: NEW on its button, for the newest release's updates only (never an old one's)
 function WN:PatchNew(e)
 	local newest = groups(self:Latest())[1]
@@ -475,6 +517,9 @@ local function sep(f, i)
 end
 -- A tab per release (BagSmith's choice buttons; Blizzard's red buttons in Classic).
 local TAB_H = 22
+-- (1.10.0-beta16) Classic: the portrait is 58 px, hanging 5 px left of the window and reaching 51 px down. The tab row
+-- starts to its right, under Blizzard's title strip; the first thing at the left edge after it starts 64 down.
+local CLASSIC_TAB_X, CLASSIC_TAB_Y, CLASSIC_BELOW_PORTRAIT = 60, 30, 64
 local SUB_H = 18   -- (1.9.2-beta1) an update's button, under its release's tab
 local SUB_GAP = 6   -- between update buttons, and between their lines (1.9.8-beta3)
 local function tab(f, i)
@@ -506,7 +551,7 @@ local function measure(f, e, textW)
 	m:SetFontObject(GameFontNormal); m:SetWidth(textW); m:SetText(e.heading or ("BagSmith " .. tostring(e.v)))
 	local y = m:GetStringHeight() + 2
 	m:SetFontObject(GameFontHighlight); m:SetWidth(textW - INDENT)
-	for _, text in ipairs(e.items) do m:SetText(text); y = y + ITEM_GAP + m:GetStringHeight() end
+	for _, text in ipairs(WN:Items(e)) do m:SetText(text); y = y + ITEM_GAP + m:GetStringHeight() end
 	if e.note then m:SetFontObject(GameFontHighlightSmall); m:SetWidth(textW); m:SetText(e.note); y = y + NOTE_GAP + m:GetStringHeight() end
 	return y + 4
 end
@@ -601,11 +646,15 @@ function WN:Fill(entries, sel, sub)
 	-- the window is dressed (before this text existed): update it now.
 	ns.Classic:Retitle(f, f.title:GetText())
 	-- Modern: the logo and title row. Classic: the title sits in Blizzard's
-	-- strip and the portrait hangs over the corner, so the body starts lower.
-	local top = classic and 60 or (PAD + LOGO + 6)
+	-- strip and the portrait hangs over the corner.
+	-- (1.10.0-beta16, Shweep: "in classic style we waste a ton of space at top", with screenshots) In Classic the tabs
+	-- started at the left edge, so they had to sit under the portrait (60 down), with an empty band between the title
+	-- strip and them. They now start beside the portrait, just under the strip, and what follows starts where the
+	-- portrait ends: about 28 px back for the notes.
+	local top = classic and CLASSIC_TAB_Y or (PAD + LOGO + 6)
 	local textW = WIDTH - PAD * 2
 	-- The tabs: one per release, newest first.
-	local x = PAD
+	local x = classic and CLASSIC_TAB_X or PAD
 	for i, e in ipairs(entries) do
 		local b = tab(f, i)
 		b.index = i
@@ -621,6 +670,7 @@ function WN:Fill(entries, sel, sub)
 	end
 	for i = #entries + 1, #f.tabs do f.tabs[i]:Hide() end
 	if #entries > 0 then top = top + TAB_H + 10 end
+	if classic then top = math.max(top, CLASSIC_BELOW_PORTRAIT) end   -- (what follows starts at the left edge, clear of the portrait)
 	-- (1.9.2-beta1) the open release's updates, newest first, on a second row; its height kept on every tab (when any
 	-- release shown has updates), so switching tabs doesn't jump. An update not opened yet says NEW.
 	-- (1.9.8-beta3, Shweep: "all the new tags are causing the patch buttons to go outside the window", eight updates
@@ -715,7 +765,7 @@ function WN:Fill(entries, sel, sub)
 		h:SetTextColor(1, 0.82, 0)
 		h:ClearAllPoints(); h:SetPoint("TOPLEFT", f.content, "TOPLEFT", PAD, -y); h:Show()
 		y = y + h:GetStringHeight() + 2
-		for bi, text in ipairs(e.items) do
+		for bi, text in ipairs(WN:Items(e)) do
 			n = n + 1
 			local s2 = line(f, n)
 			s2:SetFontObject(GameFontHighlight); s2:SetTextColor(1, 1, 1); s2:SetWidth(textW - INDENT); s2:SetText(WN.Linkify(text))
@@ -884,9 +934,11 @@ function WN:ResetForTesting(skipped)
 	if p[3] > 0 then p[3] = p[3] - 1 elseif p[2] > 0 then p[2] = p[2] - 1 else p[1] = math.max(0, p[1] - 1) end
 	BagSmithDB.whatsNewSeen = ("%d.%d.%d"):format(p[1], p[2], p[3])
 	BagSmithDB.whatsNewPatchSeen, BagSmithDB.whatsNewButtonSeen = nil, nil   -- (1.9.2-beta1) the updates' NEW tags too
+	self:NoteReminders()   -- (1.10.0-beta13) and what a player updating from there would be reminded of
 end
 
 ns:OnSignal("ADDON_READY", function()
+	WN:NoteReminders()   -- (1.10.0-beta13) before anything is marked seen
 	-- A first install has nothing to compare against: mark this version seen.
 	if BagSmithDB.whatsNewSeen == nil then
 		WN:MarkAllSeen()   -- (1.9.2-beta1) the updates' notes too

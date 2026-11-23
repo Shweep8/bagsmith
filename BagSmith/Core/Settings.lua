@@ -79,6 +79,12 @@ local DEFAULTS = {
 	travelMode = false,        -- Travel Mode (the signpost beside the close button): toolbar hidden, search in the title row
 	travelLeaveBank = true,    -- Auto Travel Mode: off while the bank is open, back on after
 	travelLeaveGuildBank = true,   -- ... the guild bank (1.8.0-beta23)
+	-- Settings > Addon Sources (1.10.0-beta9: one switch per job, none depending on another)
+	useItemTree = true,    -- (1.10.0-beta6) with the ItemTree addon installed, sections and filters can use what it knows
+	makeRoomHoldItemTree = true,   -- (1.10.0-beta9; was itemTreeHold, beta7) the Loot Helper holds back what ItemTree says to keep
+	deHoldItemTree = true,         -- ... and the Disenchant Helper, except what ItemTree keeps for its dust
+	makeRoomHoldPawn = true,       -- (1.10.0-beta9) the Loot Helper holds back Pawn upgrades: as it always has, now a switch
+	deHoldPawn = false,    -- (1.10.0-beta8, Shweep: "off ... should be default") the Disenchant Helper holds back Pawn upgrades
 	tipInventory = true,   -- (1.9.0-beta1) item tooltips list your characters' counts
 	tipAHPrice = true,     -- (1.9.0-beta2) an item's tooltip shows its AH price (with a price source); was only with the AH Price column
 	bagSlotCount = "exclude",   -- (1.9.0-beta1, Shweep) the footer's free count: "exclude" special bags (1.8) or "all" free slots
@@ -147,7 +153,8 @@ local DEFAULTS = {
 	bankColOrder = { "c", "n", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
 	fvccCols = true,           -- the Favorite and Currency columns have been added to this profile's columns once (0.13)
 	favItems = {},             -- favorited items (item IDs), shown in the Favorites section
-	customSections = {},       -- your own sections: { id = "c1", name = "Professions" }, ...
+	customSections = {},       -- your own sections: { id = "c1", name = "Professions" }, ...; (1.10.0-beta1) in priority order,
+	                           -- each with optional rules = { mode = "all" | "any", rows = { { k, v = {...}, n }, ... } }
 	sectionMoves = {},         -- [itemID] = section id: items moved to another section
 	sectionHide = {},          -- [section id] = { vendor = true, ah = true }: hidden there
 	newdotClearRecent = true,  -- Clear Recent also clears the green dots
@@ -172,7 +179,9 @@ local DEFAULTS = {
 	splitConsTypes = {},       -- kind -> false to keep that type in Consumables (missing means split)      -- (1.5.0-beta8) other addons' marks the player has done something with (no longer "new")
 	splitGear = false,         -- (1.7.0-beta6) Split Gear by Binding
 	splitGearTypes = {},       -- (1.7.0-beta6) Soulbound/BoE -> false to keep it in Gear (missing means split)
-	laneOrder = { "~recent", "~fav", "Gear", "Consumables", "Reagents", "TradeGoods", "Recipes", "Quest", "Tokens", "Other", "Junk", "~ky", "~rb", "~gs" },
+	-- (1.10.0-beta10) "~all" is All Items, the list Sections: All shows: a section beside it there shows above it when
+	-- it comes before it here, below when after. By Section and By Bag have no All Items and pass over it.
+	laneOrder = { "~recent", "~fav", "Gear", "Consumables", "Reagents", "TradeGoods", "Recipes", "Quest", "Tokens", "Other", "Junk", "~all", "~ky", "~rb", "~gs" },
 	tabOrder = { "All", "Gear", "Consumables", "TradeGoods", "Quest", "Junk", "GearSets", "Bank" },
 	hiddenTabs = {},
 	sheets = {},               -- { { n = name, f = filters } }
@@ -245,6 +254,7 @@ for k in pairs(COL_SET) do ORDER_SET[k] = true end
 for _, c in ipairs(ns.CATS) do if c ~= "Keys" then LANE_SET[c] = true end end
 LANE_SET["~ky"], LANE_SET["~rb"], LANE_SET["~recent"], LANE_SET["~fav"] = true, true, true, true
 LANE_SET["~gs"] = true   -- every gear set takes this one place in Section Order
+LANE_SET["~all"] = true  -- (1.10.0-beta10) All Items, for Sections: All
 -- (1.6.3-beta1, Shweep: an item moved to Food went back after a /reload) Split Consumables' sections (1.5.0-beta9) are
 -- built-in sections too: the check at load now keeps moves to them, their place in Section Order and their vendor and
 -- AH hiding (it dropped all three, so every reload undid them; profile sharing runs the same check).
@@ -433,6 +443,10 @@ local validators = {
 				-- showEmpty: only "false" is stored (missing means on).
 				local entry = { id = c.id, name = c.name:sub(1, 40) }
 				if c.showEmpty == false then entry.showEmpty = false end
+				-- (1.10.0-beta1) its rules, cleaned (Core/Rules.lua): a saved or imported profile is never trusted as it comes
+				if c.rules ~= nil and ns.Rules and ns.Rules.Clean then entry.rules = ns.Rules.Clean(c.rules) end
+				-- (1.10.0-beta5) the sheets it's set to show on: sound names only; none means every sheet
+				if c.sheets ~= nil and ns.Sections and ns.Sections.CleanSheets then entry.sheets = ns.Sections.CleanSheets(c.sheets) end
 				out[#out + 1] = entry
 			end
 		end
@@ -680,6 +694,15 @@ end
 
 local function validateProfile(saved)
 	renameClashingSheets(saved)
+	-- (1.10.0-beta9) Hold Back What ItemTree Says to Keep (beta7 and beta8 only) became one switch per Helper. A
+	-- profile that had it off, or had Use ItemTree off (which switched the hold off too), keeps both off.
+	if type(saved) == "table" and saved.itemTreeHold ~= nil then
+		if saved.itemTreeHold == false or saved.useItemTree == false then
+			if saved.makeRoomHoldItemTree == nil then saved.makeRoomHoldItemTree = false end
+			if saved.deHoldItemTree == nil then saved.deHoldItemTree = false end
+		end
+		saved.itemTreeHold = nil
+	end
 	-- 0.13: the Favorite and Currency columns join once, just before Junk.
 	if type(saved) == "table" and saved.fvccCols == nil then
 		for _, key in ipairs({ "cols", "bankCols", "colOrder", "bankColOrder" }) do
@@ -745,6 +768,24 @@ local function validateProfile(saved)
 		end
 		-- Gear Sets (0.15) joins at the very bottom.
 		if not ns.IndexOf(saved.laneOrder, "~gs") then table.insert(saved.laneOrder, "~gs") end
+		-- (1.10.0-beta10) All Items joins where it keeps Sections: All looking as it did: right before the first dynamic
+		-- section that follows your item sections (Keys, Reagent Bag and Gear Sets in the usual order), so what came
+		-- before your items still shows above All Items and what came after still shows below. A pinned section
+		-- further down than that stays above All Items, as pinned sections always were.
+		if not ns.IndexOf(saved.laneOrder, "~all") then
+			local order = saved.laneOrder
+			local firstItem, at, lastPin
+			for i, id in ipairs(order) do if type(id) == "string" and id:sub(1, 1) ~= "~" then firstItem = i; break end end
+			if firstItem then
+				for i = firstItem + 1, #order do
+					if type(order[i]) == "string" and order[i]:sub(1, 1) == "~" then at = i; break end
+				end
+			end
+			local pins = type(saved.pinnedSections) == "table" and saved.pinnedSections or {}
+			for i, id in ipairs(order) do if pins[id] == true then lastPin = i end end
+			if at and lastPin and lastPin >= at then at = lastPin + 1 end
+			table.insert(order, at or (#order + 1), "~all")
+		end
 	end
 	-- The Gear Sets tab (0.15) joins just before Bank (else last).
 	local function beforeBank(order)
@@ -786,6 +827,24 @@ local function validateProfile(saved)
 	for _, key in ipairs({ "sheets", "bankSheets" }) do
 		for _, sh in ipairs(type(out[key]) == "table" and out[key] or {}) do
 			if type(sh) == "table" and ns.PruneFilterCategories then ns.PruneFilterCategories(sh.f, out.customSections) end
+		end
+	end
+	-- (1.10.0-beta5) A section's sheets are checked against THIS profile's tabs the same way: a name that is neither
+	-- one of BagSmith's tabs nor one of the profile's sheets is dropped (a section left with none shows on every sheet).
+	do
+		local have = {}
+		for id in pairs(ns.TAB_LABEL) do have[id] = true end
+		for _, key in ipairs({ "sheets", "bankSheets" }) do
+			for _, sh in ipairs(type(out[key]) == "table" and out[key] or {}) do
+				if type(sh) == "table" and type(sh.n) == "string" then have[sh.n] = true end
+			end
+		end
+		for _, c in ipairs(type(out.customSections) == "table" and out.customSections or {}) do
+			if type(c) == "table" and type(c.sheets) == "table" then
+				local kept = {}
+				for _, name in ipairs(c.sheets) do if have[name] then kept[#kept + 1] = name end end
+				c.sheets = #kept > 0 and kept or nil
+			end
 		end
 	end
 	-- Section numbers are never reused: start this profile's counter above

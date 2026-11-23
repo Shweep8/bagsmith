@@ -1,14 +1,14 @@
 ## Interface: 16001
 ## Title: BagSmith
 ## Notes: Spreadsheet-style bags for WoW Forever.
-## Version: 1.9.8
-## X-Date: 2026-11-21
+## Version: 1.10.0
+## X-Date: 2026-11-23
 ## Author: BagSmith
 ## IconTexture: Interface\AddOns\BagSmith\Media\icon.tga
 ## Category: Bags & Inventory
 ## SavedVariables: BagSmithDB
 ## SavedVariablesPerCharacter: BagSmithCharDB
-## OptionalDeps: Pawn, Auctionator, Blackthornes_TS
+## OptionalDeps: Pawn, Auctionator, Blackthornes_TS, ItemTree
 ## AddonCompartmentFunc: BagSmith_OnAddonCompartmentClick
 ## X-Game: [Game]
 ## X-Family: [Family]
@@ -22,6 +22,8 @@ Core\Init.lua
 Core\Settings.lua
 Core\API.lua
 Core\Classify.lua
+Core\Rules.lua
+Core\ItemTree.lua
 Core\Sections.lua
 Core\GearSets.lua
 Core\Scanner.lua
@@ -52,6 +54,8 @@ Frames\Window.lua
 Frames\Drop.lua
 Frames\Popups.lua
 Frames\SectionsUI.lua
+Frames\RuleList.lua
+Frames\SectionEditor.lua
 Frames\Drawer.lua
 Frames\SettingsPanel.lua
 Frames\Options.lua

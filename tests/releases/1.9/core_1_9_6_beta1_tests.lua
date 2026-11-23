@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 -- ======== 1.9.6-beta1 (Shweep, 20 Nov) ========
 -- Since client build 71037 the game gives no realm: GetRealmName() and GetNormalizedRealmName() answer "" (Jeor's check
 -- in game: `build 71037 realm [] norm [] Player-6925-04D3CC4C`; his character on another ruleset:
@@ -396,7 +397,7 @@ end)()
 	local n = boot({ realm = "Forever" })
 	BagSmithDB.whatsNewSeen, BagSmithDB.whatsNewPatchSeen, BagSmithDB.whatsNewButtonSeen = "1.9.5", { ["1.9.5"] = true, ["1.9.4"] = true, ["1.9.3"] = true, ["1.9.2"] = true, ["1.9.1"] = true }, "1.9.5"
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[3]   -- (by design since 1.9.8: two places down, after 1.9.8's and 1.9.7's entries)
+	local e = WN.ENTRIES[4]   -- (by design since 1.9.8: two places down, after 1.9.8's and 1.9.7's entries)
 	check(e.v == "1.9.6" and e.heading == "BagSmith 1.9.6" and #e.items == 2, "the 1.9.6 entry, two bullets")
 	check(e.items[1] == "|cfffac775Your Characters Are Back:|r a recent game update hid your other characters from tooltips, Global Inventory and your gold totals. That's fixed, and nothing was lost.", "Your Characters Are Back, word for word")
 	check(e.items[2] == "|cfffac775Catching Up:|r each character shows what it had the last time you played it before the update. Log in to it once and it's up to date again.", "Catching Up, word for word")

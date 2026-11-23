@@ -1,3 +1,63 @@
+## 1.10.0
+
+New:
+- Custom sections can fill themselves. Alt+Left-click an item and pick New Section From This Item, tick what the
+  items should have in common with it (its type, slot, quality or binding), and see what would go in the section
+  before you create it.
+- When an item fits more than one of your sections, the higher one in Settings > Custom Sections gets it. Arrows
+  there change their order, and each section shows its rules in words.
+- A rule editor for your sections. Click the pencil beside a section in Settings > Custom Sections, or pick Edit
+  Section... from the section's menu, to give it rules about an item's type, slot, quality, binding, item level or
+  vendor value. Choose whether an item has to fit all of them or any one, and see what would go in the section, and
+  what fits but stays somewhere else, before you save. New Section... on that page opens it too.
+- The Filters window is rebuilt around the same rules. Quality and quick picks (New, Usable by Me) sit at the top.
+  Under "Only show items that fit" you add rules with + Add a Rule, choose all of these or any one of these, and
+  see how many items are left. Three rules are just for filters: Section, Bag and Time in Bags.
+- Save as Section... in the Filters window opens the section editor with the rules you've set, so a filter you like
+  can become a section.
+- A section can show on every sheet, or only on some. In the section editor, set Show this section on to only some
+  sheets and tick the tabs. Everywhere else its items stay in their usual section, so Cloth, Leather and Herbs can
+  split up your Trade Goods tab while All keeps one Trade Goods section.
+- With the ItemTree addon installed, your section and filter rules can use what it knows: Used by My Professions,
+  Needed for a Quest, An Upgrade for Me and Sold by Vendors, and for filters ItemTree's Advice. Settings > Addon
+  Sources turns it on or off. ItemTree is optional, and BagSmith works the same without it.
+- With ItemTree, the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep. They show it
+  with the other items they don't offer, and each Helper has its own switch in Settings > Addon Sources. A piece
+  ItemTree keeps for its dust still shows in the Disenchant Helper, and the Loot Helper still offers your junk.
+  While its switch is on and ItemTree hasn't answered about an item yet, that item is held back under Waiting for
+  ItemTree. The Helper checks again by itself, and offers the item only if ItemTree doesn't say to keep it. Clear
+  Soul Shards is your own action with its own count to keep, and doesn't ask ItemTree.
+- With Pawn, the Disenchant Helper can hold back a piece Pawn says is an upgrade for you. That switch is in
+  Settings > Addon Sources too, and it's off until you turn it on.
+- A new Settings page, Addon Sources, shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree
+  and Pawn, each in its own card with a switch for each job.
+- More rules for your sections and filters: Name (its name contains a word you type), Food, Drink and Potions
+  (what kind of consumable it is), Quest Item, Crafting Material and Usable by Me. + Add a Rule lists the rules in
+  groups.
+- Settings > Custom Sections can start a section from an example (Cloth, Herbs, Gear to Sell, Food and Drink): it
+  opens filled in for you to look over. The page also shows the order an item finds its section in.
+- All Items is part of Section Order. With Sections: All, a pinned, Favorites or other dynamic section shows above
+  All Items when it comes before it in Section Order, and below when it comes after. Drag the All Items title, or
+  use the arrows in Settings > Sections, to choose.
+Changed:
+- The Gear, Consumables, Trade Goods, Quest and Junk tabs show every item of their kind, grouped under your own
+  sections where you have them. Before, an item in one of your sections left its tab.
+- The boxes the Filters window used to have (Type / Sections, Bind, Where and Age) are rules now. Sheets you saved
+  before show them as rules and filter the same.
+- An item you move back to its usual section by hand stays there, even when one of your sections would take it.
+- The Disenchant Helper no longer offers an item you've marked as junk. Mark one there and it leaves the list, and
+  it comes back if you take the mark off.
+- Price Source moved from Settings > General to the new Addon Sources page, and is now called Auction Price Source.
+- The Loot Helper holding back Pawn upgrades is a switch now, in Settings > Addon Sources. It's on, as before.
+- Pin to Top is now Pin Section, and Unpin is Unpin Section. A pinned section still goes ahead of your other
+  sections; with Sections: All it can now sit below All Items if you put it there.
+- With Sections: All, Favorites no longer drops below All Items when a Keys section is showing, and Gear Sets no
+  longer jumps above it when you have favorites. Each follows Section Order.
+- Settings: Plugins moved down the list, just above Advanced.
+- The rule editor no longer cuts a long rule name short, such as Used by My Professions.
+- Classic skin: item icons and their borders are cleaner in Icons and List view, with the artwork kept inside the
+  border. Bold now brightens Classic borders. Thanks to Jeor!
+
 ## 1.9.8
 
 Fixed:

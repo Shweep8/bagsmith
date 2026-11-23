@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 -- ======== 1.9.0-beta20 (Shweep, 17 Nov) ========
 -- The 1.9 What's New card: currencies with Global Inventory's "who has how many", and Text and Fonts (was Footer Text
 -- Size), as Shweep approved ("yeah these are good"). Settings: "when you scroll in settings things scroll under the
@@ -18,7 +19,7 @@ end
 ;(function()
 	-- the card
 	local n = boot()
-	local e = n.WhatsNew.ENTRIES[9]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	local e = n.WhatsNew.ENTRIES[10]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	check(e.v == "1.9.0" and #e.items == 7, "the 1.9 card: still seven bullets")
 	check(e.items[1]:find("Click an item more than one character has to see how many each of them has, and the same goes for currencies in the currency drawer. Down at the bottom", 1, true),
 		"Global Inventory: currencies too, the rest as before")

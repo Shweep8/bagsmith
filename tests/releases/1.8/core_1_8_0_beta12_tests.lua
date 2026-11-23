@@ -58,10 +58,10 @@ end)()
 			n:Set("glowFilled_herb", "frame"); M.runTimers()
 			local hr = n:BagKindColor("herb")
 			local frame
-			if skin == "modern" or weight == "bold" then local e = herb.modernBorder and herb.modernBorder[1]; frame = e and e:IsShown() and e.color
-			else frame = herb.qRing:IsShown() and herb.qRing.color end
+			if skin == "modern" then local e = herb.modernBorder and herb.modernBorder[1]; frame = e and e:IsShown() and e.color
+			else frame = herb.qFrame:IsShown() and herb.qFrame.color end
 			check(frame and math.abs(frame[1] - hr) < 1e-6 and not (herb.bagGlow and herb.bagGlow:IsShown()), S .. "Frame Color: the row icon's frame in the herb bag's color")
-			if weight == "bold" then check(herb.borderThickness == 2 * n.Buttons.PixelSize(herb), S .. "special-bag rows use Bold weight") end
+			if skin == "modern" and weight == "bold" then check(herb.borderThickness == 2 * n.Buttons.PixelSize(herb), S .. "special-bag rows use Bold weight") end
 			n:Set("glowFilled_herb", "off"); M.runTimers()
 			check(not (herb.bagGlow and herb.bagGlow:IsShown()), S .. "Filled off: nothing on the row")
 			check((n.errors or 0) == 0, S .. "no errors")

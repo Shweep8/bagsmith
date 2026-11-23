@@ -23,7 +23,9 @@ end
 -- always in sync with the profile; widgets are pooled by type.
 ------------------------------------------------------------------------
 -- (1.8.0-beta6, Shweep) the page side 15% wider: 510 px beside the page list, now 587 (the window 680 to 757)
-local NAV_W, WIN_W, WIN_H = 170, 757, 588   -- (1.9.0-beta6, Shweep) 5% taller (was 560): the Global sub-pages
+-- (1.10.0-beta9) 612: one more page in the list (Addon Sources), and it still keeps full spacing with a page's three
+-- sub-pages open, in both skins, as 1.9.0-beta6 chose (Shweep then: "we may want to make it 5-10% taller"; 560 at first)
+local NAV_W, WIN_W, WIN_H = 170, 757, 612   -- (1.9.0-beta6, Shweep) 5% taller (was 560): the Global sub-pages
 local SEARCH_W = 200   -- NAV_W fits the longest page name (1.9.0-beta22: "Automations & Actions" is "Automations")
 -- A third field names the page an entry sits under: it's listed (indented)
 -- only while that page or one of its sub-pages is open.
@@ -33,7 +35,9 @@ local PAGES = {
 	{ "columns", "Columns" }, { "bagcols", "Bag Columns", "columns" }, { "bankcols", "Bank Columns", "columns" }, { "globalcols", "Global Inv Columns", "columns" },
 	{ "sheets", "Sheets" }, { "bagsheets", "Bag Sheets", "sheets" }, { "banksheets", "Bank Sheets", "sheets" }, { "globalsheets", "Global Inv Sheets", "sheets" },
 	{ "sorting", "Sorting & Filters" }, { "automation", "Automations" }, { "loothelper", "Loot Helper", "automation" }, { "dehelper", "Disenchant Helper", "automation" },
-	{ "keys", "Keybindings" }, { "plugins", "Plugins" }, { "profile", "Profile" }, { "advanced", "Advanced" },
+	-- (1.10.0-beta9, Shweep: "own page") the page for what BagSmith does with other addons
+	-- (1.10.0-beta10, Shweep: "can we call it Addon Sources"; "let's move plugins above advanced")
+	{ "keys", "Keybindings" }, { "addons", "Addon Sources" }, { "profile", "Profile" }, { "plugins", "Plugins" }, { "advanced", "Advanced" },
 }
 -- (1.9.0-beta8, Shweep: "in each's header in settings and in the settings left hand can each also get their icon") the
 -- sub-pages' icons, one color like the text, before the name in the list and in the page's heading
@@ -48,6 +52,7 @@ Panel.PAGE_ICON = {
 	window = MEDIA_PATH .. "ui-set-windows.tga", sections = MEDIA_PATH .. "ui-set-sections.tga", columns = MEDIA_PATH .. "ui-set-columns.tga",
 	sheets = MEDIA_PATH .. "ui-set-sheets.tga", sorting = MEDIA_PATH .. "ui-set-filter.tga", automation = MEDIA_PATH .. "ui-set-auto.tga",
 	keys = MEDIA_PATH .. "ui-set-keys.tga", plugins = MEDIA_PATH .. "ui-set-plugins.tga", profile = MEDIA_PATH .. "ui-set-profile.tga",
+	addons = MEDIA_PATH .. "ui-set-addons.tga",   -- (1.10.0-beta9, Shweep: "go w/ first icon") three blocks and a fourth set apart
 	advanced = MEDIA_PATH .. "ui-set-advanced.tga",
 }
 -- (1.9.0-beta10, Shweep: "all these icons in settings should use the accent color - but dimmed") the accent, dimmed;
@@ -84,18 +89,19 @@ end
 -- last opened at (newSeen[release][page] = "1.9.1"; an older save's true reads as x.y.0), and it and its entries show
 -- NEW while it holds anything added after that: a 1.9.1 setting on a page opened in 1.9.0 is NEW, the rest there isn't.
 -- Someone coming straight from an older release sees all of them.
+-- (1.10.0-beta12) 1.10's list, with its What's New card. Other Addons' page (Addon Sources) and each of its switches;
+-- Custom Sections (the rule editor, the examples) and its last card; Sections, for All Items in its list.
 Panel.NEW = {
-	release = "1.9",
-	pages = { general = true, window = true, icons = true, look = true, sections = true, columns = true, sheets = true,
-		globalsections = true, globalcols = true, globalsheets = true },
-	heads = {},
-	keys = { tipInventory = "general", tipAHPrice = "general", bagSlotCount = "window", borderWeight = "icons", iconLayout = "look", footerTextScale = "look", globalResize = "window" },
-	added = {
-		["1.9.1"] = { keys = { splitViewPinnedWide = "look" } },   -- (1.9.1-beta2) Full-Width Pinned
-		["1.9.2"] = { keys = { unusableOverlay = "icons" } },   -- (1.9.2-beta1) Jeor's Unusable Item Overlay
-		["1.9.4"] = { keys = { sectionValues = "sections" } },   -- (1.9.4-beta2) Show Section Values
-	},
+	release = "1.10",
+	pages = { addons = true, sections = true, custom = true },
+	heads = { ["How an Item Finds Its Section"] = "custom" },
+	keys = { useItemTree = "addons", makeRoomHoldItemTree = "addons", deHoldItemTree = "addons", makeRoomHoldPawn = "addons", deHoldPawn = "addons" },
+	-- (1.10.0-beta15, Shweep: "why no New tag beside New Section button", "yes just add to that one button please") a
+	-- button, by its label: New Section... was there in 1.9, and what it opens is 1.10's main feature
+	buttons = { ["New Section..."] = "custom" },
+	added = {},
 }
+local NEW_KINDS = { "heads", "keys", "buttons" }   -- what a page holds besides itself
 Panel.NEW_COLOR = { 0.55, 0.78, 1 }   -- the soft blue of What's New's links
 local function release() return tostring(ns.version or ""):match("^(%d+%.%d+)") end
 -- The point version running ("1.9.1" in 1.9.1-beta3), and a version's patch number (true, from an older save: 0).
@@ -111,7 +117,7 @@ local function entriesOn(N, page)
 	local function scan(list, patch)
 		if patch > cur then return end
 		if list.pages and list.pages[page] then out[#out + 1] = { "pages", page, patch } end
-		for _, kind in ipairs({ "heads", "keys" }) do
+		for _, kind in ipairs(NEW_KINDS) do
 			for id, pg in pairs(list[kind] or {}) do if pg == page then out[#out + 1] = { kind, id, patch } end end
 		end
 	end
@@ -163,9 +169,9 @@ function Panel:MarkAllNewSeen()
 	for page in pairs(N and N.pages or {}) do pages[page] = true end
 	for _, list in pairs(N and N.added or {}) do
 		for page in pairs(list.pages or {}) do pages[page] = true end
-		for _, kind in ipairs({ "heads", "keys" }) do for _, pg in pairs(list[kind] or {}) do pages[pg] = true end end
+		for _, kind in ipairs(NEW_KINDS) do for _, pg in pairs(list[kind] or {}) do pages[pg] = true end end
 	end
-	for _, kind in ipairs({ "heads", "keys" }) do for _, pg in pairs(N and N[kind] or {}) do pages[pg] = true end end
+	for _, kind in ipairs(NEW_KINDS) do for _, pg in pairs(N and N[kind] or {}) do pages[pg] = true end end
 	for page in pairs(pages) do self:MarkPageSeen(page) end
 end
 -- (1.8.0-beta20) /bs new reset: this release's tags show again, as just after an update (at once, if Settings is open).
@@ -646,6 +652,8 @@ end
 
 -- info (1.5.0-beta3): an optional { title, lines, keywords } for an info icon beside the heading; its words are
 -- searchable.
+-- info.state (1.10.0-beta9): a few quiet words at the right end of the heading's line (an addon's state on the Other
+-- Addons page: "Installed"); info.stateOn draws them in the text color, otherwise muted.
 function Panel:Head(text, info)
 	self:CloseCard()
 	if self.seek and not self.seekY and not self.filter and tostring(text):lower() == self.seek then self.seekY = self.y end   -- (beta18) Open's heading
@@ -675,6 +683,12 @@ function Panel:Head(text, info)
 		h.info:Show()
 	elseif h.info then
 		h.info:Hide()
+	end
+	if info and info.state then
+		if not h.state then h.state = fs(h); h.state:SetPoint("BOTTOMRIGHT", -2, 7) end
+		h.state:SetText(info.state); h.state:SetTextColor(Skins:Color(info.stateOn and "text" or "muted")); h.state:Show()
+	elseif h.state then
+		h.state:SetText(""); h.state:Hide()
 	end
 	local tagX = (h.text:GetStringWidth() or 0) + 6 + ((h.info and h.info:IsShown()) and 20 or 0)   -- (from the text)
 	newTag(h, self:IsNew("heads", text), h.text, tagX)   -- (beta18)
@@ -971,7 +985,8 @@ function Panel:Dropdown(key, label, choices, help, binding)
 			local value = binding and binding.get() or ns.db[settingKey]
 			-- (1.8.0-beta2, Shweep) a group: a long list scrolls inside the menu, the current one in view
 			for _, c in ipairs(pr.choices or {}) do
-				items[#items + 1] = { text = c.label, checked = c.key == value, font = c.path, group = true, radio = true, onClick = function() if binding then binding.set(c.key) else ns:Set(settingKey, c.key) end end }
+				-- (1.10.0-beta9) c.disabled: listed, but it can't be picked (a price addon you don't have)
+				items[#items + 1] = { text = c.label, checked = c.key == value, font = c.path, group = true, radio = true, disabled = c.disabled or nil, onClick = function() if binding then binding.set(c.key) else ns:Set(settingKey, c.key) end end }
 			end
 			items.listRows = 20   -- (1.8.0-beta22, after FlareUI) twenty at a time before it scrolls
 			ns.ShowMenu(items, btn)
@@ -1509,10 +1524,18 @@ end
 function Panel:CustomSectionRow(c)
 	local w = acquire(self, "csec", function(p)
 		local w = CreateFrame("Frame", nil, p); w:SetHeight(26)
-		w.text = fs(w); w.text:SetPoint("LEFT", 6, 0)
+		-- (1.10.0-beta1) its place in the list is its priority: the higher section gets an item first
+		w.up = ns.IconButton(w, "Interface\\AddOns\\BagSmith\\Media\\ui-chev-up.tga", "Move this section up. When an item fits more than one section, the higher one gets it.", function(b) if ns.Sections:Reorder(b:GetParent().id, -1) then Panel:Refresh() end end)
+		w.up:SetSize(12, 12); w.up:SetPoint("LEFT", 4, 6)
+		w.down = ns.IconButton(w, "Interface\\AddOns\\BagSmith\\Media\\ui-chev-down.tga", "Move this section down.", function(b) if ns.Sections:Reorder(b:GetParent().id, 1) then Panel:Refresh() end end)
+		w.down:SetSize(12, 12); w.down:SetPoint("LEFT", 4, -6)
+		w.text = fs(w); w.text:SetPoint("LEFT", 22, 0)
+		-- its rules, in words, on a line of their own under the name
+		w.sub = fs(w); w.sub:SetPoint("TOPLEFT", w, "BOTTOMLEFT", 22, 4); w.sub:SetPoint("RIGHT", -8, 0)
 		w.del = ns.IconButton(w, "Interface\\AddOns\\BagSmith\\Media\\ui-close.tga", "Delete this section", function(b) ns.Sections:ConfirmDelete(b:GetParent().id, b) end)
 		w.del:SetSize(18, 18); w.del:SetPoint("RIGHT", -4, 0)
-		w.ren = ns.IconButton(w, "Interface\\AddOns\\BagSmith\\Media\\ui-pencil.tga", "Rename this section", function(b) ns.Sections:PromptRename(b:GetParent().id) end)
+		-- (1.10.0-beta3) the pencil opens the editor: the section's name and its rules
+		w.ren = ns.IconButton(w, "Interface\\AddOns\\BagSmith\\Media\\ui-pencil.tga", "Edit this section: its name and its rules", function(b) ns.Sections:EditSection(b:GetParent().id) end)
 		w.ren:SetSize(18, 18); w.ren:SetPoint("RIGHT", w.del, "LEFT", -8, 0)
 		w.empty = CreateFrame("CheckButton", nil, w, "UICheckButtonTemplate"); w.empty:SetSize(24, 24)
 		w.empty:SetPoint("RIGHT", -62, 0)
@@ -1520,12 +1543,22 @@ function Panel:CustomSectionRow(c)
 		return w
 	end)
 	w.id = c.id
-	local n = ns.Sections:ItemCount(c.id)
+	-- (1.10.0-beta1) the items you put in it and the ones its rules bring in (each once)
+	local n = ns.Sections.SectionCount and ns.Sections:SectionCount(c.id) or ns.Sections:ItemCount(c.id)
 	w.text:SetText(("%s  |cff9a9a9a(%d %s)|r"):format(c.name, n, n == 1 and "item" or "items"))
 	w.text:SetTextColor(Skins:Color("text"))
 	w.empty:SetChecked(c.showEmpty ~= false)
 	w.empty:SetAlpha(ns.db.showEmptySections and 1 or 0.5)
-	self.y = self.y + 28
+	local at, count = ns.Sections:Priority(c.id) or 1, #ns.Sections:Customs()
+	w.up:SetAlpha(at > 1 and 1 or 0.3); w.down:SetAlpha(at < count and 1 or 0.3)
+	local summary = (c.rules and ns.Rules) and ns.Rules:Summary(c.rules) or ""
+	-- (1.10.0-beta5) and where it shows, when that isn't every sheet
+	if c.sheets and ns.Sections.SheetsText then
+		local where = ns.Sections:SheetsText(c.sheets)
+		if where ~= "" then summary = summary ~= "" and ("%s (only on %s)"):format(summary, where) or ("Only on %s"):format(where) end
+	end
+	w.sub:SetText(summary); w.sub:SetTextColor(Skins:Color("muted")); w.sub:SetShown(summary ~= "")
+	self.y = self.y + 28 + (summary ~= "" and 14 or 0)
 end
 -- A gear set: its icon (click or drag it to put the set on an action bar),
 -- its name and how many items it holds, then a pencil (Rename) and an x (Delete).
@@ -1592,6 +1625,8 @@ function Panel:Button(label, onClick, width)
 	b:SetActive(false)
 	-- (1.9.0-beta3, Shweep) clear of the line above: 4 px above and below
 	b:ClearAllPoints(); b:SetPoint("TOPLEFT", self.frame.child, "TOPLEFT", rowX, -(self.y + 4))
+	-- (1.10.0-beta15) a button can wear the NEW tag, to its right (a button from the pool may have worn one before)
+	newTag(b, self:IsNew("buttons", label), b, b:GetWidth() + 6)
 	self.y = self.y + 30
 end
 -- Several buttons on one row (1.2.0): { { label, onClick }, ... }, laid out left to right.
@@ -1603,6 +1638,7 @@ function Panel:Buttons(list)
 		b:SetWidth(spec[3] or math.max(80, b.label:GetStringWidth() + 20))
 		b:SetActive(false)
 		b:ClearAllPoints(); b:SetPoint("TOPLEFT", self.frame.child, "TOPLEFT", rowX + x, -(rowY + 4))   -- (1.9.0-beta3) 4 px clear
+		if b.newTag then b.newTag:Hide() end   -- (1.10.0-beta15) a button from the pool may have worn the NEW tag
 		x = x + b:GetWidth() + 6
 	end
 	self.y = rowY + 30
@@ -1657,24 +1693,75 @@ pages.profile = function(self, db)
 	self:Button("Import Profile", function() ns.ShareWindow("import") end, 160)
 end
 
+-- Addon Sources (1.10.0-beta9; Shweep: "this needs more consistency and a scalable plan"). What BagSmith does with
+-- other addons, in cards that are all built the same way:
+--   * an ADDON card for an addon that knows something only it knows (ItemTree, Pawn): the heading is its name, with its
+--     state at the right end of the heading's line; one sentence on what it knows; then one row per thing BagSmith
+--     does with it. A row is named by the job, in the same words on every card, and switches one thing only.
+--   * a JOB card where several addons can supply the same thing (Auction Prices): the heading is the job, the state
+--     says which addon is in use, the choice is a list (it stays one row however many there are), and a "Works with"
+--     line names them all from AH.SOURCES. A new price addon needs no change here.
+-- An addon you don't have shows its heading, state and sentence only. Cards are in A to Z order by heading.
+-- A new row never changes what a player already has.
+pages.addons = function(self, db)
+	self:Text("BagSmith works with these addons when you have them. None are required.")   -- (beta10, Shweep's words)
+	-- Auction Prices: a job card
+	do
+		local AH = ns.AH
+		local using = AH:SourceName()
+		local names, choices = {}, { { key = "auto", label = "Automatic" } }
+		for _, k in ipairs(AH.ORDER) do
+			local has = AH:Installed(k)
+			names[#names + 1] = ("%s (%s)"):format(AH.SOURCES[k].name, has and "installed" or "not installed")
+			choices[#choices + 1] = { key = k, label = has and AH.SOURCES[k].name or (AH.SOURCES[k].name .. " (not installed)"), disabled = not has or nil }
+		end
+		self:Head("Auction Prices", { noIcon = true, state = using and ("Using %s"):format(using) or "No price addon installed", stateOn = using and true or false })
+		self:Text("Used for the AH Price column, item tooltips and both Helpers.")
+		if using then
+			local help = "Automatic uses the first one you have, in the order listed."
+			local picked = db.priceSource ~= "auto" and AH.SOURCES[db.priceSource]
+			if picked and not AH:Installed(db.priceSource) then help = help .. (" %s isn't installed, so BagSmith uses %s."):format(picked.name, using) end
+			self:Dropdown("priceSource", "Auction Price Source", choices, help)
+		end
+		self:Text("Works with: " .. table.concat(names, ", "))
+	end
+	-- ItemTree: an addon card
+	do
+		local IT = ns.ItemTree
+		local installed = IT and IT:Installed()
+		self:Head("ItemTree", { noIcon = true, state = installed and "Installed" or "Not installed", stateOn = installed and true or false })
+		self:Text("Knows what your items are for on this character.")
+		if installed then
+			self:Check("useItemTree", "Section and Filter Rules", "Adds rules such as Used by My Professions and Needed for a Quest.")
+			-- (1.10.0-beta14, the re-audit's R5 and R6; Shweep: "both are fine") what "hold back" covers, said where the
+			-- switches are: items ItemTree hasn't answered about, the two exceptions, and Clear Soul Shards, which is the
+			-- player's own action with its own count to keep and doesn't ask ItemTree
+			self:Check("makeRoomHoldItemTree", "Hold Back in the Loot Helper", "Won't offer an item ItemTree says to keep, or one it hasn't answered about yet. Your junk is still offered, and Clear Soul Shards doesn't ask ItemTree.")
+			self:Check("deHoldItemTree", "Hold Back in the Disenchant Helper", "Won't offer a piece ItemTree says to keep, or one it hasn't answered about yet. Gear it keeps for its dust is still offered.")
+		end
+	end
+	-- Pawn: an addon card
+	do
+		local P = ns.Pawn
+		local present = P and P:Present()
+		local active = present and P:Active()
+		self:Head("Pawn", { noIcon = true, state = not present and "Not installed" or (active and "Installed" or "Installed, bag upgrade advisor off"), stateOn = active and true or false })
+		self:Text("Knows which gear is an upgrade for you. Its green arrows show on your icons.")
+		if present then
+			if not active then self:Text("Pawn's bag upgrade advisor is off, so it marks no upgrades for now. You can turn it on in Pawn's options.") end
+			self:Check("makeRoomHoldPawn", "Hold Back in the Loot Helper", "Won't offer a piece Pawn says is an upgrade.")
+			self:Check("deHoldPawn", "Hold Back in the Disenchant Helper", "Won't offer a piece Pawn says is an upgrade.")
+		end
+	end
+end
+
 -- General: how BagSmith opens, which of Blizzard's windows it stands in for, and its notices.
 pages.general = function(self, db)
 	self:Head("Opening BagSmith")
 	self:Check("replaceBlizzardBags", "Open with the Bag Keybind (B)", "Turn off to keep Blizzard's bags on B. You can still open BagSmith from the minimap button or /bs.")
 	self:Check("minimap", "Show Minimap Button", "With it off, you can still open BagSmith with /bs or from the game's addon list.")
 	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
-	-- (1.6.0) where auction prices come from, for the AH Price column and the Loot and Disenchant Helpers (on General:
-	-- they matter to the helpers as much as the column, Shweep)
-	self:Head("Auction Prices")
-	local using = ns.AH:SourceName()
-	local installed = {}
-	for _, k in ipairs(ns.AH.ORDER) do if ns.AH:Installed(k) then installed[#installed + 1] = ns.AH.SOURCES[k].name end end
-	local now = using and ("Now using %s."):format(using) or "Neither Auctionator nor Blackthornes Tradeskills is installed."
-	if using and #installed < 2 and db.priceSource ~= "auto" and ns.AH.SOURCES[db.priceSource] and not ns.AH:Installed(db.priceSource) then
-		now = ("%s isn't installed, so BagSmith uses %s."):format(ns.AH.SOURCES[db.priceSource].name, using)
-	end
-	self:Seg("priceSource", "Price Source", { { "auto", "Automatic" }, { "auctionator", "Auctionator" }, { "blackthornes", "Blackthornes" } },
-		"Which addon BagSmith gets auction prices from. Automatic uses the one you have, or Auctionator if you have both. " .. now)
+	-- (1.10.0-beta9) auction prices, ItemTree and Pawn have a page of their own: Addon Sources (pages.addons)
 	-- (1.6.0) tips on BagSmith's own controls
 	self:Head("Tooltips")   -- (1.9.0-beta2, Shweep) was "Tips"
 	-- (1.9.0-beta1, Shweep)
@@ -1746,7 +1833,7 @@ pages.icons = function(self, db)
 	self:Head("Appearance")
 	self:Seg("border", "Rarity Borders", { { "all", "All" }, { "unc", "Green and Up" }, { "off", "Off" } })
 	self:Check("questFrame", "Gold Frame for Quest Items", "Quest items get a gold frame, whatever Rarity Borders is set to.")   -- (1.8.0-beta11)
-	self:Seg("borderWeight", "Icon Border Weight", { { "normal", "Normal" }, { "bold", "Bold" } })
+	self:Seg("borderWeight", "Icon Border Weight", { { "normal", "Normal" }, { "bold", "Bold" } }, "Bold brightens Classic borders without changing thickness or opacity, and thickens Modern borders.")
 	self:Step("iconSize", "Icon Size (Icons View)", 2, "%d", nil, {
 		title = "Smaller icons",
 		lines = {
@@ -1851,7 +1938,8 @@ pages.loothelper = function(self, db)
 			{ disabled = db.makeRoomAsk and true or nil, checked = db.makeRoomAsk and true or nil, keywords = "destroy destroyed destroying confirm confirmation" })
 	end)
 	-- The Loot Exclusion List: one line here, the list in its own window.
-	self:Text("Favorites, gear-set items, quest items, Pawn upgrades and items you protect are never suggested for destroying.")
+	-- (1.10.0-beta9) Pawn upgrades left this sentence: holding them back is a switch now, with ItemTree's, in Addon Sources
+	self:Text("Favorites, gear-set items, quest items and items you protect are never suggested for destroying. Settings > Addon Sources sets what Pawn and ItemTree hold back.")
 	self:Head("Loot Exclusion List")
 	self:Text("Items the Loot Helper won't make room for. This list only affects the Loot Helper.")
 	self:Text("The helpers never destroy or disenchant favorites, but junk selling still sells grey favorites.")
@@ -2005,7 +2093,8 @@ pages.sections = function(self, db)
 	-- coin drawn inline, the header coin's own texture at the text's height
 	self:Check("sectionValues", "Show Section Values", "Each section's header shows what its items are worth: V for vendor, and AH while the AH Price column is on. Turn it off to keep headers clean; you can still hover a section's name to see them. At smaller widths this is displayed as a coin |TInterface\\MoneyFrame\\UI-GoldIcon:0|t.")
 	self:Head("Which Section an Item Goes To")
-	self:Text("An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, or its usual section.")
+	-- (1.10.0-beta11) your own sections' rules have their place in it (they have since 1.10.0-beta1)
+	self:Text("An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, one of your sections whose rules it fits, or its usual section.")
 	self:Head("Keys & Reagent Bag")
 	self:Check("keys", "Keys in Their Own Section (All and By Bag)", "By Section always gives keys their own section.")
 	self:Seg("reagent", "Reagent Bag (Sections: All)", { { "inline", "Mixed In" }, { "lane", "Own Section" } },
@@ -2057,7 +2146,9 @@ pages.sections = function(self, db)
 	-- (1.7.0-beta5, Shweep) named for what the card does: "Section Order" before
 	self:Head("Move, Pin and Hide Sections", { noIcon = true, keywords = "order section order sort arrange pin pinned top hide hidden show vendor vendors auction house ah" })
 	self:Text("Your sections show in this order, dynamic and custom ones included. Use the arrows to move one.")
-	self:Text("Pin keeps a section at the top, just under Recent. You can also pin one by right-clicking its title. By Bag ignores pins.")
+	-- (1.10.0-beta10) pins and All Items: "at the top" no longer says it
+	self:Text("Pin shows a section ahead of your other sections, just under Recent. You can also pin one by right-clicking its title. By Bag ignores pins.")
+	self:Text("All Items is the list you see with Sections: All. There, a pinned or dynamic section shows above it or below it by its place in this list.")
 	self:Text("Untick Vendor or AH to hide a section while you're at a vendor or the auction house. It comes back when you leave. Hiding doesn't stop Blizzard's Sell All Junk button from selling them.")
 	-- Recent Items, Keys and Reagent Bag stay listed (so their place can be set
 	-- in advance) but are dimmed with "(off)" when inactive, and say how to turn
@@ -2081,18 +2172,20 @@ pages.sections = function(self, db)
 			off = "Your reagent bag's items are mixed in with your other items. Set Reagent Bag to Own Section, under Keys & Reagent Bag, above."
 		end
 		if off then it.label, it.dim, it.tip = it.label .. " (off)", true, off end
+		-- (1.10.0-beta10) All Items: its place matters in Sections: All only
+		if it.id == "~all" then it.tip = "With Sections: All, the sections above this one in the list show above All Items, and the ones below it show below. By Section and By Bag pass over it." end
 	end
 	-- Junk, if it isn't in the order, still gets its pin and hiding (last, where it can't be moved)
 	if not ns.IndexOf(db.laneOrder, "Junk") then orderItems[#orderItems + 1] = { id = "Junk", label = ns.Sections:Label("Junk") or "Junk", noUp = true, noDown = true } end
 	local GS = ns.GearSets
 	local function custom(id) return id:match("^c%d+$") ~= nil end
 	local function hides(id)
-		if id == "~recent" or id == "~ky" or id == "~rb" then return false end
+		if id == "~recent" or id == "~ky" or id == "~rb" or id == "~all" then return false end   -- (All Items: 1.10.0-beta10)
 		if id == "~gs" then return GS and GS:Available() and GS:Showing() and true or false end   -- one row for every gear set
 		return not custom(id) or ns.Sections:IsCustom(id)
 	end
 	local cols = {
-		{ key = "pin", head = "Pin", tip = "Pinned: stays at the top, just under Recent.", keywords = "pin pinned top",
+		{ key = "pin", head = "Pin", tip = "Pinned: shown ahead of your other sections, just under Recent. In Sections: All it sits above or below All Items by its place here.", keywords = "pin pinned top",
 			get = function(id) if ns.Sections:Pinnable(id) and (not custom(id) or ns.Sections:IsCustom(id)) then return ns.Sections:Pinned(id) end end,
 			set = function(id, on) ns.Sections:SetPinned(id, on); Panel:Refresh() end },
 		{ key = "vendor", head = "Vendor", tip = "Shown at vendors. Untick to hide it while a vendor is open.", keywords = "show hide vendor vendors",
@@ -2149,16 +2242,44 @@ end
 pages.custom = function(self, db)
 	self:PageHead("Custom Sections", "custom")
 	self:Text("Make your own sections. Drag an item onto a section's title, or Alt+Left-click it, to move it there. Every copy of the item moves with it.")
-	self:Button("New Section...", function() ns.Sections:PromptNew() end)
+	-- (1.10.0-beta3) New Section... opens the editor: a name, and rules if you want them
+	self:Button("New Section...", function() ns.Sections:EditSection() end)
+	-- (1.10.0-beta1) sections that fill themselves
+	self:Text("A section can also fill itself. Give it rules with the pencil beside it, or Alt+Left-click an item and pick New Section From This Item.")
+	-- (1.10.0-beta11, the mockup's "or start from an example") each opens the editor filled in, to look over and create
+	self:Text("Or start from an example. It opens filled in for you to look over, and nothing is made until you create it:")
+	do
+		local list = {}
+		for _, ex in ipairs(ns.Sections.EXAMPLES or {}) do
+			list[#list + 1] = { ex.name, function() ns.Sections:EditSection(nil, { name = ex.name, rules = ex.rules }) end }
+		end
+		self:Buttons(list)
+	end
 	self:Check("showEmptySections", "Show Empty Custom Sections", "Shows your sections even when they're empty, so you can drag items onto them.")
 	local customs = ns.Sections:Customs()
 	if #customs == 0 then
 		self:Text("No sections yet. New Section... makes one.")
 	else
+		if #customs > 1 then self:Text("If an item fits more than one of your sections, the higher one gets it. Use the arrows to change their order.") end
 		self:CustomSectionHeader()
 		for _, c in ipairs(customs) do self:CustomSectionRow(c) end
 	end
 	self:MovedRow()
+	-- (1.10.0-beta11, the mockup's "How an item finds its section") the order an item is looked at, as it is on this
+	-- character: a gear set and Favorites only while they show as sections
+	self:Head("How an Item Finds Its Section", { noIcon = true, keywords = "priority order first wins rules junk favorites moved by hand" })
+	do
+		local steps = {}
+		local GS = ns.GearSets
+		if GS and GS:Available() and GS:Showing() then steps[#steps + 1] = "Its gear set" end
+		steps[#steps + 1] = "Junk"
+		if db.favSection then steps[#steps + 1] = "Favorites" end
+		steps[#steps + 1] = "Moved by hand"
+		steps[#steps + 1] = "Your sections, top to bottom"
+		steps[#steps + 1] = "Its usual section"
+		self:Text(table.concat(steps, "  >  "), "text")
+		self:Text("The first one that fits wins, so an item is only ever in one section.")
+	end
 end
 
 pages.columns = function(self, db)
@@ -2180,7 +2301,7 @@ local function columnsPage(self, db, bank)
 			-- AH Price: always listed, greyed out until a price addon is installed (1.6.0: Auctionator or Blackthornes Tradeskills).
 			local ok = ns.AH:Available()
 			colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil, disabled = not ok,
-				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Price Source is in General.") or ns.AH.INSTALL_HINT }
+				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in Settings > Addon Sources.") or ns.AH.INSTALL_HINT }
 		else colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil } end
 	end
 	self:List(colItems,
@@ -2288,7 +2409,7 @@ pages.globalcols = function(self, db)
 		if id == "ah" then
 			local ok = ns.AH:Available()
 			return { id = id, label = ns.COL_LABEL[id], checked = checked, disabled = not ok,
-				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Price Source is in General.") or ns.AH.INSTALL_HINT }
+				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in Settings > Addon Sources.") or ns.AH.INSTALL_HINT }
 		end
 		return { id = id, label = ns.COL_LABEL[id], checked = checked }
 	end

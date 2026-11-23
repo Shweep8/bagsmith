@@ -1,6 +1,6 @@
 --[[
 	BagSmith - Frames/Popups.lua
-	Filter panel (checkboxes + save as sheet) and the character picker.
+	The Filters window (search, quality, quick picks, rules, save as a sheet or a section) and the character picker.
 --]]
 
 local ADDON, ns = ...
@@ -25,16 +25,6 @@ local function popupFrame(name, parent, width)
 		fr:SetBackdropColor(0.075, 0.07, 0.06, 1)
 	end)
 	return f
-end
-
-local function checkbox(parent, label, onChange)
-	local c = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-	c:SetSize(22, 22)
-	c.label = fs(c)
-	c.label:SetPoint("LEFT", c, "RIGHT", 2, 0)
-	c.label:SetText(label)
-	c:SetScript("OnClick", function(self) onChange(self:GetChecked() and true or false) end)
-	return c
 end
 
 ------------------------------------------------------------------------
@@ -265,12 +255,69 @@ function Popups:HideAll()
 end
 
 ------------------------------------------------------------------------
--- Filter panel
+-- The Filters window (rebuilt in 1.10.0-beta4 on the rules a custom section has)
+--
+-- Search, Quality and Quick picks always apply. Under "Only show items that fit" are rules, the same rows as the
+-- section editor's (Frames/RuleList.lua), with three kinds that are only a filter's: Section, Bag and Time in Bags.
+-- What used to be the "Type / Sections", "Bind", "Where" and "Age" boxes are rules now: a sheet saved by an older
+-- version shows them as rules (ns.FoldFilters), and filters the same.
+--
+-- The window edits its view's filters in place (view.st.filters), so the list behind it follows every click. Its
+-- rule list keeps a draft of the rules (a rule with nothing picked yet lives only there) and writes the sound ones
+-- back on every change.
 ------------------------------------------------------------------------
 local QUALITY = { { 0, "Poor" }, { 1, "Common" }, { 2, "Uncommon" }, { 3, "Rare" }, { 4, "Epic" }, { 5, "Legendary" } }
-local BIND = { "BoE", "BoP", "None" }
 
-local FW, FPAD, ROWH = 480, 14, 26
+local FW, FPAD = 480, 14
+local RULES_W, RULES_MAX = FW - FPAD * 2 - 22, 190   -- the rules, beside their scroll bar; they scroll past this height
+local function qualityHex(q)
+	local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+	if not c then return nil end
+	return ("|cff%02x%02x%02x"):format(math.floor((c.r or 1) * 255 + 0.5), math.floor((c.g or 1) * 255 + 0.5), math.floor((c.b or 1) * 255 + 0.5))
+end
+-- A chip: a small button that stays lit while it's on. (It answers SetChecked and GetChecked like the check boxes
+-- these used to be.)
+local function chip(parent, label, onChange)
+	local c
+	c = ns.TextButton(parent, label, 40, function()
+		c.on = not c.on
+		c:Paint()
+		onChange(c.on, c)
+	end)
+	c:SetHeight(20)
+	c.text = label
+	function c:Paint()
+		-- (1.10.0-beta15, Shweep: "yes gold in classic style") In Classic a selected chip is Blizzard's button pushed in
+		-- with gold text, and the gold is what shows it. The quality's color written into the text replaced the gold:
+		-- Common came out white beside an unselected chip's cream, and "it's hard to tell anything happened". So the
+		-- quality colors are Modern's, where the border and fill show the selection.
+		local hex = self.on and self.quality and not (ns.Classic and ns.Classic.IsOn()) and qualityHex(self.quality)
+		self.label:SetText(hex and (hex .. self.text .. "|r") or self.text)
+		self:SetActive(self.on and true or false)
+	end
+	function c:SetChecked(on) self.on = on and true or false; self:Paint() end
+	function c:GetChecked() return self.on == true end
+	c:SetWidth(math.max(30, math.ceil(c.label:GetStringWidth() or 0) + 16))
+	return c
+end
+
+-- The bags the window is actually showing: its own or the Bank sheet's,
+-- live or another character's saved ones (with their saved names).
+local function whereBags(view)
+	local list = view.Bags and view:Bags() or ns.BAGS
+	local saved
+	if view.Records then local _; _, saved = view:Records() end
+	local out = {}
+	for _, bag in ipairs(list) do
+		-- Another character's (or the unvisited bank's) saved names only: never
+		-- the current character's live names standing in for missing ones.
+		local info
+		if view.IsCached and view:IsCached() then info = saved and saved[bag] else info = (saved and saved[bag]) or ns.bagInfo[bag] end
+		if info and (info.size or 0) > 0 then out[#out + 1] = info.name or ("Bag " .. bag) end
+	end
+	return out
+end
+
 function Popups:BuildFilters(view)
 	local f = popupFrame(nil, view.frame, FW)
 	f:SetMovable(true); f:SetClampedToScreen(true)
@@ -286,7 +333,6 @@ function Popups:BuildFilters(view)
 	end
 	self.filter = f
 	f.checks = {}
-	f.wherePool = {}
 
 	-- Drag bar with title and close; the panel can be moved aside to watch the list change.
 	local drag = CreateFrame("Frame", nil, f)
@@ -313,11 +359,16 @@ function Popups:BuildFilters(view)
 			if t[3] then t[1]:SetColorTexture(Skins:Color(t[2])) else t[1]:SetTextColor(Skins:Color(t[2])) end
 		end
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
+		if ns.Classic.DressScrollBar and fr.rules then ns.Classic:DressScrollBar(fr.rules, ns.Classic.IsOn()) end
+		for _, c in ipairs(fr.checks or {}) do if c.Paint then c:Paint() end end   -- (1.10.0-beta15) the Quality chips' text follows the skin
+		if fr:IsShown() and fr.list then Popups:LayoutFilters(fr) end
 	end)
 	-- The drag bar covers the top of the panel; the close button must sit above it or the bar takes its clicks.
 	close:SetFrameLevel(drag:GetFrameLevel() + 2)
 	f.closeBtn, f.dragBar = close, drag
-	local y = -38
+	-- which window and tab these filters are for: "Bags, on the All tab"
+	f.where = fs(f); f.where:SetPoint("TOPLEFT", FPAD, -34); tint(f.where, "muted")
+	local y = -52
 
 	-- Search, shared with the window's own search box.
 	local search = CreateFrame("EditBox", nil, f, "SearchBoxTemplate")
@@ -340,270 +391,216 @@ function Popups:BuildFilters(view)
 	shint:SetWidth(FW - FPAD * 2); shint:SetWordWrap(true)
 	y = y - 28 - 32
 
-	local host = f
-	local function section(text)
-		y = y - 6
-		local s = fs(host, "GameFontNormal"); s:SetPoint("TOPLEFT", FPAD, y); s:SetText(text); tint(s, "accent"); y = y - 22
+	local function heading(text)
+		local s = fs(f, "GameFontNormal"); s:SetPoint("TOPLEFT", FPAD, y); s:SetText(text); tint(s, "accent")
+		y = y - 20
+		return s
 	end
-	local function row(items, groupKey, valueOf, labelOf)
-		local x, usable = FPAD, FW - FPAD * 2
-		for _, it in ipairs(items) do
-			local key, label = valueOf(it), labelOf(it)
-			local c = checkbox(host, label, function(on)
-				local set = Popups.view.st.filters[groupKey]
-				if on then set[key] = true else set[key] = nil end
-				ns:RefreshViews(true)
-			end)
-			local w = 26 + c.label:GetStringWidth() + 14
-			if x + w > FPAD + usable then x = FPAD; y = y - ROWH end
-			c:SetPoint("TOPLEFT", x, y + 2)
-			c.groupKey, c.key = groupKey, key
+	local function row(chips)
+		local x = FPAD
+		for _, c in ipairs(chips) do
+			c:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
+			x = x + c:GetWidth() + 4
 			f.checks[#f.checks + 1] = c
-			x = x + w
 		end
-		y = y - ROWH
+		y = y - 28
 	end
-	section("Rarity")
-	row(QUALITY, "q", function(it) return it[1] end, function(it) return it[2] end)
-	section("Type / Sections")
-	-- The Category row is refilled in place (FillCategory) whenever custom
-	-- sections or the profile change, reusing its checkboxes. Everything
-	-- below it rides a sub-frame moved to fit the number of category rows.
-	f.catY, f.catPool, f.catRows = y, {}, 1
-	local catAfter = CreateFrame("Frame", nil, f)
-	catAfter:SetPoint("TOPLEFT", f, "TOPLEFT", 0, y - ROWH)
-	catAfter:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, y - ROWH)
-	f.catAfter, f.catAfterTop = catAfter, y - ROWH
-	host = catAfter
-	y = 0
-	section("Bind")
-	row(BIND, "bd", function(it) return it end, function(it) return it end)
-	section("Where")
-	-- The Where row is rebuilt in place when the bag set changes, reusing
-	-- its checkboxes, so the panel itself is never recreated.
-	f.whereY = y
-	-- Everything below Where sits on a frame that FillWhere moves up or down
-	-- to match the number of bag rows, so no space is reserved.
-	local after = CreateFrame("Frame", nil, catAfter)
-	after:SetPoint("TOPLEFT", catAfter, "TOPLEFT", 0, y - ROWH)
-	after:SetPoint("TOPRIGHT", catAfter, "TOPRIGHT", 0, y - ROWH)
-	f.after = after
-	f.afterTop = y - ROWH
-	host = after   -- following widgets are parented to the sub-frame
-	y = 0
-	section("Other")
-	local newC = checkbox(host, "New Items Only", function(on) Popups.view.st.filters.new = on; ns:RefreshViews(true) end)
-	newC:SetPoint("TOPLEFT", FPAD, y + 2); newC.groupKey = "new"
-	f.checks[#f.checks + 1] = newC
+	local function filters() return f.view.st.filters end
+	-- Quality: any of the ones lit
+	heading("Quality")
+	local chips = {}
+	for _, q in ipairs(QUALITY) do
+		local c = chip(f, q[2], function(on) filters().q[q[1]] = on or nil; ns:RefreshViews(true) end)
+		c.groupKey, c.key, c.quality = "q", q[1], q[1]
+		chips[#chips + 1] = c
+	end
+	row(chips)
+	-- Quick picks
+	heading("Quick picks")
+	local newC = chip(f, "New", function(on) filters().new = on; ns:RefreshViews(true) end)
+	newC.groupKey, newC.tip = "new", "Only items that are new in your bags."
+	local usableC = chip(f, "Usable by Me", function(on) filters().usable = on or nil; ns:RefreshViews(true) end)
+	usableC.groupKey, usableC.tip = "usable", "Hides what your character can't use: a level, class or skill it doesn't have."
 	-- (1.9.0-beta4, Shweep) Global Inventory only: your characters on other rulesets too (hidden by default)
-	local realmsC = checkbox(host, "Include Other Rulesets", function(on)
+	local realmsC = chip(f, "Include Other Rulesets", function(on)
 		if ns.Inventory then ns.Inventory:Settings().allRealms = on end
 		ns:RefreshViews(true)
 	end)
-	realmsC:SetPoint("TOPLEFT", FPAD + 150, y + 2); realmsC.groupKey = "allRealms"
-	f.checks[#f.checks + 1] = realmsC
+	realmsC.groupKey = "allRealms"
 	f.realmsCheck = realmsC
-	y = y - ROWH - 4
+	row({ newC, usableC, realmsC })
+	y = y - 4
 
-	-- Age window: two single-digit fields, whole hours 0 to 9.
-	section("Age")
-	local ageLabel = fs(host); ageLabel:SetPoint("TOPLEFT", FPAD, y - 4); ageLabel:SetText("Time in your bags between")
-	tint(ageLabel, "text")
-	local function ageBox(anchor, key)
-		local b = CreateFrame("EditBox", nil, host, "InputBoxTemplate")
-		b:SetSize(26, 22); b:SetAutoFocus(false); b:SetMaxLetters(1)
-		if b.SetNumeric then b:SetNumeric(true) end
-		b:SetJustifyH("CENTER")
-		b:SetPoint("LEFT", anchor, "RIGHT", 10, 0)
-		b:SetScript("OnTextChanged", function(box)
-			if Popups.syncing or not Popups.view then return end
-			local v = tonumber(box:GetText())
-			if v and (v < 0 or v > 9 or v ~= math.floor(v)) then v = nil end
-			Popups.view.st.filters[key] = v
-			ns:RefreshViews(true)
-		end)
-		b:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
-		b:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
-		return b
+	-- Only show items that fit [all of these] [any one of these], then the rules
+	f.ask = fs(f); f.ask:SetPoint("TOPLEFT", FPAD, y - 4); f.ask:SetText("Only show items that fit"); tint(f.ask, "text")
+	f.all = ns.TextButton(f, "all of these", 92, function() Popups:SetFilterMode(f, "all") end); f.all:SetHeight(20)
+	f.all:SetPoint("LEFT", f.ask, "RIGHT", 8, 0)
+	f.any = ns.TextButton(f, "any one of these", 118, function() Popups:SetFilterMode(f, "any") end); f.any:SetHeight(20)
+	f.any:SetPoint("LEFT", f.all, "RIGHT", 6, 0)
+	f.all.tip = "An item must fit every rule below."
+	f.any.tip = "An item only has to fit one of the rules below."
+	y = y - 28
+	f.rulesTop = y
+	-- (named, as the game's scroll frame template names its own parts after it)
+	local suffix = view.isBank and "Bank" or "Bags"
+	f.rules = CreateFrame("ScrollFrame", "BagSmithFilterRules" .. suffix, f, "UIPanelScrollFrameTemplate")
+	f.rules:SetPoint("TOPLEFT", FPAD, y); f.rules:SetSize(RULES_W, 30)
+	f.rulesChild = CreateFrame("Frame", nil, f.rules); f.rulesChild:SetSize(RULES_W, 1); f.rules:SetScrollChild(f.rulesChild)
+	ns.WheelStep(f.rules, 40)
+	-- the rule list (Frames/RuleList.lua): a filter's, so Section, Bag and Time in Bags are offered too
+	local L = setmetatable({ filter = true, rows = {}, parent = f.rulesChild, width = RULES_W, host = f, pickerName = "BagSmithFilterPicker" .. suffix }, ns.RuleList)
+	f.list = L
+	L.draft = L:DraftFrom(nil)
+	function L:Changed()
+		local now = filters()
+		now.rules = ns.Rules.Clean(self:Rules())
+		self.bound, self.wrote = now, now.rules
+		Popups:LayoutFilters(f)
+		ns:RefreshViews(true)
 	end
-	f.ageMin = ageBox(ageLabel, "ageMin")
-	local andLabel = fs(host); andLabel:SetPoint("LEFT", f.ageMin, "RIGHT", 8, 0); andLabel:SetText("and")
-	tint(andLabel, "text")
-	f.ageMax = ageBox(andLabel, "ageMax")
-	local hrs = fs(host); hrs:SetPoint("LEFT", f.ageMax, "RIGHT", 8, 0); hrs:SetText("hours")
-	tint(hrs, "text")
-	local ageHint = fs(host); ageHint:SetPoint("TOPLEFT", FPAD, y - 30); tint(ageHint, "muted")
-	ageHint:SetText("Whole hours from 0 (just now) to 9. Leave both empty for any age.")
-	y = y - 56
+	function L:Added()
+		f.rules:SetVerticalScroll(math.max(0, (f.rulesHeight or 0) - RULES_MAX))
+	end
+	-- the choices only this window knows: your sections, and the bags it shows
+	function L:Options(k)
+		if k == "sec" then
+			local out = {}
+			for _, id in ipairs(ns.CATS) do out[#out + 1] = { label = ns.CAT_LABEL[id] or id, v = { id } } end
+			for _, c in ipairs(ns.Sections and ns.Sections:Customs() or {}) do out[#out + 1] = { label = c.name, v = { c.id } } end
+			return out
+		elseif k == "bag" then
+			local out = {}
+			for _, name in ipairs(whereBags(f.view)) do out[#out + 1] = { label = name, v = { name } } end
+			return out
+		end
+		return ns.Rules:Options(k)
+	end
+	f.add = ns.TextButton(f.rulesChild, "+ Add a Rule", 104, function(b) L:AddMenu(b) end); f.add:SetHeight(22)
+	f.hint = fs(f.rulesChild); f.hint:SetText("Pick two or more on one line and either one counts."); tint(f.hint, "muted")
+	-- (1.10.0-beta13, the beta12 audit's F3) conditions from an older version that couldn't become rules here
+	f.older = fs(f.rulesChild); f.older:SetWidth(RULES_W - 4); f.older:SetJustifyH("LEFT"); f.older:SetWordWrap(true); f.older:Hide()
 
-	-- Sheet section: "Save as sheet" when browsing or creating, rename/save/delete when editing.
-	local line = host:CreateTexture(nil, "ARTWORK"); line:SetPoint("TOPLEFT", FPAD, y + 6); line:SetPoint("TOPRIGHT", -FPAD, y + 6); line:SetHeight(1); tint(line, "line", true)
-	y = y - 8
-	f.sheetLabel = fs(host, "GameFontNormal"); f.sheetLabel:SetPoint("TOPLEFT", FPAD, y); tint(f.sheetLabel, "accent")
-	y = y - 24
-	local box = CreateFrame("EditBox", nil, host, "InputBoxTemplate")
-	box:SetSize(FW - FPAD * 2 - 130, 24); box:SetAutoFocus(false)
-	box:SetPoint("TOPLEFT", FPAD + 6, y)
-	box:SetScript("OnEnterPressed", function() Popups:CommitSheet() end)
-	box:SetScript("OnEscapePressed", function(b) b:ClearFocus() end)
-	f.sheetBox = box
-	local save = ns.TextButton(host, "Save as Sheet", 116, function() Popups:CommitSheet() end)
-	save:SetHeight(24); save:SetPoint("LEFT", box, "RIGHT", 8, 0)
-	f.saveBtn = save
-	local hint = fs(host); hint:SetPoint("TOPLEFT", FPAD, y - 28); tint(hint, "muted")
-	hint:SetWidth(FW - FPAD * 2); hint:SetWordWrap(true)
-	f.saveHint = hint
-	y = y - 56
-	local clear = ns.TextButton(f, "Clear All", 80, function()
-		local v = Popups.view
+	-- Everything under the rules rides one frame, moved to sit below however many rules there are.
+	local tail = CreateFrame("Frame", nil, f); tail:SetSize(FW, 150)
+	f.tail = tail
+	local ty = 0
+	local line = tail:CreateTexture(nil, "ARTWORK"); line:SetPoint("TOPLEFT", FPAD, ty); line:SetPoint("TOPRIGHT", -FPAD, ty); line:SetHeight(1); tint(line, "line", true)
+	ty = ty - 8
+	-- how much of the tab the filters leave: "14 of 57 items shown"
+	f.count = fs(tail); f.count:SetPoint("TOPLEFT", FPAD, ty - 5); tint(f.count, "text")
+	local clear = ns.TextButton(tail, "Clear All", 80, function()
+		local v = f.view
 		v.st.filters = ns.EmptyFilters(); if v.search then v.search:SetText("") end
 		Popups:SyncFilters(); ns:RefreshViews(true)
 	end)
-	clear:SetHeight(24); clear:SetPoint("BOTTOMLEFT", FPAD, FPAD)
-	f.deleteBtn = ns.TextButton(f, "Delete Sheet", 100, function(btn)
+	clear:SetHeight(22); clear:SetPoint("TOPRIGHT", -FPAD, ty)
+	f.clearBtn = clear
+	ty = ty - 32
+	-- Keep these filters: as a sheet (a tab), or as a section. Rename, save or delete when a sheet is being edited.
+	f.sheetLabel = fs(tail, "GameFontNormal"); f.sheetLabel:SetPoint("TOPLEFT", FPAD, ty); tint(f.sheetLabel, "accent")
+	ty = ty - 22
+	local box = CreateFrame("EditBox", nil, tail, "InputBoxTemplate")
+	box:SetSize(FW - FPAD * 2 - 6 - 116 - 8 - 132 - 8, 24); box:SetAutoFocus(false); box:SetMaxLetters(40)
+	box:SetPoint("TOPLEFT", FPAD + 6, ty)
+	box:SetScript("OnEnterPressed", function() Popups:CommitSheet() end)
+	box:SetScript("OnEscapePressed", function(b) b:ClearFocus() end)
+	f.sheetBox = box
+	local save = ns.TextButton(tail, "Save as Sheet", 116, function() Popups:CommitSheet() end)
+	save:SetHeight(24); save:SetPoint("LEFT", box, "RIGHT", 8, 0)
+	f.saveBtn = save
+	local section = ns.TextButton(tail, "Save as Section...", 132, function() Popups:SaveAsSection(f) end)
+	section:SetHeight(24); section:SetPoint("LEFT", save, "RIGHT", 8, 0)
+	section.tip = "Opens the section editor with these rules, to look over before it's made."
+	f.sectionBtn = section
+	local hint = fs(tail); hint:SetPoint("TOPLEFT", FPAD, ty - 30); tint(hint, "muted")
+	hint:SetWidth(FW - FPAD * 2); hint:SetWordWrap(true)
+	f.saveHint = hint
+	ty = ty - 30 - 34
+	f.deleteBtn = ns.TextButton(tail, "Delete Sheet", 100, function(btn)
 		local v, name = Popups.view, Popups.editing
 		if not name then return end
 		ns.Confirm(btn, ("Delete the sheet \"%s\"?"):format(name), function()
 			ns:DeleteSheet(name, v); f:Hide()
 		end)
 	end)
-	f.deleteBtn:SetHeight(24); f.deleteBtn:SetPoint("LEFT", clear, "RIGHT", 8, 0)
-	local done = ns.TextButton(f, "Done", 70, function() f:Hide() end)
-	done:SetHeight(24); done:SetPoint("BOTTOMRIGHT", -FPAD, FPAD)
-	after:SetHeight(-y)
-	f.afterHeight = -y
-	f.bottomPad = FPAD + 24 + 8
-	Popups.filterFrameHeight = function(panel, rows)
-		return -panel.catAfterTop + ((panel.catRows or 1) - 1) * ROWH - panel.afterTop + ((rows or panel.whereRows or 1) - 1) * ROWH + panel.afterHeight + panel.bottomPad
-	end
+	f.deleteBtn:SetHeight(24); f.deleteBtn:SetPoint("TOPLEFT", FPAD, ty)
+	local done = ns.TextButton(tail, "Done", 70, function() f:Hide() end)
+	done:SetHeight(24); done:SetPoint("TOPRIGHT", -FPAD, ty)
+	f.doneBtn = done
+	f.tailHeight = -ty + 24 + FPAD
+	tail:SetHeight(f.tailHeight)
+	f:SetScript("OnHide", function() L:ClosePicker() end)
 	ns.Classic:DressButtons(f)
 end
 
--- The bags the window is actually showing: its own or the Bank sheet's,
--- live or another character's saved ones (with their saved names).
-local function whereBags(view)
-	local list = view.Bags and view:Bags() or ns.BAGS
-	local saved
-	if view.Records then local _; _, saved = view:Records() end
-	local out = {}
-	for _, bag in ipairs(list) do
-		-- Another character's (or the unvisited bank's) saved names only: never
-		-- the current character's live names standing in for missing ones.
-		local info
-		if view.IsCached and view:IsCached() then info = saved and saved[bag] else info = (saved and saved[bag]) or ns.bagInfo[bag] end
-		if info and (info.size or 0) > 0 then out[#out + 1] = info.name or ("Bag " .. bag) end
-	end
-	return out
-end
-local function bagSignatureFor(view)
-	return tostring(ns.ui.owner) .. "|" .. tostring(view.st and view.st.sheet) .. "|" .. table.concat(whereBags(view), "|")
+function Popups:SetFilterMode(f, mode)
+	local L = f.list
+	L.draft.mode = mode == "any" and "any" or "all"
+	L:Changed()
 end
 
-function Popups:FillWhere(f)
-	local view = f.view
-	local sig = bagSignatureFor(view)
-	if f.whereSig == sig then return end
-	f.whereSig = sig
-	local bags = whereBags(view)
-	-- drop old Where checks from the sync list
-	local kept = {}
-	for _, c in ipairs(f.checks) do if c.groupKey ~= "w" then kept[#kept + 1] = c end end
-	f.checks = kept
-	local x, y, usable = FPAD, f.whereY, FW - FPAD * 2
-	for i, name in ipairs(bags) do
-		local c = f.wherePool[i]
-		if not c then
-			c = checkbox(f.catAfter, name, function(on)
-				local set = Popups.view.st.filters.w
-				if on then set[c.key] = true else set[c.key] = nil end
-				ns:RefreshViews(true)
-			end)
-			c.groupKey = "w"
-			f.wherePool[i] = c
-		end
-		c.key = name
-		c.label:SetText(name)
-		local w = 26 + c.label:GetStringWidth() + 14
-		if x + w > FPAD + usable then x = FPAD; y = y - ROWH end
-		c:ClearAllPoints(); c:SetPoint("TOPLEFT", x, y + 2); c:Show()
-		f.checks[#f.checks + 1] = c
-		x = x + w
+-- "A", "A and B", "A, B and C"
+local function joinWords(list)
+	if #list <= 2 then return table.concat(list, " and ") end
+	return table.concat(list, ", ", 1, #list - 1) .. " and " .. list[#list]
+end
+-- Lays out the rules and what rides below them, and sizes the window to fit.
+function Popups:LayoutFilters(f)
+	local L = f.list
+	if not L then return end
+	local s = Skins:Current()
+	f.all:SetActive(L.draft.mode ~= "any"); f.any:SetActive(L.draft.mode == "any")
+	local h, lists = L:Layout(s)
+	f.add:ClearAllPoints(); f.add:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", 0, -h)
+	f.add:SetAlpha(#L.draft.rows >= ns.Rules.MAX_ROWS and 0.5 or 1)
+	h = h + 28
+	f.hint:SetShown(lists > 0)
+	if lists > 0 then f.hint:ClearAllPoints(); f.hint:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", 0, -h); h = h + 16 end
+	-- (1.10.0-beta13, F3) older conditions still in force beside "any one of these": said, since no rule shows them
+	local older = ns.UnfoldedWords and ns.UnfoldedWords(L.bound) or {}
+	f.older:SetShown(#older > 0)
+	if #older > 0 then
+		f.older:SetText(("This filter also narrows by %s, kept from an older version. That still applies, though it can't be shown as a rule here. Clear All removes it."):format(joinWords(older)))
+		f.older:SetTextColor(0.95, 0.6, 0.45)
+		f.older:ClearAllPoints(); f.older:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", 0, -h)
+		h = h + math.max(28, (f.older.GetStringHeight and f.older:GetStringHeight() or 28)) + 4
 	end
-	for j = #bags + 1, #f.wherePool do f.wherePool[j]:Hide() end
-	local rows = 1 + math.floor((f.whereY - y) / ROWH + 0.5)
-	f.whereRows = rows
-	Popups.SizeCatAfter(f)
-	f.after:ClearAllPoints()
-	f.after:SetPoint("TOPLEFT", f.catAfter, "TOPLEFT", 0, f.afterTop - (rows - 1) * ROWH)
-	f.after:SetPoint("TOPRIGHT", f.catAfter, "TOPRIGHT", 0, f.afterTop - (rows - 1) * ROWH)
-	f:SetHeight(Popups.filterFrameHeight(f, rows))
+	f.rulesHeight = h
+	f.rulesChild:SetHeight(math.max(1, h))
+	local view = math.min(h, RULES_MAX)
+	f.rules:SetHeight(view)
+	if f.rules.ScrollBar then f.rules.ScrollBar:SetShown(h > RULES_MAX) end
+	if (f.rules:GetVerticalScroll() or 0) > math.max(0, h - view) then f.rules:SetVerticalScroll(math.max(0, h - view)) end
+	local top = f.rulesTop - view - 8
+	f.tail:ClearAllPoints(); f.tail:SetPoint("TOPLEFT", f, "TOPLEFT", 0, top)
+	f:SetHeight(-top + f.tailHeight)
 end
 
--- The Category row: the built-in categories plus the custom sections of the
--- active profile, with their current names. Refilled in place when they
--- change; a checkbox for a section that no longer exists does nothing.
--- (length-prefixed fields: no name can imitate another list)
-local function categorySignature()
-	local name = ns.profileName or ""
-	local parts = { #name .. ":" .. name }
-	for _, c in ipairs(ns.Sections and ns.Sections:Customs() or {}) do
-		parts[#parts + 1] = #c.id .. ":" .. c.id .. #c.name .. ":" .. c.name
+-- The count under the rules, and anything else that follows the list behind the window. View:UpdateChrome calls this
+-- on every redraw of its list.
+function Popups:UpdateCount(view, shown, total)
+	local f = self.filters and self.filters[view]
+	if not (f and f.count) then return end
+	if shown and total then f.shownCount, f.totalCount = shown, total end
+	if not f:IsShown() then return end
+	-- the window's filters were replaced (another tab, another profile): show those
+	if self.view == view and f.list and f.list.bound ~= view.st.filters then
+		-- a sheet was being edited and another tab was picked: the edit is over, so Save Changes can't put that
+		-- tab's filters into the sheet
+		if self.editing and view.st.sheet ~= self.editTab then self.editing, self.editingDB = nil, nil end
+		self:SyncFilters()
 	end
-	return table.concat(parts)
-end
-local function validCategory(key) return ns.CAT_LABEL[key] ~= nil or (ns.Sections and ns.Sections:IsCustom(key)) end
-function Popups:FillCategory(f)
-	local sig = categorySignature()
-	if f.catSig == sig then return end
-	f.catSig = sig
-	local cats = {}
-	for _, c in ipairs(ns.CATS) do cats[#cats + 1] = c end
-	for _, c in ipairs(ns.Sections and ns.Sections:Customs() or {}) do cats[#cats + 1] = c.id end
-	local kept = {}
-	for _, c in ipairs(f.checks) do if c.groupKey ~= "cat" then kept[#kept + 1] = c end end
-	f.checks = kept
-	local x, y, usable = FPAD, f.catY, FW - FPAD * 2
-	for i, key in ipairs(cats) do
-		local c = f.catPool[i]
-		if not c then
-			c = checkbox(f, "", function(on)
-				if not validCategory(c.key) then c:SetChecked(false) return end   -- a section that's gone
-				local set = Popups.view.st.filters.cat
-				if on then set[c.key] = true else set[c.key] = nil end
-				ns:RefreshViews(true)
-			end)
-			c.groupKey = "cat"
-			f.catPool[i] = c
-		end
-		c.key = key
-		-- (1.7.0-beta10) a built-in category by its own name: Gear here covers all gear, split or not (not "Gear: Other")
-		c.label:SetText(ns.CAT_LABEL[key] or (ns.Sections and ns.Sections:Label(key)) or key)
-		local w = 26 + c.label:GetStringWidth() + 14
-		if x + w > FPAD + usable then x = FPAD; y = y - ROWH end
-		c:ClearAllPoints(); c:SetPoint("TOPLEFT", x, y + 2); c:Show()
-		f.checks[#f.checks + 1] = c
-		x = x + w
-	end
-	for j = #cats + 1, #f.catPool do f.catPool[j]:Hide() end
-	local rows = 1 + math.floor((f.catY - y) / ROWH + 0.5)
-	f.catRows = rows
-	f.catAfter:ClearAllPoints()
-	f.catAfter:SetPoint("TOPLEFT", f, "TOPLEFT", 0, f.catAfterTop - (rows - 1) * ROWH)
-	f.catAfter:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, f.catAfterTop - (rows - 1) * ROWH)
-	Popups.SizeCatAfter(f)
-	f:SetHeight(Popups.filterFrameHeight(f, f.whereRows or 1))
-end
--- The sub-frame below Category must have a height: the client draws nothing
--- on a frame with no size, children included.
-function Popups.SizeCatAfter(f)
-	local h = -f.afterTop + ((f.whereRows or 1) - 1) * ROWH + (f.afterHeight or 0) + 8
-	f.catAfter:SetHeight(math.max(8, h))
+	local n, of = f.shownCount or 0, f.totalCount or 0
+	if of == 0 then f.count:SetText("Nothing on this tab")
+	elseif n == of then f.count:SetText(of == 1 and "The 1 item here is shown" or ("All %d items shown"):format(of))
+	else f.count:SetText(("%d of %d items shown"):format(n, of)) end
 end
 
 -- Saves a new sheet, or applies name + filters to the sheet being edited.
 function Popups:CommitSheet()
 	local f, v = self.filter, self.view
 	if not (f and f:IsShown()) then return end   -- a panel closed by a profile change can't save anything
+	if f.list and f.list.Commit then f.list:Commit() end   -- (1.10.0-beta11) a word typed into a Name rule and not yet added counts
 	local name = f.sheetBox:GetText()
 	if self.editing then
 		local ok, err = ns:UpdateSheet(self.editing, name, v)
@@ -614,13 +611,89 @@ function Popups:CommitSheet()
 	end
 end
 
+-- Save as Section...: the rules a section can use, handed to the section editor to look over. A section's rules are
+-- about the item itself, so the search, the quick picks and the rules about where an item is right now stay behind,
+-- and the editor says which.
+function Popups:SectionRules(filters)
+	local R = ns.Rules
+	local f = ns.FoldFilters(ns.CleanFilters(filters))
+	local rules = f.rules or { mode = "all", rows = {} }
+	local rows, left, seen = {}, {}, {}
+	local function leave(word) if not seen[word] then seen[word] = true; left[#left + 1] = word end end
+	if (f.text or "") ~= "" then leave("the search") end
+	for _, row in ipairs(rules.rows) do
+		local def = R.KEYS[row.k]
+		if def and def.filterOnly then leave(def.label) else rows[#rows + 1] = row end
+	end
+	-- the Quality chips are one more rule, where "all of these" (or nothing else) makes that mean the same
+	if next(f.q) then
+		if rules.mode ~= "any" or #rows == 0 then
+			local v = {}
+			for q in pairs(f.q) do v[#v + 1] = q end
+			table.sort(v)
+			table.insert(rows, 1, { k = "quality", v = v })
+			if #rows == 1 then rules.mode = "all" end
+		else
+			leave("Quality")
+		end
+	end
+	if f.new then leave("New") end
+	-- older fields that couldn't be shown as rules (ns.UnfoldedWords) can't come along either
+	local kept = ns.UnfoldedWords and ns.UnfoldedWords(f) or {}
+	-- (1.10.0-beta13) Usable by Me is a rule a section can have since beta11: the quick pick becomes that rule, where
+	-- "all of these" (or nothing else) makes that mean the same. (The rule waits for an item's tooltip before it files
+	-- the item; the quick pick shows the item meanwhile.)
+	if f.usable then
+		if rules.mode ~= "any" or #rows == 0 then
+			rows[#rows + 1] = { k = "usable", v = { "yes" } }
+			if #rows == 1 then rules.mode = "all" end
+		else
+			leave("Usable by Me")
+		end
+	end
+	-- (1.10.0-beta13, the beta12 audit's F3) A section holds R.MAX_ROWS rules. A filter can come to one more (its rules
+	-- plus Quality, plus Usable by Me), and Rules.Clean would drop the last without a word: the ones that don't fit are
+	-- taken off here and named in the note, so the player sees it before anything is created.
+	local over = {}
+	while #rows > R.MAX_ROWS do table.insert(over, 1, R:RowText(table.remove(rows))) end
+	local out = R.Clean({ mode = rules.mode, rows = rows })
+	local notes = {}
+	if #over > 0 then
+		notes[#notes + 1] = ("A section can have %d rules, so the last %s left out: %s."):format(
+			R.MAX_ROWS, #over == 1 and "one was" or (#over .. " were"), table.concat(over, "; "))
+	end
+	if #left > 0 then notes[#notes + 1] = ("Left out, since a section's rules are about the item itself: %s."):format(joinWords(left)) end
+	if #kept > 0 then notes[#notes + 1] = ("Left out, kept from an older version: %s."):format(joinWords(kept)) end
+	return out, #notes > 0 and table.concat(notes, " ") or nil
+end
+function Popups:SaveAsSection(f)
+	local v = f.view
+	if not (ns.SectionEditor and v) then return end
+	if f.list and f.list.Commit then f.list:Commit() end   -- (1.10.0-beta11)
+	local rules, note = self:SectionRules(v.st.filters)
+	local name = f.sheetBox:GetText() or ""
+	ns.SectionEditor:Open(nil, { name = name, rules = rules, note = note })
+end
+
 function Popups:SyncFilters()
 	local f = self.filter
 	if not f then return end
 	local v = self.view or ns.Window.main
-	local filters = v.st.filters
+	-- what an older version kept as boxes shows as rules (the filters mean the same either way)
+	local filters = ns.FoldFilters(v.st.filters)
+	-- the rule list's draft follows the window's filters: made again only when they were replaced by something else
+	-- (another sheet, Clear All, a section deleted), never over a rule that is still being filled in
+	local L = f.list
+	if L.bound ~= filters or filters.rules ~= L.wrote then
+		L:ClosePicker()
+		L.draft = L:DraftFrom(filters.rules)
+		L.bound, L.wrote = filters, filters.rules
+		L:ClearBoxes()
+		f.rules:SetVerticalScroll(0)
+	end
 	for _, c in ipairs(f.checks) do
 		if c.groupKey == "new" then c:SetChecked(filters.new)
+		elseif c.groupKey == "usable" then c:SetChecked(filters.usable)
 		elseif c.groupKey == "allRealms" then
 			c:SetChecked(ns.Inventory and ns.Inventory:Settings().allRealms or false)
 			c:SetShown((v.isMain and ns.ui.global) and true or false)
@@ -628,9 +701,12 @@ function Popups:SyncFilters()
 	end
 	self.syncing = true
 	f.search:SetText(filters.text or "")
-	f.ageMin:SetText(filters.ageMin and tostring(filters.ageMin) or "")
-	f.ageMax:SetText(filters.ageMax and tostring(filters.ageMax) or "")
 	self.syncing = false
+	-- "Bags, on the All tab"
+	local sheet = v.st.sheet or "All"
+	local tab = ns.TAB_LABEL[sheet] or sheet
+	local what = v.isBank and "Bank" or ((v.isMain and ns.ui.global) and "Global Inventory" or "Bags")
+	f.where:SetText(("%s, on the %s tab"):format(what, tab))
 	if self.editing then
 		f.title:SetText((v.isBank and "Bank Sheet: " or "Sheet: ") .. self.editing)
 		f.sheetLabel:SetText("Edit Sheet")
@@ -639,17 +715,19 @@ function Popups:SyncFilters()
 		f.deleteBtn:Show()
 	else
 		f.title:SetText(v.isBank and "Bank Filters" or "Filters")
-		f.sheetLabel:SetText("Save as a Sheet")
+		f.sheetLabel:SetText("Keep these filters:")
 		f.saveBtn.label:SetText("Save as Sheet")
-		f.saveHint:SetText("Name the current search and filters to keep them as a tab.")
+		f.saveHint:SetText("A sheet is a tab that shows only these items. A section groups them together wherever they show.")
 		f.deleteBtn:Hide()
 	end
 	ns.Classic:Retitle(f, f.title:GetText())
+	self:LayoutFilters(f)
+	self:UpdateCount(v)
 end
 
 -- mode: nil/"browse" (Filter button), "new" (plus next to the tabs), "edit" (pencil on a custom tab)
 function Popups:OpenFilters(view, mode, sheetName)
-	-- One panel per window, built once; only its Where row changes with the bags.
+	-- One panel per window, built once.
 	self.filters = self.filters or {}
 	for other, panel in pairs(self.filters) do if other ~= view then panel:Hide() end end
 	if not self.filters[view] then self:BuildFilters(view) end
@@ -657,10 +735,9 @@ function Popups:OpenFilters(view, mode, sheetName)
 	if self.chars then self.chars:Hide() end
 	local f = self.filter
 	self.view = view
-	self:FillCategory(f)
-	self:FillWhere(f)
 	self.editing = (mode == "edit") and sheetName or nil
 	self.editingDB = self.editing and ns.db or nil   -- the profile this edit belongs to
+	self.editTab = self.editing and view.st.sheet or nil   -- (1.10.0-beta4) and the tab it was started on
 	-- Under its window's search box unless the player moved it. A panel with
 	-- no position would never draw, so one without any is always placed.
 	if not f.moved or f:GetNumPoints() == 0 then
@@ -774,8 +851,9 @@ ns:OnSignal("ADDON_READY", function()
 			Popups.editing, Popups.editingDB = nil, nil
 			for _, f in pairs(Popups.filters or {}) do if f:IsShown() then f:Hide() end end
 		end
+		-- (your sections' names, and the Section rule's choices, are read fresh)
 		for _, f in pairs(Popups.filters or {}) do
-			if f:IsShown() then Popups:FillCategory(f); Popups:SyncFilters() end
+			if f:IsShown() and f == Popups.filter then Popups:SyncFilters() end
 		end
 	end)
 end)

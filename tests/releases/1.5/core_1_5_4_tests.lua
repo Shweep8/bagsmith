@@ -112,9 +112,11 @@
 		-- squeezed: the spacing tightens so every entry still fits
 		P:ShowPage("sections")
 		local all = select(2, lastBottom())
-		f:SetHeight(500); P:SyncNav()
+		-- (by design since 1.10.0-beta9: one more page in the list, Other Addons; 520 is the height where its seventeen
+		-- entries still all fit once tightened, as 500 was for sixteen)
+		f:SetHeight(520); P:SyncNav()
 		local bottom, shown = lastBottom()
-		check(shown == all and bottom <= 500 - (14 + 22 + 6 + 22), skin .. ": a shorter window tightens the spacing, every entry still showing above About & Support")
+		check(shown == all and bottom <= 520 - (14 + 22 + 6 + 22), skin .. ": a shorter window tightens the spacing, every entry still showing above About & Support")
 		-- squeezed further: it scrolls, the open page stays in view, and the wheel reaches the rest
 		f:SetHeight(360); P:SyncNav()
 		bottom, shown = lastBottom()

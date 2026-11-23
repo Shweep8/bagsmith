@@ -1,3 +1,17 @@
+-- (by design since 1.10.0-beta12) this set tests the NEW tags with 1.9's list, which the panel's own list (each
+-- release's) replaced: 1.9's, as it stood at 1.9.8, is put back after the addon loads
+local function NEW19()
+	return { release = "1.9",
+		pages = { general = true, window = true, icons = true, look = true, sections = true, columns = true, sheets = true,
+			globalsections = true, globalcols = true, globalsheets = true },
+		heads = {},
+		keys = { tipInventory = "general", tipAHPrice = "general", bagSlotCount = "window", borderWeight = "icons", iconLayout = "look", footerTextScale = "look", globalResize = "window" },
+		added = {
+			["1.9.1"] = { keys = { splitViewPinnedWide = "look" } },
+			["1.9.2"] = { keys = { unusableOverlay = "icons" } },
+			["1.9.4"] = { keys = { sectionValues = "sections" } },
+		} }
+end
 ;(function()
 	-- ======== 1.9.0-beta1 (Shweep, 16 Nov): what BagSmith knows about an item, in its tooltip ========
 	-- Item tooltips list your characters on this realm (Forever's ruleset) and their counts by place: bags, bank, what
@@ -16,7 +30,7 @@
 		["Elsewhere - Other Realm"] = { name = "Elsewhere", realm = "Other Realm", class = "PRIEST", level = 30, gold = 9000000,
 			items = { { bag = 0, slot = 1, itemID = LINEN, count = 99 } } },
 	} }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	local Inv = n.Inventory
 	check(n.db.tipInventory == true, "Show Inventory in Item Tooltips: on by default")
@@ -94,7 +108,7 @@ end)()
 	_G.BagSmithCharDB = { version = 1, firstSeen = {}, deResultsVersion = 3, deMaterials = { [90001] = true },
 		deResults = { ["2:2:a"] = { n = 63, mats = { [10940] = 112, [10939] = 25 }, seen = { [10940] = 45, [10939] = 15 } } } }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = {} } }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	local DE = n.Disenchant
 	local log = DE:Log()
@@ -107,7 +121,7 @@ end)()
 	M.charName = "Brannoc Vale"
 	_G.BagSmithCharDB = { version = 1, firstSeen = {}, deResultsVersion = 3, deResults = { ["2:2:a"] = { n = 7, mats = { [10940] = 10 }, seen = { [10940] = 7 } } } }
 	_G.BagSmithDB = account
-	n = M.loadAddon("BagSmith")
+	n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	log = n.Disenchant:Log()
 	check(log["2:2:a"].n == 63 + 1 + 7 and log["2:2:a"].mats[10940] == 112 + 2 + 10, "a second character adds its own, and sees the first's (" .. log["2:2:a"].n .. ")")
@@ -116,14 +130,14 @@ end)()
 	account = deep(BagSmithDB)
 	package.loaded.mock = nil; M = require("mock")
 	_G.BagSmithCharDB, _G.BagSmithDB = char1, account
-	n = M.loadAddon("BagSmith")
+	n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	check(n.Disenchant:Log()["2:2:a"].n == 71, "back on the first: still 71, nothing counted twice")
 	-- a broken shared log is checked on load
 	account.deShared.results["bad"] = { n = "x" }; account.deShared.materials["y"] = true
 	package.loaded.mock = nil; M = require("mock")
 	_G.BagSmithCharDB, _G.BagSmithDB = deep(char1), account
-	n = M.loadAddon("BagSmith")
+	n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers()
 	check(BagSmithDB.deShared.results.bad == nil and BagSmithDB.deShared.materials.y == nil and BagSmithDB.deShared.results["2:2:a"].n == 71, "a bad entry in the shared log is dropped, the rest kept")
 	-- Forget Learned Results empties the shared log
@@ -154,7 +168,7 @@ end)()
 	end
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = "modern" } } }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	n.Window:Show(); M.runTimers(); M.runTimers(); n:RefreshViews(true); M.runTimers()
 	local main = n.Window.main
@@ -183,7 +197,7 @@ end)()
 	local M = require("mock")
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = {} }, whatsNewSeen = "1.8.0" }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW19()
 	n.version = "1.9.0-beta1"
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	local P = n.SettingsPanel

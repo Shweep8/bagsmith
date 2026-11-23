@@ -12,8 +12,10 @@ ns.Why = Why
 Why.LABEL = {
 	favorite = "Favorites",
 	gearset = "In a gear set",
+	junk = "Marked as junk",   -- (1.10.0-beta3) the Disenchant Helper leaves these for the vendor
 	quest = "Quest items",
 	pawn = "Pawn upgrades",
+	itemtree = "ItemTree says to keep",   -- (1.10.0-beta7) the optional ItemTree addon's Keep mark
 	novalue = "No vendor price",
 	refundable = "Refundable",
 	tradeable = "Still tradeable",
@@ -24,13 +26,17 @@ Why.LABEL = {
 	protected = "Protected by you",   -- (1.7.0-beta1) the Loot Helper's Protect
 	questneed = "Needed for a quest",   -- (1.7.0-beta3) a quest objective asks for it
 	unknown = "Couldn't be checked right now",
+	-- (1.10.0-beta14, Shweep: "agreed") ItemTree is on for this Helper and hasn't answered about these yet
+	itemtreewait = "Waiting for ItemTree",
 }
 -- singular and plural for the empty card's sentence
 Why.NOUN = {
 	favorite = { "favorite", "favorites" },
 	gearset = { "item in a gear set", "items in a gear set" },
+	junk = { "item you marked as junk", "items you marked as junk" },
 	quest = { "quest item", "quest items" },
 	pawn = { "Pawn upgrade", "Pawn upgrades" },
+	itemtree = { "item ItemTree says to keep", "items ItemTree says to keep" },
 	novalue = { "item with no vendor price", "items with no vendor price" },
 	refundable = { "refundable item", "refundable items" },
 	tradeable = { "still-tradeable item", "still-tradeable items" },
@@ -41,8 +47,9 @@ Why.NOUN = {
 	protected = { "item you protected", "items you protected" },
 	questneed = { "item a quest needs", "items quests need" },
 	unknown = { "item that couldn't be checked", "items that couldn't be checked" },
+	itemtreewait = { "item waiting for ItemTree", "items waiting for ItemTree" },
 }
-Why.ORDER = { "favorite", "protected", "gearset", "quest", "questneed", "pawn", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
+Why.ORDER = { "favorite", "protected", "gearset", "junk", "quest", "questneed", "pawn", "itemtree", "itemtreewait", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
 Why.SHOWN_NAMES = 3
 
 function Why:New() return { total = 0, by = {} } end

@@ -24,7 +24,7 @@
 					local e = b.modernBorder and b.modernBorder[1]
 					return (e and e:IsShown() and e.color) or nil
 				end
-				local frame = weight == "bold" and b.classicBold and b.classicBold[1] or b.qFrame
+				local frame = b.qFrame
 				return (frame and frame:IsShown() and frame.color) or nil
 			end
 			-- (beta11, by design) empty and filled slots each choose; "both" sets them together as beta9's one style did
@@ -61,8 +61,8 @@
 					b.GetEffectiveScale = function() return scale end
 					both("frame"); n.Buttons:RefreshGlows()
 					if skin == "classic" then
-						check(b.qFrame.points[1][4] == -b.classicBorderOutset and b.qFrame.points[2][4] == b.classicBorderOutset,
-							S .. "bag frame shares adaptive bounds at " .. scale)
+						check(b.qFrame.points[1][4] == 0 and b.qFrame.points[2][4] == 0,
+							S .. "bag frame shares icon bounds at " .. scale)
 					end
 					both("glow"); n.Buttons:RefreshGlows()
 					b.GetEffectiveScale = function() return scale * .9 end

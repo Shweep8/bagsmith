@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 ;(function()
 	-- 1.6.0 (a player's request, via Shweep): Blackthornes Tradeskills as an alternative to Auctionator for auction
 	-- prices, through its documented public API (BlackthornesTS_API: version, GetPrice(item) in copper, GetPriceAge(item)
@@ -91,11 +92,15 @@
 	check(n.db.priceSource == "auto", "a saved value that isn't a source becomes Automatic")
 	n, M = boot({ auctionator = { [2592] = 40 }, bts = { [2592] = 55 } })
 	local P = n.SettingsPanel
-	P:Show(); M.runTimers(); P:ShowPage("general"); M.runTimers()
+	-- (by design since 1.10.0-beta9, Shweep: "own page"; "AH addons doesnt scale if more of those added": the row is
+	-- Auction Price Source, a list, on the Other Addons page, and its card's heading says which source is in use)
+	P:Show(); M.runTimers(); P:ShowPage("addons"); M.runTimers()
 	local seg
-	for _, w in ipairs(P.pools.seg or {}) do if w:IsShown() and w.key == "priceSource" then seg = w end end
-	check(seg ~= nil, "(beta2) the General page has the Price Source row")
-	check(seg and seg.help and tostring(seg.help.text):find("Auctionator", 1, true), "its help line says which source is in use")
+	for _, w in ipairs(P.pools.dropdown or {}) do if w:IsShown() and w.key == "priceSource" then seg = w end end
+	check(seg ~= nil, "(beta2) the Other Addons page has the Auction Price Source row")
+	local using
+	for _, w in ipairs(P.pools.head or {}) do if w:IsShown() and w.text.text == "Auction Prices" then using = w.state and w.state.text end end
+	check(using == "Using Auctionator", "its card says which source is in use (" .. tostring(using) .. ")")
 
 	-- ---- the TOC loads both before BagSmith
 	local toc = io.open("BagSmith/BagSmith.toc"):read("*a")
@@ -103,7 +108,9 @@
 	check(deps:find("Auctionator", 1, true) and deps:find("Blackthornes_TS", 1, true), "both are optional dependencies, so they load first (" .. deps .. ")")
 	P:ShowPage("columns"); M.runTimers()
 	local onColumns = false
-	for _, w in ipairs(P.pools.seg or {}) do if w:IsShown() and w.key == "priceSource" then onColumns = true end end
+	for _, pool in ipairs({ "seg", "dropdown" }) do
+		for _, w in ipairs(P.pools[pool] or {}) do if w:IsShown() and w.key == "priceSource" then onColumns = true end end
+	end
 	check(not onColumns, "(beta2) and no longer on the Columns page")
 
 	-- ======== beta2 ========
@@ -250,7 +257,7 @@
 	-- (1.7.0-beta6, by design) the 1.7 card leads now; 1.6's is second
 	-- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 	-- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
-	local e = WN.ENTRIES[12]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	local e = WN.ENTRIES[13]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	local text = table.concat(e.items, " ")
 	-- (beta4, by design) a fifth bullet: Narrower Windows
 	-- (1.6.0-beta10, by design: Shweep) a sixth bullet, Smarter Disenchant Advice
@@ -258,7 +265,7 @@
 	check(text:find("Narrower Windows:", 1, true) and text:find("440 pixels", 1, true), "and the fifth is Narrower Windows")
 	check(text:find("Blackthornes", 1, true) and text:find("Quest Starters", 1, true) and text:find("Fade While Moving", 1, true) and text:find("Show Help Tooltips", 1, true), "Blackthornes prices, Quest Starters, opacity, help tooltips (named Show Help Tooltips since 1.9.0-beta2, by design)")
 	check(not text:find("\226\128\148"), "no em dashes")
-	check(WN.ENTRIES[11].v == "1.7.0" and WN.ENTRIES[13].v == "1.5.1", "after the 1.7 card, and 1.5.1's follows")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	check(WN.ENTRIES[12].v == "1.7.0" and WN.ENTRIES[14].v == "1.5.1", "after the 1.7 card, and 1.5.1's follows")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 
 	-- ---- Icon Corners: marks other addons draw themselves (beta3: on its own line, with weight)
 	local P2 = n.SettingsPanel

@@ -725,11 +725,13 @@ function DE:LiveCheck(entry)
 	if info.itemID ~= entry.itemID then return false, "that slot holds a different item now" end
 	-- the same item ID is not the same item: where the client gives instances, the armed one must match the one in
 	-- the slot now; a record without an instance, or a slot whose instance cannot be read, cannot be identified
+	local sameInstance = false   -- (1.10.0-beta16) set once the instance in the slot is known to be the armed one
 	if C_Item and C_Item.GetItemGUID and ItemLocation then
 		local okG, guid = pcall(function() local loc = ItemLocation:CreateFromBagAndSlot(entry.bag, entry.slot); if loc and C_Item.DoesItemExist(loc) then return C_Item.GetItemGUID(loc) end end)
 		if not okG or guid == nil then return false, "that item could not be identified" end
 		if not (entry.rec and entry.rec.guid) then return false, "that item could not be identified" end
 		if guid ~= entry.rec.guid then return false, "that slot holds another copy of the item now" end
+		sameInstance = true
 	end
 	if info.isLocked then return false, "that item is locked right now" end
 	if self:Never()[entry.itemID] then return false, "that item is on your DE Exclusion List" end
@@ -750,6 +752,37 @@ function DE:LiveCheck(entry)
 		if unknownT then return false, "whether that item is tradeable could not be checked" end
 		if isTradeable then return false, "that item is still tradeable" end
 	end
+	-- (1.10.0-beta15, the beta14 audit's B14-1) The slot is the armed piece's (the same item, the same instance, checked
+	-- above). If the game now gives it a link the list didn't have, or a different one (a slot read before its link
+	-- was there; a link that changed with your level), the entry and its scanned record take the live link. The
+	-- questions below, and the list's own the next time it is drawn, are then asked about one and the same key:
+	-- before, a refusal here was kept under the live link while the list went on reading the old key's "clear" and
+	-- armed the piece again. Only this slot's record is touched.
+	if type(info.hyperlink) == "string" and info.hyperlink ~= "" and entry.link ~= info.hyperlink then
+		-- (1.10.0-beta16, the beta15 audit's B15-1) A link that CHANGED is only taken as the same piece's when the
+		-- instance was verified above. Where the client gives no instances, a different link under an armed piece is
+		-- an unexplained replacement: refused, and the bags are read again so the list starts from what is there.
+		if entry.link and not sameInstance then
+			if ns.RescanSoon then ns:RescanSoon() end
+			return false, "that item's link changed and it couldn't be confirmed as the same piece"
+		end
+		entry.link = info.hyperlink
+		if entry.rec then entry.rec.link = info.hyperlink end
+		if ns.KeepLink then ns:KeepLink(entry.bag, entry.slot, entry.itemID, info.hyperlink) end
+	end
+	-- (1.10.0-beta8) Pawn, asked fresh, while Hold Back Pawn Upgrades is on: an upgrade, or no answer yet, is a no
+	if ns.db.deHoldPawn and ns.Pawn and ns.Pawn:Active() then
+		local up = ns.Pawn:IsUpgradeLink(info.hyperlink or entry.link, true)
+		if up == true then return false, "Pawn says that item is an upgrade" end
+		if up == nil then return false, "Pawn hasn't decided yet whether that item is an upgrade" end
+	end
+	-- (1.10.0-beta7) and the ItemTree addon's word, asked fresh (beta8: not for a piece it keeps for its dust)
+	-- (1.10.0-beta13, the beta12 audit's F1) and no answer from it now refuses too, whatever it said before
+	if ns.ItemTree then
+		local verdict = ns.ItemTree:Verdict({ itemID = entry.itemID, link = info.hyperlink or entry.link }, true, true)
+		if verdict == "hold" then return false, "ItemTree says to keep that item" end
+		if verdict == "unknown" then return false, "ItemTree couldn't be asked about that item just now (try again in a moment, or untick its Hold Back in the Disenchant Helper in Settings > Addon Sources)" end
+	end
 	return true
 end
 -- Why an item is in or out. Returns true, or false and a short reason.
@@ -765,19 +798,47 @@ function DE:Eligible(rec, skill)
 	if self:Never()[rec.itemID] then return false, "never" end
 	if ns.Marks and rec.itemID and ns.Marks:IsFavorite(rec.itemID) then return false, "favorite" end
 	if rec.gearSets then return false, "gear set" end
+	-- (1.10.0-beta3, Shweep: "when you mark an item to vendor in DE Helper it stays in there, it should leave") an item
+	-- you marked as junk is going to a vendor: not offered while it's marked, and back when the mark comes off
+	if ns.Junk and rec.itemID and ns.Junk:Marked(rec.itemID) then return false, "junk" end
 	if skill and self.SkillFor(rec.ilvl) > skill then return false, "skill" end
 	if ns.db and ns.db.deSkipRefundable ~= false then
 		if refundable(rec) then return false, "refundable" end
 		if tradeable(rec) then return false, "tradeable" end
+	end
+	-- (1.10.0-beta8) Hold Back Pawn Upgrades (off unless you turn it on): Pawn says this piece is an upgrade. What Pawn
+	-- answered is kept beside the list, so the list can follow when Pawn changes its answer (DE:PawnPass).
+	if ns.db and ns.db.deHoldPawn and ns.Pawn then
+		local up = ns.Pawn:IsUpgrade(rec)
+		if self.pawnSeen and rec.link then self.pawnSeen[rec.link] = (up == nil) and "?" or up end
+		if up == true then return false, "pawn" end
+	end
+	-- (1.10.0-beta7) last, so it's only asked about what would otherwise be offered: the ItemTree addon says keep it
+	-- (1.10.0-beta8: unless ItemTree keeps it for its dust, which is what this Helper is for)
+	-- (1.10.0-beta13, F1: on but no answer: the piece waits under "couldn't be checked")
+	if ns.ItemTree then
+		local verdict = ns.ItemTree:Verdict(rec, nil, true)
+		if verdict == "hold" then return false, "itemtree" end
+		if verdict == "unknown" then return false, "itemtreewait" end   -- (1.10.0-beta14: its own heading, which names ItemTree)
 	end
 	return true
 end
 
 -- Every eligible item in the bags, with its values and verdict, best disenchant first.
 -- Eligible's reasons that mean "held back" (an item that would otherwise be considered), in the shared words.
-DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic" }
+DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic", itemtree = "itemtree", pawn = "pawn", itemtreewait = "itemtreewait" }
+-- (1.10.0-beta8) Pawn finished a pass over its answers (Core/Pawn.lua). While Hold Back Pawn Upgrades is on, the list
+-- is drawn again when Pawn's answer about one of its pieces changed: Pawn can say "not yet" the first time it's asked.
+function DE:PawnPass()
+	if not (ns.db and ns.db.deEnabled and ns.db.deHoldPawn and ns.Pawn and self.pawnSeen and self.frame and self.frame:IsShown()) then return end
+	for link, seen in pairs(self.pawnSeen) do
+		local now = ns.Pawn:IsUpgradeLink(link)
+		if ((now == nil) and "?" or now) ~= seen then self:Refresh(); return end
+	end
+end
 function DE:Entries()
 	local out = {}
+	self.pawnSeen = {}
 	local skill = self:Skill()
 	local items = ns.items or {}
 	self.held = ns.Why:New()
@@ -1614,6 +1675,11 @@ function DE:Refresh()
 	-- on. A refresh queued before a close (combat's end runs both) leaves a closed helper disarmed.
 	if not self:IsOpen() then self:Arm(nil); return end
 	self.entries = self:Entries()
+	-- (1.10.0-beta14, the re-audit's R5) pieces waiting for ItemTree: the open Helper looks again by itself in a few
+	-- seconds, and keeps doing so while any wait
+	if self.held and self.held.by.itemtreewait and #self.held.by.itemtreewait > 0 and ns.ItemTree and ns.ItemTree.RetrySoon then
+		ns.ItemTree:RetrySoon("disenchant", function() if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end end)
+	end
 	-- the current item: keep it if it is still there, else the first
 	local keep
 	if self.current then
@@ -1800,9 +1866,13 @@ end
 ns:OnSignal("PRICE_SOURCE_CHANGED", function()
 	if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
 end)
+-- (1.10.0-beta13) ItemTree became ready: what waited under "couldn't be checked" is asked about again
+ns:OnSignal("ITEMTREE_READY", function() if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end end)
+-- (1.10.0-beta14, R5) or said its answers changed
+ns:OnSignal("ITEMTREE_CHANGED", function() if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end end)
 ns:OnSignal("SETTINGS_CHANGED", function(key)
 	if key == nil or key == "deEnabled" then DE:Reconcile() end
-	if (key == nil or key == "deMargin" or key == "deAhMargin" or key == "deLeveling" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
+	if (key == nil or key == "deMargin" or key == "deAhMargin" or key == "deLeveling" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks" or key == "deHoldItemTree" or key == "deHoldPawn") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
 	if (key == nil or key == "deEnabled") and ns.Window and ns.Window.main and ns.Window.main.RefreshToolbar then ns.Window.main:RefreshToolbar() end
 end)
 

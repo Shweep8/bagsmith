@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 -- ======== 1.9.8-beta1 (Shweep, 21 Nov) ========
 -- "need another hotfix, some items are not showing up in global / tooltips": his Shweepy Thyme showed Shweepy
 -- Dreamshade's bank as its own ("those Writ's are only on Shweepy Dreamshade"), and neither listed the other ("I can't
@@ -203,7 +204,7 @@ end)()
 	local n = boot({ name = "Aldren Thorne" })
 	BagSmithDB.whatsNewSeen, BagSmithDB.whatsNewPatchSeen, BagSmithDB.whatsNewButtonSeen = "1.9.6", { ["1.9.6"] = true, ["1.9.5"] = true, ["1.9.4"] = true, ["1.9.3"] = true, ["1.9.2"] = true, ["1.9.1"] = true }, "1.9.6"
 	local WN = n.WhatsNew
-	local e, e7 = WN.ENTRIES[1], WN.ENTRIES[2]
+	local e, e7 = WN.ENTRIES[2], WN.ENTRIES[3]
 	check(e.v == "1.9.8" and e.heading == "BagSmith 1.9.8" and #e.items == 2, "the 1.9.8 entry leads, two bullets")
 	check(e.items[1] == "|cfffac775Shared First Names:|r two characters with the same first name, like Mara Swift and Mara Stone, no longer write over each other's saved bags, bank and gold. Each shows on its own in Global Inventory and tooltips.", "Shared First Names, word for word")
 	-- (by design since 1.9.8-beta2: Shweep's "Important", in soft red, saying more; the beta2 set has its words)

@@ -571,10 +571,20 @@ function MR:Suggestions(waiting, judge)
 			elseif r.hasNoValue or (r.sellPrice or 0) <= 0 then why = "novalue"
 			elseif ns.Marks and ns.Marks:IsFavorite(r.itemID) then why = "favorite"
 			elseif self:IsProtected(r.itemID) then why = "protected"
-			elseif ns.Pawn and ns.Pawn:IsUpgrade(r) then why = "pawn"
+			-- (1.10.0-beta9) a switch now, on unless you turn it off (Settings > Addon Sources > Pawn)
+			elseif ns.db.makeRoomHoldPawn ~= false and ns.Pawn and ns.Pawn:IsUpgrade(r) then why = "pawn"
 			elseif ns.GearSets then
 				local sets, unreadable = ns.GearSets:SetsAt(r.bag, r.slot)
 				if unreadable then why = "unknown" elseif sets then why = "gearset" end
+			end
+			-- (1.10.0-beta7) the ItemTree addon says keep it. Asked last, and only about what would otherwise be
+			-- offered. Not for junk: a grey, or your own junk mark, is your word.
+			-- (1.10.0-beta13, the beta12 audit's F1) and when ItemTree is on but couldn't answer, the item waits: an
+			-- unreadable safety answer is a no
+			if not why and worth and not junk and ns.ItemTree then
+				local verdict = ns.ItemTree:Verdict(r)
+				-- (1.10.0-beta14, the re-audit's R5) under a heading of its own that names ItemTree
+				if verdict == "hold" then why = "itemtree" elseif verdict == "unknown" then why = "itemtreewait" end
 			end
 			if why then
 				if worth then ns.Why:Add(held, why, r.name) end
@@ -1012,12 +1022,32 @@ function MR:StillOk(o)
 		local rec = { itemID = o.itemID, quality = self:LiveQuality(o), sellPrice = select(11, itemInfo(o.itemID)) }
 		if ns.Junk and not ns.Junk:IsJunk(rec) then return false, "changed" end
 	end
+	-- (1.10.0-beta15, the beta14 audit's B14-1) The slot is the offer's (the same item, count and instance, checked
+	-- above). An offer made from a slot the game hadn't given a link for yet takes the live link, and so does the
+	-- scanned record for that slot, so the questions below and the list's own are asked about one and the same key:
+	-- before, a refusal here was kept under the live link while the list went on reading the item id's "clear" and
+	-- offered the item again. (An offer that had a link and now reads another was already refused above, as changed.)
+	-- Only this slot's record is touched.
+	if not o.link and type(info.hyperlink) == "string" and info.hyperlink ~= "" then
+		o.link = info.hyperlink
+		for _, r in ipairs(ns.items or {}) do
+			if r.bag == o.bag and r.slot == o.slot and r.itemID == o.itemID and not r.link then r.link = info.hyperlink end
+		end
+		if ns.KeepLink then ns:KeepLink(o.bag, o.slot, o.itemID, info.hyperlink) end   -- (1.10.0-beta16: the instance keeps it)
+	end
 	-- Never destroy something Pawn calls an upgrade, or hasn't decided on yet,
 	-- junk-marked or not.
-	if ns.Pawn and ns.Pawn:Active() then
+	if ns.db.makeRoomHoldPawn ~= false and ns.Pawn and ns.Pawn:Active() then   -- (1.10.0-beta9: while its switch is on)
 		local up = ns.Pawn:IsUpgradeLink(info.hyperlink or o.link, true)   -- asked fresh, right before destroying
 		if up == true then return false, "upgrade" end
 		if up == nil then return false, "pawn" end
+	end
+	-- (1.10.0-beta7) ItemTree says keep it: asked fresh, right before destroying. Not for an item offered as junk.
+	-- (1.10.0-beta13, F1) no answer from it now (not ready, an error inside it) refuses too, whatever it said before
+	if not o.junk and ns.ItemTree then
+		local verdict = ns.ItemTree:Verdict({ itemID = o.itemID, link = info.hyperlink or o.link }, true)
+		if verdict == "hold" then return false, "itemtree" end
+		if verdict == "unknown" then return false, "itemtreeunknown" end
 	end
 	-- Last: it must still be worth letting go for what's waiting now. The valuable item that justified the offer
 	-- may have been looted by someone else or skipped since (1.3.0-beta2). Protections are checked first, so a
@@ -1045,6 +1075,9 @@ local REFUSED = {
 	quest = "That's a quest item, so nothing was destroyed.",
 	upgrade = "Pawn says that item is an upgrade, so nothing was destroyed.",
 	pawn = "Pawn hasn't decided yet whether that item is an upgrade. Try again in a moment.",
+	itemtree = "ItemTree says to keep that item, so nothing was destroyed.",   -- (1.10.0-beta7)
+	-- (1.10.0-beta13) it says how to go on, since ItemTree may stay silent
+	itemtreeunknown = "ItemTree couldn't be asked about that item just now, so nothing was destroyed. Try again in a moment, or untick its Hold Back in the Loot Helper in Settings > Addon Sources.",
 	stale = "That offer was for a different loot window, so nothing was destroyed.",
 	nohelp = "Destroying that wouldn't make room for what's waiting now, so nothing was destroyed.",
 	unknown = "BagSmith couldn't check your gear sets just now, so nothing was destroyed. Try again in a moment.",
@@ -1127,6 +1160,12 @@ function MR:LiveShards()
 	end
 	return total
 end
+-- (1.10.0-beta14, the beta13 re-audit's R6; Shweep: "leave as is and say so") Clear Soul Shards does not ask the
+-- ItemTree addon, whatever its Hold Back switch says. It is the player's own action, started by the player, with the
+-- player's own count to keep (Soul Shards to Keep), the same kind of "your word" as a junk mark; and if ItemTree
+-- kept shards, asking it would leave this button with nothing it may do. Its gates are its own, below: the count
+-- kept (read live), the lock, the bag family, and the confirmation when Ask Before Destroying is on. The Hold Back
+-- help line in Settings > Addon Sources and the changelog say so.
 function MR:DestroyNextShard(btn)
 	local list, can = self:Shards()
 	-- (1.5.1-beta3, L3) a batch started without a question isn't carried on once Ask Before Destroying is on: this
@@ -1726,6 +1765,11 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 	local options = {}
 	if #waiting > 0 then placeRule(f, f.rule1, y + 6); y = y + 14 end
 	local heldN = held and held.total or 0
+	-- (1.10.0-beta14, R5) items waiting for ItemTree: the open Helper looks again by itself in a few seconds, and keeps
+	-- doing so while any wait (a failure that passes with no word from ItemTree is noticed this way)
+	if held and held.by.itemtreewait and #held.by.itemtreewait > 0 and ns.ItemTree and ns.ItemTree.RetrySoon then
+		ns.ItemTree:RetrySoon("loot", function() if MR.frame and MR.frame:IsShown() then MR:Refresh() end end)
+	end
 	-- (1.7.0-beta10) One list of the ways to make room for the target: free ways first (combining stacks, Clean Up Bags),
 	-- then items to let go, least missed first; the cost on the right. One choice, one button.
 	local n = shardsOnly and 0 or (#combine + (cleanUp and 1 or 0) + #destroy)
@@ -2126,9 +2170,13 @@ function MR:Install()
 		if MR.frame and MR.frame:IsShown() then MR:Refresh() end
 	end
 	ns:OnSignal("PRICE_SOURCE_CHANGED", repriced)
+	-- (1.10.0-beta13) ItemTree became ready: what waited under "couldn't be checked" is asked about again
+	ns:OnSignal("ITEMTREE_READY", function() if MR.frame and MR.frame:IsShown() then MR:Refresh() end end)
+	-- (1.10.0-beta14, R5) or said its answers changed
+	ns:OnSignal("ITEMTREE_CHANGED", function() if MR.frame and MR.frame:IsShown() then MR:Refresh() end end)
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
 		if key == "makeRoomValue" then repriced(); return end
-		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" then return end
+		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" and key ~= "makeRoomHoldItemTree" and key ~= "makeRoomHoldPawn" then return end
 		if MR.shardBatch and not MR.shardConfirmed and ns.db and ns.db.makeRoomAsk then MR.shardBatch = nil end
 		if MR.frame and MR.frame:IsShown() then MR:Refresh() end
 	end)

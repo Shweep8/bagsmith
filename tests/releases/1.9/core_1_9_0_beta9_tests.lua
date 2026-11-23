@@ -1,3 +1,4 @@
+-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
 -- ======== 1.9.0-beta9 (Shweep, 16 Nov) ========
 -- The Total row at small widths ("can the new pinned total fit somehow at smaller widths?") and its backing ("too
 -- transparent in classic theme"); heading icons centered ("BagSmith icon is not centered vertically well"); sub-pages'
@@ -115,7 +116,7 @@ end)()
 	-- the 1.9 What's New card
 	local n, M = boot()
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[9]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
+	local e = WN.ENTRIES[10]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)
 	check(e.v == "1.9.0" and e.heading == "BagSmith 1.9" and #e.items == 7, "the 1.9 card leads, with seven bullets")
 	local heads = {}
 	for _, it in ipairs(e.items) do heads[#heads + 1] = it:match("^|cfffac775(.-):|r") end

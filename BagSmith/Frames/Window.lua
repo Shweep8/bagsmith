@@ -383,6 +383,34 @@ function ns:ReorderLane(from, to)
 	if from == to then return end
 	if reorder(ns.db.laneOrder, from, to) then Window.main.animate = true; ns:RefreshViews(true) end
 end
+-- (1.10.0-beta10) All Items' title dropped on another section's, with Sections: All: All Items goes to that section's
+-- other side. Section Order also holds the sections All view doesn't show, and pinned sections are drawn ahead of the
+-- others whatever their place, so moving All Items itself through the order would carry sections along that the
+-- player never touched. Instead the sections on screen between the two change sides: they move to just past All
+-- Items in Section Order, keeping their own order, and nothing else moves.
+function ns:MoveAllItems(target, view)
+	local ids = view and view.laneIds
+	local order = ns.db and ns.db.laneOrder
+	if type(ids) ~= "table" or type(order) ~= "table" or not ns.IndexOf(order, "~all") then return end
+	local orderId = ns.GearSets and ns.GearSets.OrderId or function(id) return id end
+	local a, t
+	for i, id in ipairs(ids) do
+		if id == "~all" and not a then a = i end
+		if id == target and not t then t = i end
+	end
+	if not (a and t) or a == t then return end
+	local passed, seen = {}, {}
+	for i = math.min(a, t), math.max(a, t) do
+		local id = orderId(ids[i])
+		if i ~= a and id ~= "~all" and id ~= "" and not seen[id] and ns.IndexOf(order, id) then seen[id] = true; passed[#passed + 1] = id end
+	end
+	if #passed == 0 then return end
+	for _, id in ipairs(passed) do table.remove(order, ns.IndexOf(order, id)) end
+	local at = ns.IndexOf(order, "~all")
+	-- they were above All Items: now right after it; they were below: now right before it
+	for k, id in ipairs(passed) do table.insert(order, t < a and (at + k) or (at + k - 1), id) end
+	Window.main.animate = true; ns:RefreshViews(true)
+end
 function ns:ReorderTab(from, to, view)
 	local order = (view and view.isBank) and ns.db.bankTabOrder or ns.db.tabOrder
 	if reorder(order, from, to) then ns:RefreshViews(true) end
@@ -395,7 +423,8 @@ function ns:SaveSheet(name, view)
 	if name == "" then return false, "Enter a sheet name first." end
 	if ns.TAB_LABEL[name] then return false, "That name is taken." end
 	for _, s in ipairs(list) do if s.n == name then return false, "That name is taken." end end
-	table.insert(list, { n = name, f = ns.CleanFilters(view.st.filters) })
+	-- (1.10.0-beta4) saved the way an older version reads it, wherever the filters only use what it knows
+	table.insert(list, { n = name, f = ns.UnfoldFilters(view.st.filters) })
 	table.insert(order, name)
 	view.st.sheet = name
 	ns:RefreshViews(true)
@@ -413,7 +442,7 @@ function ns:UpdateSheet(oldName, newName, view)
 	end
 	for _, s in ipairs(list) do
 		if s.n == oldName then
-			s.n, s.f = newName, ns.CleanFilters(view.st.filters)
+			s.n, s.f = newName, ns.UnfoldFilters(view.st.filters)
 			local oi = ns.IndexOf(order, oldName); if oi then order[oi] = newName end
 			local hidden = view.isBank and ns.db.bankHiddenTabs or ns.db.hiddenTabs
 			local hi = ns.IndexOf(hidden, oldName); if hi then hidden[hi] = newName end
@@ -421,6 +450,8 @@ function ns:UpdateSheet(oldName, newName, view)
 			local prefs = ns.db.sheetPrefs and ns.db.sheetPrefs[view.isBank and "bank" or "bags"]
 			if prefs and oldName ~= newName then prefs[newName], prefs[oldName] = prefs[oldName], nil end
 			if view.st.sheet == oldName then view.st.sheet = newName end
+			-- (1.10.0-beta5) sections set to show on this sheet follow its new name
+			if ns.Sections and ns.Sections.SheetRenamed then ns.Sections:SheetRenamed(oldName, newName) end
 			ns:RefreshViews(true)
 			return true
 		end
@@ -439,6 +470,8 @@ function ns:DeleteSheet(name, view)
 	local prefs = ns.db.sheetPrefs and ns.db.sheetPrefs[view.isBank and "bank" or "bags"]
 	if prefs then prefs[name] = nil end
 	if view.st.sheet == name then view.st.sheet = "All"; view.st.filters = ns.EmptyFilters(); if view.search then view.search:SetText("") end end
+	-- (1.10.0-beta5) sections set to show on this sheet let go of it
+	if ns.Sections and ns.Sections.SheetDeleted then ns.Sections:SheetDeleted(name) end
 	ns:RefreshViews(true)
 end
 

@@ -68,7 +68,13 @@ local function sheetPred(sheet)
 	for _, s in ipairs(ns.db.sheets) do if s.n == sheet then return function() return true end end end
 	for _, s in ipairs(ns.db.bankSheets) do if s.n == sheet then return function() return true end end end
 	-- (1.5.0-beta9) the Consumables tab includes Split Consumables' sections
-	return function(r) return r.cat == sheet or ns.PARENT_CAT[r.cat] == sheet end
+	-- (1.10.0-beta5) tabs by kind: an item in one of your own sections stays on its kind's tab, under your section there
+	local S = ns.Sections
+	return function(r)
+		if r.cat == sheet then return true end   -- (as before, whatever the sheet's id is)
+		local kind = S and S:KindOf(r) or r.cat
+		return kind == sheet or ns.PARENT_CAT[kind] == sheet
+	end
 end
 
 -- Collapse stacks of the same item into one record. The representative
@@ -122,7 +128,8 @@ end
 
 function View:Filtered()
 	local records, bagInfo, bank = self:Records()
-	local pred, fp = sheetPred(self.st.sheet), ns:FilterPredicate(self.st.filters)
+	local sheet = self.st.sheet   -- (1.10.0-beta5) a section can be set to show on some tabs only: sections are asked by tab
+	local pred, fp = sheetPred(sheet), ns:FilterPredicate(self.st.filters, sheet)
 	local shown, total = {}, 0
 	-- Sections hidden at vendors or the auction house, while one is open.
 	-- hiddenNow counts their items (shown or not, for the note at the end of
@@ -132,10 +139,10 @@ function View:Filtered()
 	local hidden, secs, secSeen = 0, {}, {}
 	for _, r in ipairs(records) do
 		if pred(r) then
-			local would = anyHide and ns.Sections:WouldHide(r)
+			local would = anyHide and ns.Sections:WouldHide(r, sheet)
 			if would then
 				hidden = hidden + 1
-				local label = ns.Sections:Label(ns.Sections:EffectiveSection(r))
+				local label = ns.Sections:Label(ns.Sections:EffectiveSection(r, sheet))
 				if not secSeen[label] then secSeen[label] = true; secs[#secs + 1] = label end
 			end
 			if not (would and hiding) then
@@ -155,7 +162,7 @@ function View:Filtered()
 		local seen, n = {}, 0
 		for _, r in ipairs(all) do
 			-- (items hidden at this vendor or auction house aren't counted, as unmerged)
-			if not (hiding and ns.Sections:HiddenNow(r)) then
+			if not (hiding and ns.Sections:HiddenNow(r, sheet)) then
 				local k = r.display and r or ns.MergeKey(r); if not seen[k] then seen[k] = true; n = n + 1 end
 			end
 		end
@@ -657,11 +664,11 @@ end
 -- Refill the rows already on screen without moving anything. With
 -- blankGone, a row whose item has left becomes an empty gap.
 function View:RefreshInPlace(bank, blankGone)
-	local fp = ns:FilterPredicate(self.st.filters)
+	local fp = ns:FilterPredicate(self.st.filters, self.st.sheet)
 	local live = bank and ns.bankItems or ns.items
 	-- Hidden at this vendor or auction house (the same rule as a full layout).
 	local hiding = ns.Sections and ns.Sections:HidingAny() and not ns.ui.showHidden
-	local function hidden(r) return hiding and ns.Sections:HiddenNow(r) end
+	local function hidden(r) return hiding and ns.Sections:HiddenNow(r, self.st.sheet) end
 	-- Merged totals count exactly what a full refresh would show: this
 	-- window's bags, its sheet, and the active filters.
 	local pool
@@ -922,7 +929,7 @@ function View:LockCell(host, i, rec, x, y, cell)
 			local where = ns.Sections:Where() == "ah" and "the auction house" or "vendors"
 			GameTooltip:SetOwner(cf, "ANCHOR_RIGHT")
 			ns.TipText(GameTooltip, cf.rec.name or "Hidden item", 1, 1, 1)
-			ns.TipLine(GameTooltip, ("Hidden at %s (%s). Use Show Them at the end of the bags list to show it."):format(where, ns.Sections:Label(ns.Sections:EffectiveSection(cf.rec))), 0.8, 0.8, 0.8, true)
+			ns.TipLine(GameTooltip, ("Hidden at %s (%s). Use Show Them at the end of the bags list to show it."):format(where, ns.Sections:Label(ns.Sections:EffectiveSection(cf.rec, self.st and self.st.sheet))), 0.8, 0.8, 0.8, true)
 			GameTooltip:Show()
 		end)
 		c:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1046,7 +1053,7 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 				-- item's button (greyed icon, padlock, no clicks, no drops), so it
 				-- can't be sold or used and doesn't look like room. In combat the
 				-- button can't be hidden, so it's only dimmed there.
-				local locked = r and not cached and ns.Sections and ns.Sections:HiddenNow(r)
+				local locked = r and not cached and ns.Sections and ns.Sections:HiddenNow(r, self.st.sheet)
 				if locked and not InCombatLockdown() then
 					b:Hide()
 					locks = locks + 1
@@ -1186,7 +1193,7 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 	if grp == "none" and next(pins) then
 		local byPin, rest = {}, {}
 		for _, r in ipairs(shown) do
-			local id = r.cat
+			local id = ns.Sections:CatOn(r, self.st.sheet)   -- (1.10.0-beta5) its section on this tab
 			if not r.empty and id and pins[id] then byPin[id] = byPin[id] or {}; table.insert(byPin[id], r) else rest[#rest + 1] = r end
 		end
 		if next(byPin) then
@@ -1199,7 +1206,8 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 			shown = rest
 		end
 	end
-	local lanes = ns:BuildLanes(shown, grp, { reagentLane = reagentLane, reagentName = reagentName, sorter = ns:CurrentSorter(self.st, self:Pref("sort")) })
+	local lanes = ns:BuildLanes(shown, grp, { reagentLane = reagentLane, reagentName = reagentName, sorter = ns:CurrentSorter(self.st, self:Pref("sort")),
+		sheet = self.st.sheet })   -- (1.10.0-beta5) sections as this tab shows them
 	local function insertByOrder(lane)
 		local order = {}
 		for i, id in ipairs(db.laneOrder) do order[id] = i end
@@ -1261,7 +1269,10 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 			local eligible = not have[c.id] and (pinnedHere or (grp == "type" and db.showEmptySections and ns.Sections:ShowsEmpty(c.id)))
 				-- hidden here (vendor or auction house), unless Show Hidden
 				and not (where and not ns.ui.showHidden and not ns.Sections:Shown(c.id, where))
-				and (not categorySheet or sheet == c.id)
+				-- (1.10.0-beta5) a section set to show on some sheets only: never elsewhere; on a category tab it was set
+				-- to show on, it belongs like the tab's own
+				and ns.Sections:OnSheet(c, sheet)
+				and (not categorySheet or sheet == c.id or c.sheets ~= nil)
 				-- searching or filtering hides them, unless the filter is for this section
 				and (not narrowing or ((f.text or "") == "" and f.cat and f.cat[c.id]))
 			if eligible then insertByOrder({ id = c.id, label = c.name, items = {}, emptyCustom = true, pinnedSection = pinnedHere or nil }) end
@@ -1413,6 +1424,48 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 		end
 	end
 
+	-- (1.10.0-beta10, a player's request relayed by Shweep: "All Items" as part of Section Order) Sections: All. All
+	-- Items has a place in Section Order ("~all"), and each section beside it shows above it or below it by its own
+	-- place: before All Items in the order, above; after it, below. On each side pinned sections still go first, then
+	-- the rest in Section Order; Recent, when it is first in the order, still takes the very top. Before this, pinned
+	-- sections were always above, and where Favorites and Gear Sets landed depended on which other sections happened
+	-- to be showing (Favorites dropped below All Items whenever a Keys section was there).
+	if grp == "none" and #lanes > 1 then
+		local order = {}
+		for i, id in ipairs(db.laneOrder) do order[id] = i end
+		local oAll = order["~all"]
+		local mainAt
+		for i, l in ipairs(lanes) do if l.id == "" or l.id == "~all" then mainAt = i; break end end
+		if oAll and mainAt then
+			local mainLane = lanes[mainAt]
+			local recentFirst = db.laneOrder[1] == "~recent"
+			local keys = {}
+			for i, l in ipairs(lanes) do
+				local k
+				if i == mainAt then k = { 2, 0, 0, i }
+				elseif l.recent and recentFirst then k = { 0, 0, 0, i }
+				-- (Icons view's empty slots, when they have a list of their own after the items: it stays last)
+				elseif l.id == "" or l.id == "~all" then k = { 4, 0, 0, i }
+				else
+					local o = order[l.orderId or l.id]
+					-- (a section with no place in Section Order: a pinned one above, as pinned sections always were; any
+					-- other stays on the side it was put)
+					local above
+					if o then above = o < oAll elseif l.pinnedSection then above = true else above = i < mainAt end
+					k = { above and 1 or 3, l.pinnedSection and 0 or 1, o or 1e6, i }
+				end
+				keys[l] = k
+			end
+			table.sort(lanes, function(a, b)
+				local x, y = keys[a], keys[b]
+				for j = 1, 4 do if x[j] ~= y[j] then return x[j] < y[j] end end
+				return false
+			end)
+			-- with a section above it, the main list needs its title, or the two run together
+			if lanes[1] ~= mainLane and mainLane.id == "" then mainLane.id, mainLane.label = "~all", "All Items" end
+		end
+	end
+
 	-- (1.9.0-beta3) Global Inventory's accordion: an open item's row per character goes right under it, after sorting,
 	-- so no sort can part them
 	if self.isMain and ns.ui.global and ns.ui.globalOpen and next(ns.ui.globalOpen) then
@@ -1538,13 +1591,17 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 					btn.view:ToggleLane(btn.laneId)
 				end)
 				h:SetScript("OnReceiveDrag", function(btn) if ns.Sections then ns.Sections:DropOnSection(btn.laneId) end end)
-				-- "All Items" (Sections: All beside Recent) isn't in Section Order, so it doesn't drag.
-				-- (1.9.0-beta5) nor in Global Inventory: a drag there would reorder your profile's sections
-				h:SetScript("OnDragStart", function(btn) if btn.laneId == "~all" or (btn.view.isMain and ns.ui.global) then return end ns.dragLane = btn.laneId; btn:SetAlpha(0.5) end)
+				-- (1.10.0-beta10) "All Items" is in Section Order now, so its header drags like the others, and a section
+				-- can be dropped on it: that moves the section to its other side.
+				-- (1.9.0-beta5) not in Global Inventory: a drag there would reorder your profile's sections
+				h:SetScript("OnDragStart", function(btn) if btn.view.isMain and ns.ui.global then return end ns.dragLane = btn.laneId; btn:SetAlpha(0.5) end)
 				h:SetScript("OnDragStop", function(btn)
 					btn:SetAlpha(1)
 					local target = ns.FrameUnderCursor("laneId")
-					if ns.dragLane and target and target ~= ns.dragLane and target ~= "~all" then ns:ReorderLane(ns.dragLane, target) end
+					if ns.dragLane and target and target ~= ns.dragLane then
+						-- (1.10.0-beta10) All Items' own title: by what's on screen (ns:MoveAllItems)
+						if ns.dragLane == "~all" then ns:MoveAllItems(target, btn.view) else ns:ReorderLane(ns.dragLane, target) end
+					end
 					ns.dragLane = nil
 				end)
 				-- Headers explain their numbers on hover (Recent, its copies).
