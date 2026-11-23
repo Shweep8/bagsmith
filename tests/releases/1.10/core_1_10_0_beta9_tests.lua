@@ -310,7 +310,9 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	end
 	local function row(P, kind, key) for _, w in ipairs(P.pools[kind] or {}) do if w:IsShown() and w.key == key then return w end end end
 	local function head(P, name) for _, w in ipairs(P.pools.head or {}) do if w:IsShown() and w.text.text == name then return w end end end
-	local INTRO = "\"BagSmith works with these addons when you have them. None is needed.\""
+	-- (by design since 1.10.0-beta10, Shweep: "None are required (not: none is needed)"; "can we call it Addon Sources";
+	-- "let's move plugins above advanced": the page's first line, its name, and its place in the list)
+	local INTRO = "\"BagSmith works with these addons when you have them. None are required.\""
 	local PRICES, TREE, PAWN = "\"Used for the AH Price column, item tooltips and both Helpers.\"", "\"Knows what your items are for on this character.\"", "\"Knows which gear is an upgrade for you. Its green arrows show on your icons.\""
 
 	-- nothing installed: three cards, each its heading, state and sentence
@@ -414,8 +416,8 @@ for _, skin in ipairs({ "modern", "classic" }) do
 
 	-- the list on the left, and General
 	local names, at = {}, nil
-	for i, b in ipairs(P.navButtons) do names[i] = b.text.text; if b.text.text == "Other Addons" then at = i end end
-	check(at and names[at - 1] == "Plugins" and names[at + 1] == "Profile", S0 .. "Other Addons is in the list, between Plugins and Profile")
+	for i, b in ipairs(P.navButtons) do names[i] = b.text.text; if b.text.text == "Addon Sources" then at = i end end
+	check(at and names[at - 1] == "Keybindings" and names[at + 1] == "Profile", S0 .. "Addon Sources is in the list, between Keybindings and Profile")
 	check(P.navButtons[at].icon and P.navButtons[at].icon.texture == "Interface\\AddOns\\BagSmith\\Media\\ui-set-addons.tga" and P.navButtons[at]:IsShown(), S0 .. "with its icon")
 	P:Show(); P:ShowPage("general"); M.runTimers()
 	local heads = {}
@@ -425,7 +427,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	check(row(P, "check", "tipAHPrice") ~= nil, S0 .. "Show AH Price in Item Tooltips stays on General")
 	-- the Loot Helper's page points here
 	P:ShowPage("loothelper"); M.runTimers()
-	check(outline(P):find("\"Favorites, gear-set items, quest items and items you protect are never suggested for destroying. Settings > Other Addons sets what Pawn and ItemTree hold back.\"", 1, true),
+	check(outline(P):find("\"Favorites, gear-set items, quest items and items you protect are never suggested for destroying. Settings > Addon Sources sets what Pawn and ItemTree hold back.\"", 1, true),
 		S0 .. "Settings > Loot Helper says where Pawn's and ItemTree's holds are set")
 	P:Hide()
 	check((n.errors or 0) == 0, S0 .. "no errors")
@@ -439,16 +441,16 @@ end
 	f = io.open("BagSmith/Media/ui-set-plugins.tga", "rb"); local ref = f:read("*a"); f:close()
 	check(tga:byte(3) == ref:byte(3) and tga:byte(18) == ref:byte(18), "saved the same way as theirs")
 	f = io.open("BagSmith/Frames/SettingsPanel.lua"); local src = f:read("*a"); f:close()
-	local _, tips = src:gsub("Auction Price Source is in Settings > Other Addons%.", "")
+	local _, tips = src:gsub("Auction Price Source is in Settings > Addon Sources%.", "")
 	check(tips == 2 and not src:find("is in General.", 1, true), "the AH Price column's tips say where Auction Price Source is now")
 	check(not src:find("Use ItemTree", 1, true) and not src:find("itemTreeHold", 1, true) and not src:find("|cff9fe6e1", 1, true), "Use ItemTree, the one hold switch and the inline color are gone from Settings")
 	f = io.open("BagSmith/Frames/WhatsNew.lua"); local wn = f:read("*a"); f:close()
-	check(wn:find("pick one in Settings > Other Addons > Auction Prices.", 1, true) and not wn:find("Settings > General > Price Source", 1, true), "What's New's older line about price addons points at the new page")
+	check(wn:find("pick one in Settings > Addon Sources > Auction Prices.", 1, true) and not wn:find("Settings > General > Price Source", 1, true), "What's New's older line about price addons points at the new page")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
-	check(section:find("A new Settings page, Other Addons,", 1, true) and section:find("each Helper has its own switch in Settings > Other Addons", 1, true), "the changelog's 1.10.0 section: the Other Addons page, a switch per Helper")
-	check(section:find("Price Source moved from Settings > General to the new Other Addons page, and is now called Auction Price Source.", 1, true)
-		and section:find("The Loot Helper holding back Pawn upgrades is a switch now, in Settings > Other Addons. It's on, as before.", 1, true), "Price Source's move and Pawn's new switch")
+	check(section:find("A new Settings page, Addon Sources,", 1, true) and section:find("each Helper has its own switch in Settings > Addon Sources", 1, true), "the changelog's 1.10.0 section: the Other Addons page, a switch per Helper")
+	check(section:find("Price Source moved from Settings > General to the new Addon Sources page, and is now called Auction Price Source.", 1, true)
+		and section:find("The Loot Helper holding back Pawn upgrades is a switch now, in Settings > Addon Sources. It's on, as before.", 1, true), "Price Source's move and Pawn's new switch")
 	check(not section:find("Settings > General turns it", 1, true) and not section:find("Use ItemTree", 1, true), "and nothing still points at General or Use ItemTree")
 	check(not section:find("\226\128\148") and not section:find("\226\128\147"), "with no dashes")
 end)()

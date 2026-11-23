@@ -23,7 +23,7 @@ end
 -- always in sync with the profile; widgets are pooled by type.
 ------------------------------------------------------------------------
 -- (1.8.0-beta6, Shweep) the page side 15% wider: 510 px beside the page list, now 587 (the window 680 to 757)
--- (1.10.0-beta9) 612: one more page in the list (Other Addons), and it still keeps full spacing with a page's three
+-- (1.10.0-beta9) 612: one more page in the list (Addon Sources), and it still keeps full spacing with a page's three
 -- sub-pages open, in both skins, as 1.9.0-beta6 chose (Shweep then: "we may want to make it 5-10% taller"; 560 at first)
 local NAV_W, WIN_W, WIN_H = 170, 757, 612   -- (1.9.0-beta6, Shweep) 5% taller (was 560): the Global sub-pages
 local SEARCH_W = 200   -- NAV_W fits the longest page name (1.9.0-beta22: "Automations & Actions" is "Automations")
@@ -35,8 +35,9 @@ local PAGES = {
 	{ "columns", "Columns" }, { "bagcols", "Bag Columns", "columns" }, { "bankcols", "Bank Columns", "columns" }, { "globalcols", "Global Inv Columns", "columns" },
 	{ "sheets", "Sheets" }, { "bagsheets", "Bag Sheets", "sheets" }, { "banksheets", "Bank Sheets", "sheets" }, { "globalsheets", "Global Inv Sheets", "sheets" },
 	{ "sorting", "Sorting & Filters" }, { "automation", "Automations" }, { "loothelper", "Loot Helper", "automation" }, { "dehelper", "Disenchant Helper", "automation" },
-	-- (1.10.0-beta9, Shweep: "own page") Other Addons, beside Plugins
-	{ "keys", "Keybindings" }, { "plugins", "Plugins" }, { "addons", "Other Addons" }, { "profile", "Profile" }, { "advanced", "Advanced" },
+	-- (1.10.0-beta9, Shweep: "own page") the page for what BagSmith does with other addons
+	-- (1.10.0-beta10, Shweep: "can we call it Addon Sources"; "let's move plugins above advanced")
+	{ "keys", "Keybindings" }, { "addons", "Addon Sources" }, { "profile", "Profile" }, { "plugins", "Plugins" }, { "advanced", "Advanced" },
 }
 -- (1.9.0-beta8, Shweep: "in each's header in settings and in the settings left hand can each also get their icon") the
 -- sub-pages' icons, one color like the text, before the name in the list and in the page's heading
@@ -1688,7 +1689,7 @@ pages.profile = function(self, db)
 	self:Button("Import Profile", function() ns.ShareWindow("import") end, 160)
 end
 
--- Other Addons (1.10.0-beta9; Shweep: "this needs more consistency and a scalable plan"). What BagSmith does with
+-- Addon Sources (1.10.0-beta9; Shweep: "this needs more consistency and a scalable plan"). What BagSmith does with
 -- other addons, in cards that are all built the same way:
 --   * an ADDON card for an addon that knows something only it knows (ItemTree, Pawn): the heading is its name, with its
 --     state at the right end of the heading's line; one sentence on what it knows; then one row per thing BagSmith
@@ -1699,7 +1700,7 @@ end
 -- An addon you don't have shows its heading, state and sentence only. Cards are in A to Z order by heading.
 -- A new row never changes what a player already has.
 pages.addons = function(self, db)
-	self:Text("BagSmith works with these addons when you have them. None is needed.")
+	self:Text("BagSmith works with these addons when you have them. None are required.")   -- (beta10, Shweep's words)
 	-- Auction Prices: a job card
 	do
 		local AH = ns.AH
@@ -1753,7 +1754,7 @@ pages.general = function(self, db)
 	self:Check("replaceBlizzardBags", "Open with the Bag Keybind (B)", "Turn off to keep Blizzard's bags on B. You can still open BagSmith from the minimap button or /bs.")
 	self:Check("minimap", "Show Minimap Button", "With it off, you can still open BagSmith with /bs or from the game's addon list.")
 	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
-	-- (1.10.0-beta9) auction prices, ItemTree and Pawn have a page of their own: Other Addons (pages.addons)
+	-- (1.10.0-beta9) auction prices, ItemTree and Pawn have a page of their own: Addon Sources (pages.addons)
 	-- (1.6.0) tips on BagSmith's own controls
 	self:Head("Tooltips")   -- (1.9.0-beta2, Shweep) was "Tips"
 	-- (1.9.0-beta1, Shweep)
@@ -1930,8 +1931,8 @@ pages.loothelper = function(self, db)
 			{ disabled = db.makeRoomAsk and true or nil, checked = db.makeRoomAsk and true or nil, keywords = "destroy destroyed destroying confirm confirmation" })
 	end)
 	-- The Loot Exclusion List: one line here, the list in its own window.
-	-- (1.10.0-beta9) Pawn upgrades left this sentence: holding them back is a switch now, with ItemTree's, in Other Addons
-	self:Text("Favorites, gear-set items, quest items and items you protect are never suggested for destroying. Settings > Other Addons sets what Pawn and ItemTree hold back.")
+	-- (1.10.0-beta9) Pawn upgrades left this sentence: holding them back is a switch now, with ItemTree's, in Addon Sources
+	self:Text("Favorites, gear-set items, quest items and items you protect are never suggested for destroying. Settings > Addon Sources sets what Pawn and ItemTree hold back.")
 	self:Head("Loot Exclusion List")
 	self:Text("Items the Loot Helper won't make room for. This list only affects the Loot Helper.")
 	self:Text("The helpers never destroy or disenchant favorites, but junk selling still sells grey favorites.")
@@ -2137,7 +2138,9 @@ pages.sections = function(self, db)
 	-- (1.7.0-beta5, Shweep) named for what the card does: "Section Order" before
 	self:Head("Move, Pin and Hide Sections", { noIcon = true, keywords = "order section order sort arrange pin pinned top hide hidden show vendor vendors auction house ah" })
 	self:Text("Your sections show in this order, dynamic and custom ones included. Use the arrows to move one.")
-	self:Text("Pin keeps a section at the top, just under Recent. You can also pin one by right-clicking its title. By Bag ignores pins.")
+	-- (1.10.0-beta10) pins and All Items: "at the top" no longer says it
+	self:Text("Pin shows a section ahead of your other sections, just under Recent. You can also pin one by right-clicking its title. By Bag ignores pins.")
+	self:Text("All Items is the list you see with Sections: All. There, a pinned or dynamic section shows above it or below it by its place in this list.")
 	self:Text("Untick Vendor or AH to hide a section while you're at a vendor or the auction house. It comes back when you leave. Hiding doesn't stop Blizzard's Sell All Junk button from selling them.")
 	-- Recent Items, Keys and Reagent Bag stay listed (so their place can be set
 	-- in advance) but are dimmed with "(off)" when inactive, and say how to turn
@@ -2161,18 +2164,20 @@ pages.sections = function(self, db)
 			off = "Your reagent bag's items are mixed in with your other items. Set Reagent Bag to Own Section, under Keys & Reagent Bag, above."
 		end
 		if off then it.label, it.dim, it.tip = it.label .. " (off)", true, off end
+		-- (1.10.0-beta10) All Items: its place matters in Sections: All only
+		if it.id == "~all" then it.tip = "With Sections: All, the sections above this one in the list show above All Items, and the ones below it show below. By Section and By Bag pass over it." end
 	end
 	-- Junk, if it isn't in the order, still gets its pin and hiding (last, where it can't be moved)
 	if not ns.IndexOf(db.laneOrder, "Junk") then orderItems[#orderItems + 1] = { id = "Junk", label = ns.Sections:Label("Junk") or "Junk", noUp = true, noDown = true } end
 	local GS = ns.GearSets
 	local function custom(id) return id:match("^c%d+$") ~= nil end
 	local function hides(id)
-		if id == "~recent" or id == "~ky" or id == "~rb" then return false end
+		if id == "~recent" or id == "~ky" or id == "~rb" or id == "~all" then return false end   -- (All Items: 1.10.0-beta10)
 		if id == "~gs" then return GS and GS:Available() and GS:Showing() and true or false end   -- one row for every gear set
 		return not custom(id) or ns.Sections:IsCustom(id)
 	end
 	local cols = {
-		{ key = "pin", head = "Pin", tip = "Pinned: stays at the top, just under Recent.", keywords = "pin pinned top",
+		{ key = "pin", head = "Pin", tip = "Pinned: shown ahead of your other sections, just under Recent. In Sections: All it sits above or below All Items by its place here.", keywords = "pin pinned top",
 			get = function(id) if ns.Sections:Pinnable(id) and (not custom(id) or ns.Sections:IsCustom(id)) then return ns.Sections:Pinned(id) end end,
 			set = function(id, on) ns.Sections:SetPinned(id, on); Panel:Refresh() end },
 		{ key = "vendor", head = "Vendor", tip = "Shown at vendors. Untick to hide it while a vendor is open.", keywords = "show hide vendor vendors",
@@ -2264,7 +2269,7 @@ local function columnsPage(self, db, bank)
 			-- AH Price: always listed, greyed out until a price addon is installed (1.6.0: Auctionator or Blackthornes Tradeskills).
 			local ok = ns.AH:Available()
 			colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil, disabled = not ok,
-				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in Settings > Other Addons.") or ns.AH.INSTALL_HINT }
+				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in Settings > Addon Sources.") or ns.AH.INSTALL_HINT }
 		else colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil } end
 	end
 	self:List(colItems,
@@ -2372,7 +2377,7 @@ pages.globalcols = function(self, db)
 		if id == "ah" then
 			local ok = ns.AH:Available()
 			return { id = id, label = ns.COL_LABEL[id], checked = checked, disabled = not ok,
-				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in Settings > Other Addons.") or ns.AH.INSTALL_HINT }
+				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in Settings > Addon Sources.") or ns.AH.INSTALL_HINT }
 		end
 		return { id = id, label = ns.COL_LABEL[id], checked = checked }
 	end

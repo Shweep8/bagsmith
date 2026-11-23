@@ -496,7 +496,7 @@ function S:DropOnSection(laneId)
 		local name = rec.name or "That item"
 		if self:Pinned(own) then
 			if cur ~= own then
-				ns:Print("%s stays at the top: its own section, %s, is pinned too. Unpin %s, or move it to another section.", name, self:Label(own), self:Label(own))
+				ns:Print("%s stays in a pinned section: its own section, %s, is pinned too. Unpin %s, or move it to another section.", name, self:Label(own), self:Label(own))
 			else
 				ns:Print("%s belongs in %s, which is pinned. Unpin %s, or move it to another section.", name, self:Label(own), self:Label(own))
 			end
@@ -580,7 +580,7 @@ function S:IntoAllItems(itemID)
 	if not rec then return false end
 	local own = self:OwnCategory(rec)
 	if self:Pinned(own) then
-		ns:Print("%s stays at the top: its own section, %s, is pinned too. Unpin %s, or move it to another section.", rec.name or "That item", self:Label(own), self:Label(own))
+		ns:Print("%s stays in a pinned section: its own section, %s, is pinned too. Unpin %s, or move it to another section.", rec.name or "That item", self:Label(own), self:Label(own))
 		return false
 	end
 	S:Move(itemID, own)
@@ -613,10 +613,12 @@ function S:SectionMenu(laneId, owner)
 		return ns.ShowMenu(items, owner)
 	end
 	-- Pin to Top (1.4.0): item sections only (not Recent, Favorites, Keys, Reagent Bag, gear sets or All Items).
+	-- (1.10.0-beta10, Shweep) Pin Section / Unpin Section: a pinned section can sit below All Items now, so "to Top"
+	-- no longer says it
 	if S:Pinnable(laneId) then
 		local pinned = S:Pinned(laneId)
-		items[#items + 1] = { text = pinned and "Unpin" or "Pin to Top", onClick = function() if same() then S:SetPinned(laneId, not S:Pinned(laneId)) end end,
-			tip = pinned and "Back to its usual place." or "Shown at the top, after Recent. In All view its items get their own section there.", gap = true }
+		items[#items + 1] = { text = pinned and "Unpin Section" or "Pin Section", onClick = function() if same() then S:SetPinned(laneId, not S:Pinned(laneId)) end end,
+			tip = pinned and "Back to its usual place." or "Shown ahead of your other sections, after Recent. In All view its items get their own section, above or below All Items by its place in Section Order.", gap = true }
 	end
 	-- (Recent, Keys and Reagent Bag are views of other sections, so they have no toggles.)
 	if laneId ~= "~recent" and laneId ~= "~ky" and laneId ~= "~rb" then

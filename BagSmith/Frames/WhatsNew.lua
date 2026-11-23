@@ -111,7 +111,7 @@ WN.ENTRIES = {
 		"|cfffac775Smoother Clean Up:|r Clean Up Bags no longer makes your game stutter while it sorts, even with Clean Up Bags When Opened on.",
 	} },
 	{ v = "1.6.0", heading = "BagSmith 1.6", items = {
-		"|cfffac775Blackthornes Tradeskills Prices:|r BagSmith can now take auction prices from Blackthornes Tradeskills as well as Auctionator. It uses whichever you have; with both, pick one in Settings > Other Addons > Auction Prices.",
+		"|cfffac775Blackthornes Tradeskills Prices:|r BagSmith can now take auction prices from Blackthornes Tradeskills as well as Auctionator. It uses whichever you have; with both, pick one in Settings > Addon Sources > Auction Prices.",
 		"|cfffac775Quest Starters:|r an item that begins a quest now wears a yellow \"!\" in the top left of its icon until you accept the quest. You can move it to another corner in Settings > Item Icons.",
 		"|cfffac775See-Through Windows:|r turn down Background Opacity to let the world show through your bags' frame (or the whole window), and turn on Fade While Moving to dim your bags while you run. Both are in Settings > Windows > Opacity.",
 		"|cfffac775Fewer Tips:|r know your way around? Turn off Show Help Tooltips in Settings > General to stop the tooltips on BagSmith's buttons and columns. Item tooltips stay.",

@@ -79,7 +79,7 @@ local DEFAULTS = {
 	travelMode = false,        -- Travel Mode (the signpost beside the close button): toolbar hidden, search in the title row
 	travelLeaveBank = true,    -- Auto Travel Mode: off while the bank is open, back on after
 	travelLeaveGuildBank = true,   -- ... the guild bank (1.8.0-beta23)
-	-- Settings > Other Addons (1.10.0-beta9: one switch per job, none depending on another)
+	-- Settings > Addon Sources (1.10.0-beta9: one switch per job, none depending on another)
 	useItemTree = true,    -- (1.10.0-beta6) with the ItemTree addon installed, sections and filters can use what it knows
 	makeRoomHoldItemTree = true,   -- (1.10.0-beta9; was itemTreeHold, beta7) the Loot Helper holds back what ItemTree says to keep
 	deHoldItemTree = true,         -- ... and the Disenchant Helper, except what ItemTree keeps for its dust
@@ -179,7 +179,9 @@ local DEFAULTS = {
 	splitConsTypes = {},       -- kind -> false to keep that type in Consumables (missing means split)      -- (1.5.0-beta8) other addons' marks the player has done something with (no longer "new")
 	splitGear = false,         -- (1.7.0-beta6) Split Gear by Binding
 	splitGearTypes = {},       -- (1.7.0-beta6) Soulbound/BoE -> false to keep it in Gear (missing means split)
-	laneOrder = { "~recent", "~fav", "Gear", "Consumables", "Reagents", "TradeGoods", "Recipes", "Quest", "Tokens", "Other", "Junk", "~ky", "~rb", "~gs" },
+	-- (1.10.0-beta10) "~all" is All Items, the list Sections: All shows: a section beside it there shows above it when
+	-- it comes before it here, below when after. By Section and By Bag have no All Items and pass over it.
+	laneOrder = { "~recent", "~fav", "Gear", "Consumables", "Reagents", "TradeGoods", "Recipes", "Quest", "Tokens", "Other", "Junk", "~all", "~ky", "~rb", "~gs" },
 	tabOrder = { "All", "Gear", "Consumables", "TradeGoods", "Quest", "Junk", "GearSets", "Bank" },
 	hiddenTabs = {},
 	sheets = {},               -- { { n = name, f = filters } }
@@ -252,6 +254,7 @@ for k in pairs(COL_SET) do ORDER_SET[k] = true end
 for _, c in ipairs(ns.CATS) do if c ~= "Keys" then LANE_SET[c] = true end end
 LANE_SET["~ky"], LANE_SET["~rb"], LANE_SET["~recent"], LANE_SET["~fav"] = true, true, true, true
 LANE_SET["~gs"] = true   -- every gear set takes this one place in Section Order
+LANE_SET["~all"] = true  -- (1.10.0-beta10) All Items, for Sections: All
 -- (1.6.3-beta1, Shweep: an item moved to Food went back after a /reload) Split Consumables' sections (1.5.0-beta9) are
 -- built-in sections too: the check at load now keeps moves to them, their place in Section Order and their vendor and
 -- AH hiding (it dropped all three, so every reload undid them; profile sharing runs the same check).
@@ -765,6 +768,24 @@ local function validateProfile(saved)
 		end
 		-- Gear Sets (0.15) joins at the very bottom.
 		if not ns.IndexOf(saved.laneOrder, "~gs") then table.insert(saved.laneOrder, "~gs") end
+		-- (1.10.0-beta10) All Items joins where it keeps Sections: All looking as it did: right before the first dynamic
+		-- section that follows your item sections (Keys, Reagent Bag and Gear Sets in the usual order), so what came
+		-- before your items still shows above All Items and what came after still shows below. A pinned section
+		-- further down than that stays above All Items, as pinned sections always were.
+		if not ns.IndexOf(saved.laneOrder, "~all") then
+			local order = saved.laneOrder
+			local firstItem, at, lastPin
+			for i, id in ipairs(order) do if type(id) == "string" and id:sub(1, 1) ~= "~" then firstItem = i; break end end
+			if firstItem then
+				for i = firstItem + 1, #order do
+					if type(order[i]) == "string" and order[i]:sub(1, 1) == "~" then at = i; break end
+				end
+			end
+			local pins = type(saved.pinnedSections) == "table" and saved.pinnedSections or {}
+			for i, id in ipairs(order) do if pins[id] == true then lastPin = i end end
+			if at and lastPin and lastPin >= at then at = lastPin + 1 end
+			table.insert(order, at or (#order + 1), "~all")
+		end
 	end
 	-- The Gear Sets tab (0.15) joins just before Bank (else last).
 	local function beforeBank(order)

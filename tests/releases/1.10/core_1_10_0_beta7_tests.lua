@@ -425,7 +425,7 @@ end)()
 	check(toc:find("## Version: 1.10.0", 1, true), "the TOC says 1.10.0 (the exact version is pinned in tests/run.lua)")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
-	check(section:find("the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep", 1, true) and section:find("each Helper has its own switch in Settings > Other Addons", 1, true),
+	check(section:find("the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep", 1, true) and section:find("each Helper has its own switch in Settings > Addon Sources", 1, true),
 		"the changelog's 1.10.0 section: the Helpers hold back what ItemTree says to keep")
 	check(not section:find("\226\128\148") and not section:find("\226\128\147"), "with no dashes")
 	for _, file in ipairs({ "BagSmith/Core/ItemTree.lua", "BagSmith/Core/Why.lua" }) do

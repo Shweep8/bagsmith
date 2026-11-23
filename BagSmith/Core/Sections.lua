@@ -29,11 +29,14 @@ for _, k in ipairs(ns.GEAR_KINDS) do S.BUILTIN[#S.BUILTIN + 1] = ns.GEAR_ID[k] e
 local BUILTIN_SET = {}
 for _, id in ipairs(S.BUILTIN) do BUILTIN_SET[id] = true end
 S.BUILTIN_SET = BUILTIN_SET
-local SPECIAL_LABEL = { ["~recent"] = "Recent Items", ["~fav"] = "Favorites", ["~gs"] = "Gear Sets", ["~ky"] = "Keys", ["~rb"] = "Reagent Bag", Junk = "Junk" }
+local SPECIAL_LABEL = { ["~recent"] = "Recent Items", ["~fav"] = "Favorites", ["~gs"] = "Gear Sets", ["~ky"] = "Keys", ["~rb"] = "Reagent Bag", Junk = "Junk",
+	["~all"] = "All Items" }   -- (1.10.0-beta10) All Items has a place in Section Order
 
 function S:Customs() return (ns.db and ns.db.customSections) or {} end
 -- Pinned sections (1.4.0): item sections (built-in or custom) shown at the top, after Recent; in All view their
 -- items leave the main list for their own section. By Bag ignores pins.
+-- (1.10.0-beta10) In All view, All Items keeps its own place in Section Order: a pinned section that comes after it
+-- there shows below it. The menu entry is Pin Section / Unpin Section (it was Pin to Top).
 function S:Pinnable(id) return type(id) == "string" and id ~= "" and id:sub(1, 1) ~= "~" and not id:match("^gs:") end
 function S:PinnedSet() return (ns.db and type(ns.db.pinnedSections) == "table") and ns.db.pinnedSections or {} end
 function S:Pinned(id) return self:PinnedSet()[id] == true end
@@ -405,8 +408,10 @@ function S:Create(name)
 	ns.db.sectionNextId = n + 2
 	table.insert(ns.db.customSections, { id = id, name = name })
 	-- Into Section Order just before Other (or at the end).
+	-- (1.10.0-beta10) with no Other in the order, just before All Items, so a new section starts above it once pinned
 	local order, at = ns.db.laneOrder, nil
 	for i, x in ipairs(order) do if x == "Other" then at = i; break end end
+	if not at then at = ns.IndexOf(order, "~all") end
 	table.insert(order, at or (#order + 1), id)
 	ns:Fire("SETTINGS_CHANGED", "customSections")
 	return id

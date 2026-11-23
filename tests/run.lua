@@ -3677,9 +3677,12 @@ end)()
 	check(not anyShown and copyShown, "collapsing All Items hides the rest and keeps Recent")
 	main:ToggleLane("~all")
 	-- Not draggable.
+	-- (by design since 1.10.0-beta10, a player's request via Shweep: All Items is in Section Order, so its title drags
+	-- like the others)
 	hs = headers()
 	hs[2]:GetScript("OnDragStart")(hs[2])
-	check(nS.dragLane == nil, "All Items can't be dragged")
+	check(nS.dragLane == "~all", "All Items' title drags, now that it has a place in Section Order")
+	nS.dragLane = nil; hs[2]:SetAlpha(1)
 	-- Recent moved down in Section Order: All Items first, then Recent.
 	table.remove(nS.db.laneOrder, nS.IndexOf(nS.db.laneOrder, "~recent")); table.insert(nS.db.laneOrder, "~recent")
 	nS:RefreshViews(true); hs = headers()
@@ -4511,8 +4514,10 @@ end)()
 	-- (1.9.0-beta6, by design) each of Sections, Columns and Sheets gains its Global page, last (beta8: "Global Inv ...")
 	-- (by design since 1.9.0-beta22, Shweep: "rename to Automations"; was "Automations & Actions")
 	-- (1.10.0-beta9, by design: Shweep, "own page") Other Addons, between Plugins and Profile
-	check(table.concat(order, "|") == "General|Style|Item Icons|Windows|Sections|Dynamic Sections|Custom Sections|Global Inv Sections|Columns|Bag Columns|Bank Columns|Global Inv Columns|Sheets|Bag Sheets|Bank Sheets|Global Inv Sheets|Sorting & Filters|Automations|Loot Helper|Disenchant Helper|Keybindings|Plugins|Other Addons|Profile|Advanced",
-		"Settings pages: General first, Item Icons right after Style (1.5.0), Profile just before Advanced (Automations has its two helper sub-pages since 1.2.0)")
+	-- (1.10.0-beta10, by design: Shweep, "can we call it Addon Sources"; "let's move plugins above advanced") Addon
+	-- Sources after Keybindings, and Plugins between Profile and Advanced (Profile was just before Advanced since 1.5.0)
+	check(table.concat(order, "|") == "General|Style|Item Icons|Windows|Sections|Dynamic Sections|Custom Sections|Global Inv Sections|Columns|Bag Columns|Bank Columns|Global Inv Columns|Sheets|Bag Sheets|Bank Sheets|Global Inv Sheets|Sorting & Filters|Automations|Loot Helper|Disenchant Helper|Keybindings|Addon Sources|Profile|Plugins|Advanced",
+		"Settings pages: General first, Item Icons right after Style (1.5.0), Plugins just above Advanced (Automations has its two helper sub-pages since 1.2.0)")
 	local stray = false
 	for _, it in ipairs(items) do if it.kind == "text" and it.label:find("^Taller bags") then stray = true end end
 	check(not stray, "\"Taller bags scroll\" is the Max Height setting's help, not a stray line")
@@ -6455,7 +6460,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.10%.0%-beta9\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta9, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.10%.0%-beta10\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta10, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -9879,7 +9884,11 @@ end)()
 	check(lastIs(n.db.laneOrder, "~gs") and n.IndexOf(n.db.tabOrder, "GearSets") == n.IndexOf(n.db.tabOrder, "Bank") - 1,
 		"a beta profile's Gear Sets moves to the bottom, and its tab to just before Bank")
 	n.Profiles:Use("Mine"); M.runTimers()
-	check(n.db.laneOrder[2] == "~gs" and n.db.tabOrder[1] == "GearSets", "where you'd moved them yourself, they stay")
+	-- (by design since 1.10.0-beta10: All Items joins Section Order right before the first dynamic section after the
+	-- item sections, here Gear Sets; Gear Sets itself is still where it was put, second of the others)
+	local others = {}
+	for _, id in ipairs(n.db.laneOrder) do if id ~= "~all" then others[#others + 1] = id end end
+	check(others[2] == "~gs" and n.db.tabOrder[1] == "GearSets", "where you'd moved them yourself, they stay")
 	n.Profiles:Use("Old"); M.runTimers()
 	check(lastIs(n.db.laneOrder, "~gs") and n.IndexOf(n.db.tabOrder, "GearSets") == n.IndexOf(n.db.tabOrder, "Bank") - 1, "a profile from before 0.15 gets both in their new places")
 	n.Profiles:Use("Default"); M.runTimers()
@@ -10140,7 +10149,8 @@ end)()
 	local list, gap = visible()
 	-- (by design since 1.9.0-beta22, Shweep: "rename to Automations"; was "Automations & Actions")
 	-- (by design since 1.10.0-beta9, Shweep: "own page": Other Addons, here and in the search's folded list further down)
-	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Plugins|Other Addons|Profile|Advanced" and not gap,
+	-- (by design since 1.10.0-beta10: it is Addon Sources, and Plugins sits just above Advanced)
+	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Addon Sources|Profile|Plugins|Advanced" and not gap,
 		"the list is folded: sub-pages hidden, no gaps: " .. list)
 	local function nav(label) for _, b in ipairs(P.navButtons) do if b.text.text == label then return b end end end
 	check(nav("Sections").arrow:IsShown() and nav("Sections").arrow.texture:find("chev%-right") and not nav("General").arrow, "pages with sub-pages show a folded arrow")
@@ -10204,7 +10214,7 @@ end)()
 		"explanations show only with their whole card (no stray Custom Sections note): " .. text)
 	list = visible()
 	-- (by design since 1.9.0-beta22, Shweep: "rename to Automations"; was "Automations & Actions")
-	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Plugins|Other Addons|Profile|Advanced", "while searching the list is folded")
+	check(list == "General|Style|Item Icons|Windows|Sections|Columns|Sheets|Sorting & Filters|Automations|Keybindings|Addon Sources|Profile|Plugins|Advanced", "while searching the list is folded")
 	box:SetText(""); box:GetScript("OnTextChanged")(box, true)
 	P:Hide()
 end)()

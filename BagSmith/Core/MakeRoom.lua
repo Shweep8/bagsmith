@@ -571,7 +571,7 @@ function MR:Suggestions(waiting, judge)
 			elseif r.hasNoValue or (r.sellPrice or 0) <= 0 then why = "novalue"
 			elseif ns.Marks and ns.Marks:IsFavorite(r.itemID) then why = "favorite"
 			elseif self:IsProtected(r.itemID) then why = "protected"
-			-- (1.10.0-beta9) a switch now, on unless you turn it off (Settings > Other Addons > Pawn)
+			-- (1.10.0-beta9) a switch now, on unless you turn it off (Settings > Addon Sources > Pawn)
 			elseif ns.db.makeRoomHoldPawn ~= false and ns.Pawn and ns.Pawn:IsUpgrade(r) then why = "pawn"
 			elseif ns.GearSets then
 				local sets, unreadable = ns.GearSets:SetsAt(r.bag, r.slot)

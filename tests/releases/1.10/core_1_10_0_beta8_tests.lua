@@ -341,7 +341,7 @@ end
 	-- the words players read elsewhere, the changelog and the TOC
 	local f = io.open("BagSmith/Frames/SettingsPanel.lua"); local src = f:read("*a"); f:close()
 	-- (by design since 1.10.0-beta9: the row is on the Other Addons page, under a card headed Auction Prices)
-	local _, tips = src:gsub("Auction Price Source is in Settings > Other Addons%.", "")
+	local _, tips = src:gsub("Auction Price Source is in Settings > Addon Sources%.", "")   -- (the page's name since beta10)
 	check(tips == 2 and not src:find("[^n] Price Source is in", 1) and not src:find("\"Price Source\"", 1, true),
 		"the AH Price column's tips say Auction Price Source, and the old label is gone")
 	f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()

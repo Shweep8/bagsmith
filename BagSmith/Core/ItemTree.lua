@@ -3,7 +3,7 @@
 
 	ItemTree is another addon, and optional. It knows what an item is for on the character you're playing: whether a
 	profession of yours uses it, whether a quest needs it, whether it's an upgrade, whether vendors sell it, and what it
-	would do with it. With Section and Filter Rules on (Settings > Other Addons; the setting is useItemTree), section
+	would do with it. With Section and Filter Rules on (Settings > Addon Sources; the setting is useItemTree), section
 	and filter rules can ask (Core/Rules.lua, the it_ keys). BagSmith works the same without it: no ItemTree, or the
 	setting off, and those rules fit nothing. The two Helpers have switches of their own (IT:Holds).
 
@@ -44,7 +44,7 @@ local function api()
 	if type(A) == "table" and type(A.GetItemFacts) == "function" then return A end
 end
 function IT:Installed() return api() ~= nil end
--- Installed, and its rules on (Settings > Other Addons > Section and Filter Rules; on unless you turned it off).
+-- Installed, and its rules on (Settings > Addon Sources > Section and Filter Rules; on unless you turned it off).
 function IT:Enabled() return api() ~= nil and not (ns.db and ns.db.useItemTree == false) end
 local wasReady = false   -- (its data doesn't unload: once ready, it isn't asked again on every item)
 -- ItemTree is there and its data is ready, whatever BagSmith's own switches say.
@@ -178,7 +178,7 @@ end
 -- to hold an item back; it never takes one away.
 -- (1.10.0-beta8, Shweep: "This doesn't make sense to hold it back for DE helper, right?") forDisenchant: the Disenchant
 -- Helper's question. A piece ItemTree keeps for its dust is kept in order to be disenchanted, so there it isn't held.
--- (1.10.0-beta9) Each Helper has its own switch (Settings > Other Addons), and neither depends on the rules' switch.
+-- (1.10.0-beta9) Each Helper has its own switch (Settings > Addon Sources), and neither depends on the rules' switch.
 function IT:Holds(rec, fresh, forDisenchant)
 	if not (ns.db and ns.db[forDisenchant and "deHoldItemTree" or "makeRoomHoldItemTree"] ~= false) then return false end
 	if type(rec) ~= "table" or not rec.itemID or rec.global or rec.empty then return false end

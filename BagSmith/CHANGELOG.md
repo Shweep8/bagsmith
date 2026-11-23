@@ -22,12 +22,15 @@ New:
   Needed for a Quest, An Upgrade for Me and Sold by Vendors, and for filters ItemTree's Advice. Settings > Other
   Addons turns it on or off. ItemTree is optional, and BagSmith works the same without it.
 - With ItemTree, the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep. They show it
-  with the other items they don't offer, and each Helper has its own switch in Settings > Other Addons. A piece
+  with the other items they don't offer, and each Helper has its own switch in Settings > Addon Sources. A piece
   ItemTree keeps for its dust still shows in the Disenchant Helper.
 - With Pawn, the Disenchant Helper can hold back a piece Pawn says is an upgrade for you. That switch is in
-  Settings > Other Addons too, and it's off until you turn it on.
-- A new Settings page, Other Addons, shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree
+  Settings > Addon Sources too, and it's off until you turn it on.
+- A new Settings page, Addon Sources, shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree
   and Pawn, each in its own card with a switch for each job.
+- All Items is part of Section Order. With Sections: All, a pinned, Favorites or other dynamic section shows above
+  All Items when it comes before it in Section Order, and below when it comes after. Drag the All Items title, or
+  use the arrows in Settings > Sections, to choose.
 Changed:
 - The Gear, Consumables, Trade Goods, Quest and Junk tabs show every item of their kind, grouped under your own
   sections where you have them. Before, an item in one of your sections left its tab.
@@ -36,8 +39,13 @@ Changed:
 - An item you move back to its usual section by hand stays there, even when one of your sections would take it.
 - The Disenchant Helper no longer offers an item you've marked as junk. Mark one there and it leaves the list, and
   it comes back if you take the mark off.
-- Price Source moved from Settings > General to the new Other Addons page, and is now called Auction Price Source.
-- The Loot Helper holding back Pawn upgrades is a switch now, in Settings > Other Addons. It's on, as before.
+- Price Source moved from Settings > General to the new Addon Sources page, and is now called Auction Price Source.
+- The Loot Helper holding back Pawn upgrades is a switch now, in Settings > Addon Sources. It's on, as before.
+- Pin to Top is now Pin Section, and Unpin is Unpin Section. A pinned section still goes ahead of your other
+  sections; with Sections: All it can now sit below All Items if you put it there.
+- With Sections: All, Favorites no longer drops below All Items when a Keys section is showing, and Gear Sets no
+  longer jumps above it when you have favorites. Each follows Section Order.
+- Settings: Plugins moved down the list, just above Advanced.
 - Classic skin: item icons and their borders are cleaner in Icons and List view, with the artwork kept inside the
   border. Bold now brightens Classic borders. Thanks to Jeor!
 

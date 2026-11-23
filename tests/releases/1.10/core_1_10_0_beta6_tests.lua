@@ -206,8 +206,8 @@ end)()
 	for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == "useItemTree" then row = w end end
 	check(row == nil and stateLine(P) == "Not installed", "ItemTree's card is listed, with no switch to tick: Not installed")
 	local said
-	for _, w in ipairs(P.pools.text or {}) do if w:IsShown() and w.text.text == "BagSmith works with these addons when you have them. None is needed." then said = true end end
-	check(said, "and the page says none of them is needed")
+	for _, w in ipairs(P.pools.text or {}) do if w:IsShown() and w.text.text == "BagSmith works with these addons when you have them. None are required." then said = true end end
+	check(said, "and the page says none of them is required")   -- (by design since 1.10.0-beta10: Shweep's words)
 	P:Hide()
 	check(n.db.useItemTree == true, "(the setting itself is on, for the day ItemTree is installed)")
 	check((n.errors or 0) == 0, "no errors")

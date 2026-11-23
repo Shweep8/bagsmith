@@ -91,7 +91,8 @@
 		local txt = {}
 		for _, w in ipairs(P.pools.text) do if w:IsShown() then txt[#txt + 1] = w.text.text end end
 		local all = table.concat(txt, "\n")
-		check(all:find("Pin keeps a section at the top, just under Recent.", 1, true) and all:find("Untick Vendor or AH to hide a section while you're at a vendor or the auction house.", 1, true), S .. "the card says what Pin, Vendor and AH do")
+		-- (by design since 1.10.0-beta10: with All Items in Section Order a pinned section can sit below it, so "at the top" went)
+		check(all:find("Pin shows a section ahead of your other sections, just under Recent.", 1, true) and all:find("Untick Vendor or AH to hide a section while you're at a vendor or the auction house.", 1, true), S .. "the card says what Pin, Vendor and AH do")
 		local hl
 		for _, w in ipairs(P.pools.check) do if w:IsShown() and w.key == "pinnedHighlight" then hl = w end end
 		check(hl, S .. "Highlight Pinned Sections is still on the page")

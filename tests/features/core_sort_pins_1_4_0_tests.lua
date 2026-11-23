@@ -95,9 +95,10 @@
 	S:SectionMenu("TradeGoods", header(n, V, "TradeGoods"))
 	check(menuTexts():find("Unpin", 1, true), "a pinned section's menu offers Unpin")
 	S:SectionMenu("Consumables", header(n, V, "Consumables"))
-	check(menuTexts():find("Pin to Top", 1, true), "another section's menu offers Pin to Top")
+	-- (by design since 1.10.0-beta10, Shweep: Pin Section / Unpin Section; a pinned section can sit below All Items now)
+	check(menuTexts():find("Pin Section", 1, true) and not menuTexts():find("Pin to Top", 1, true), "another section's menu offers Pin Section")
 	S:SectionMenu("~recent", nil)
-	check(not menuTexts():find("Pin to Top", 1, true) and not menuTexts():find("Unpin", 1, true), "Recent's menu has no pin")
+	check(not menuTexts():find("Pin Section", 1, true) and not menuTexts():find("Unpin", 1, true), "Recent's menu has no pin")
 	if n.menuFrame then n.menuFrame:Hide() end
 	-- the settings rows
 	SP = n.SettingsPanel; SP:Show(); SP:ShowPage("sections")

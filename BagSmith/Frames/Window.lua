@@ -383,6 +383,34 @@ function ns:ReorderLane(from, to)
 	if from == to then return end
 	if reorder(ns.db.laneOrder, from, to) then Window.main.animate = true; ns:RefreshViews(true) end
 end
+-- (1.10.0-beta10) All Items' title dropped on another section's, with Sections: All: All Items goes to that section's
+-- other side. Section Order also holds the sections All view doesn't show, and pinned sections are drawn ahead of the
+-- others whatever their place, so moving All Items itself through the order would carry sections along that the
+-- player never touched. Instead the sections on screen between the two change sides: they move to just past All
+-- Items in Section Order, keeping their own order, and nothing else moves.
+function ns:MoveAllItems(target, view)
+	local ids = view and view.laneIds
+	local order = ns.db and ns.db.laneOrder
+	if type(ids) ~= "table" or type(order) ~= "table" or not ns.IndexOf(order, "~all") then return end
+	local orderId = ns.GearSets and ns.GearSets.OrderId or function(id) return id end
+	local a, t
+	for i, id in ipairs(ids) do
+		if id == "~all" and not a then a = i end
+		if id == target and not t then t = i end
+	end
+	if not (a and t) or a == t then return end
+	local passed, seen = {}, {}
+	for i = math.min(a, t), math.max(a, t) do
+		local id = orderId(ids[i])
+		if i ~= a and id ~= "~all" and id ~= "" and not seen[id] and ns.IndexOf(order, id) then seen[id] = true; passed[#passed + 1] = id end
+	end
+	if #passed == 0 then return end
+	for _, id in ipairs(passed) do table.remove(order, ns.IndexOf(order, id)) end
+	local at = ns.IndexOf(order, "~all")
+	-- they were above All Items: now right after it; they were below: now right before it
+	for k, id in ipairs(passed) do table.insert(order, t < a and (at + k) or (at + k - 1), id) end
+	Window.main.animate = true; ns:RefreshViews(true)
+end
 function ns:ReorderTab(from, to, view)
 	local order = (view and view.isBank) and ns.db.bankTabOrder or ns.db.tabOrder
 	if reorder(order, from, to) then ns:RefreshViews(true) end
