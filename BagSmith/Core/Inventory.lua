@@ -343,7 +343,11 @@ function Inv:BuildGlobalRecords(all, only)
 					if not g then
 						g = { rep = r, repScore = described(r), count = 0, chars = {}, charList = {}, places = {}, placeList = {} }
 						byKey[k] = g; order[#order + 1] = k
-					elseif g.repScore < 3 then
+					end
+					-- (1.10.0-beta16, the beta15 audit's B15-2) a worn row is read from the game each time the list is
+					-- built, so item data arriving can describe it; a row from a saved snapshot can't change that way
+					if place == "equipped" then g.requery = true end
+					if g.rep ~= r and g.repScore < 3 then
 						-- (1.10.0-beta15, B14-2) The group shows one copy's details. It was always the first copy, so when
 						-- that one was a row the game hadn't described and a later one was known, the whole group read
 						-- as "not known yet" (and a Quality chip hid it). Now the first copy that is better described
@@ -371,7 +375,8 @@ function Inv:BuildGlobalRecords(all, only)
 		for key, v in pairs(g.rep) do rec[key] = v end
 		rec.bag, rec.slot, rec.guid, rec.members, rec.merged, rec.stacks = nil, nil, nil, nil, nil, nil
 		rec.count = g.count
-		if g.repScore < 3 and tonumber(rec.itemID) then waitingIDs[tonumber(rec.itemID)] = true end   -- (B14-2: see above)
+		-- (B14-2: see above; beta16, B15-2: only where building again can change the answer)
+		if g.repScore < 3 and g.requery and tonumber(rec.itemID) then waitingIDs[tonumber(rec.itemID)] = true end
 		rec.display, rec.cached, rec.global, rec.maxStack, rec.isNew = true, true, true, 1, nil
 		if #g.charList == 1 then rec.who, rec.whoClass = g.charList[1].name, g.charList[1].class
 		else rec.who = ("%d characters"):format(#g.charList) end

@@ -201,7 +201,17 @@ function IT:Verdict(rec, fresh, forDisenchant)
 	local A = api()
 	if not A then return nil end
 	if type(rec) ~= "table" or not rec.itemID or rec.global or rec.empty then return nil end
-	local key = rec.link or rec.itemID
+	-- (1.10.0-beta16, the beta15 audit's B15-1) A Helper's question is only ever about an item named by its link: the
+	-- record's own, or the one its slot gives now for the same instance (ns:LinkNow, which the record then keeps).
+	-- With neither there is no asking about THIS item, only about its item id, and an answer by id alone must not
+	-- decide a destroy or a disenchant (ItemTree may keep one variant and not another). So: unknown. The item waits
+	-- under Waiting for ItemTree, a click is refused, and the open Helper looks again by itself.
+	local link = rec.link
+	if type(link) ~= "string" or link == "" then
+		link = ns.LinkNow and ns:LinkNow(rec) or nil
+		if not link then return "unknown" end
+	end
+	local key = link
 	local e = known[key]
 	-- (false is what the rules' queue keeps when ItemTree gave it nothing: for a Helper that is no answer, so ask)
 	-- (1.10.0-beta14, R5) and an answer in doubt is asked for again, so a list can't offer on the strength of a "clear"
@@ -209,7 +219,7 @@ function IT:Verdict(rec, fresh, forDisenchant)
 	if not e or fresh or doubt[key] then
 		local now
 		if ready() then
-			local ok, f = pcall(A.GetItemFacts, rec.itemID, rec.link)
+			local ok, f = pcall(A.GetItemFacts, rec.itemID, link)
 			if ok and type(f) == "table" then now = IT.Read(f) end
 		end
 		if not now then

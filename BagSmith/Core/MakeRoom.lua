@@ -1033,6 +1033,7 @@ function MR:StillOk(o)
 		for _, r in ipairs(ns.items or {}) do
 			if r.bag == o.bag and r.slot == o.slot and r.itemID == o.itemID and not r.link then r.link = info.hyperlink end
 		end
+		if ns.KeepLink then ns:KeepLink(o.bag, o.slot, o.itemID, info.hyperlink) end   -- (1.10.0-beta16: the instance keeps it)
 	end
 	-- Never destroy something Pawn calls an upgrade, or hasn't decided on yet,
 	-- junk-marked or not.

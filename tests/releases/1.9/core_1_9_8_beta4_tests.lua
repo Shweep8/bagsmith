@@ -46,7 +46,11 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local tabs = {}
 	for _, t in ipairs(f.tabs) do if t:IsShown() then tabs[#tabs + 1] = t end end
 	local _, tabY = at(tabs[1])
-	check(tabY - b.intro == 22 + 10 + ROW, S .. "one line's room between the release tabs and the text (" .. tostring(tabY - b.intro) .. ")")
+	-- (by design since 1.10.0-beta16, Shweep: "in classic style we waste a ton of space at top": Classic's tabs now sit
+	-- beside the portrait, 30 down, and what follows starts 64 down, clear of the portrait: 2 more than a tab and its
+	-- gap. Modern is as it was.)
+	local classicNow = skin == "classic"
+	check(tabY - b.intro == 22 + 10 + ROW + (classicNow and 2 or 0), S .. "one line's room between the release tabs and the text (" .. tostring(tabY - b.intro) .. ")")
 	-- every other tab the same as that one
 	local same = true
 	for i = 3, #f.entries do

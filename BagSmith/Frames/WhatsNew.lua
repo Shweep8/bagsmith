@@ -24,19 +24,20 @@ ns.WhatsNew = WN
 -- Newest first. Only notable releases get an entry; keep a handful of short
 -- bullets that say what it is and where to turn it on.
 WN.ENTRIES = {
-	-- (1.10.0-beta12) the 1.10 card: Shweep reviewed the draft (22 Nov: "no need for bullet 5 crediting Ohnoto",
-	-- "length is fine") and asked for it in the audit version
+	-- (1.10.0-beta12) the 1.10 card, first written as nine bullets.
+	-- (1.10.0-beta16, Shweep, 23 Nov: "our what's new card is not player friendly, it's more technical than sells the
+	-- new features"; on the rewrite: "rest looks better tho, ty") Seven bullets, each leading with what the player
+	-- gets. The ItemTree sentence keeps the two exceptions the beta12 audit asked for (F8). The Disenchant Helper and
+	-- junk line left the card; it is in the changelog. The reminder below is as it was ("we lost the reminder": it
+	-- stays).
 	{ v = "1.10.0", heading = "BagSmith 1.10", items = {
-		"|cfffac775Sections That Fill Themselves:|r your own sections can now fill themselves. Give one a few rules, like Type is Cloth or Binding is Binds when equipped, and every item that fits goes there on its own. Rules can look at an item's type, slot, quality, binding, item level, vendor value or name, and whether it's food or drink, a quest item, a crafting material or something your character can use. Click the pencil beside a section in Settings > Custom Sections, and you'll see what would go in before you save.",
-		"|cfffac775Start From an Item or an Example:|r Alt+Left-click an item and pick New Section From This Item to make a section for things like it. Or try an example in Settings > Custom Sections: Cloth, Herbs, Gear to Sell, or Food and Drink. If an item fits two of your sections, the higher one in the list gets it.",
-		"|cfffac775A New Filters Window:|r filters use the same rules now. Pick qualities at the top, add rules with + Add a Rule, and watch how many items are left. Like what you've filtered? Save as Section turns it into a section.",
-		"|cfffac775Sections Only Where You Want Them:|r a section can show on every tab or only on some, so Cloth, Leather and Herbs can split up your Trade Goods tab while All keeps one Trade Goods section. And the Gear, Consumables, Trade Goods, Quest and Junk tabs now show every item of their kind, grouped under your own sections.",
-		"|cfffac775All Items, Where You Want It:|r with Sections set to All, your pinned sections, Favorites and the rest can sit above or below All Items. Drag its title, or move it in Settings > Sections. Pin to Top is now called Pin Section.",
-		-- (1.10.0-beta13, the beta12 audit's F8; Shweep: "okay update") the two exceptions said
-		"|cfffac775Works With ItemTree:|r have the ItemTree addon? Your rules can use what it knows, like Used by My Professions and Needed for a Quest, and the Loot Helper and Disenchant Helper hold back what it says to keep, apart from your junk and gear it keeps for its dust. It's optional, and BagSmith works the same without it.",
-		"|cfffac775Addon Sources:|r a new Settings page shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree and Pawn, with a switch for each job. Auction Price Source moved there from General. Find it in Settings > Addon Sources.",
-		"|cfffac775Cleaner Classic Icons:|r in the Classic skin, item icons and their borders are cleaner, with the artwork kept inside the border. Thanks to Jeor!",
-		"|cfffac775Disenchant Helper and Junk:|r an item you've marked as junk no longer shows in the Disenchant Helper.",
+		"|cfffac775Sections That Sort Themselves:|r done dragging every new item to the right spot? Tell a section what belongs in it, like cloth, or gear that binds when equipped, and your loot files itself from then on. Click the pencil beside a section in Settings > Custom Sections. You'll see what lands there before you save.",
+		"|cfffac775Start in One Click:|r Alt+Left-click any item and pick New Section From This Item, and BagSmith sets up a section for things like it. Or pick a ready-made one in Settings > Custom Sections: Cloth, Herbs, Gear to Sell, or Food and Drink.",
+		"|cfffac775Simpler Filters:|r the Filters window is rebuilt around the same rules. Narrow your bags down in a couple of clicks, and when you like what you see, Save as Section keeps it for good.",
+		"|cfffac775Tabs Your Way:|r show a section on every tab or only the ones you pick, so Cloth, Leather and Herbs can break up your Trade Goods tab while All stays tidy. Your Gear, Consumables, Trade Goods, Quest and Junk tabs now show everything of their kind, too.",
+		"|cfffac775All Items, Where You Want It:|r using Sections: All? Drag the All Items title to put your pinned sections and Favorites above or below it. Pin to Top is now called Pin Section.",
+		"|cfffac775Friends With Your Other Addons:|r have ItemTree? Your sections can sort by what it knows, like Used by My Professions or Needed for a Quest, and the Loot Helper and Disenchant Helper won't offer what it says to keep, apart from your junk and gear it keeps for its dust. Everything BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree and Pawn now lives in Settings > Addon Sources, each with its own switch. Auction Price Source moved there too. All of it is optional.",
+		"|cfffac775A Cleaner Classic Look:|r sharper item icons and borders in the Classic skin. Thanks to Jeor!",
 	},
 	-- (1.10.0-beta13, the beta12 audit's F6; Shweep: "yes as a reminder") Someone who comes straight from 1.9.7 or
 	-- earlier never saw 1.9.8's note: this card opens instead, and closing it marks that note seen. They get it here,
@@ -516,6 +517,9 @@ local function sep(f, i)
 end
 -- A tab per release (BagSmith's choice buttons; Blizzard's red buttons in Classic).
 local TAB_H = 22
+-- (1.10.0-beta16) Classic: the portrait is 58 px, hanging 5 px left of the window and reaching 51 px down. The tab row
+-- starts to its right, under Blizzard's title strip; the first thing at the left edge after it starts 64 down.
+local CLASSIC_TAB_X, CLASSIC_TAB_Y, CLASSIC_BELOW_PORTRAIT = 60, 30, 64
 local SUB_H = 18   -- (1.9.2-beta1) an update's button, under its release's tab
 local SUB_GAP = 6   -- between update buttons, and between their lines (1.9.8-beta3)
 local function tab(f, i)
@@ -642,11 +646,15 @@ function WN:Fill(entries, sel, sub)
 	-- the window is dressed (before this text existed): update it now.
 	ns.Classic:Retitle(f, f.title:GetText())
 	-- Modern: the logo and title row. Classic: the title sits in Blizzard's
-	-- strip and the portrait hangs over the corner, so the body starts lower.
-	local top = classic and 60 or (PAD + LOGO + 6)
+	-- strip and the portrait hangs over the corner.
+	-- (1.10.0-beta16, Shweep: "in classic style we waste a ton of space at top", with screenshots) In Classic the tabs
+	-- started at the left edge, so they had to sit under the portrait (60 down), with an empty band between the title
+	-- strip and them. They now start beside the portrait, just under the strip, and what follows starts where the
+	-- portrait ends: about 28 px back for the notes.
+	local top = classic and CLASSIC_TAB_Y or (PAD + LOGO + 6)
 	local textW = WIDTH - PAD * 2
 	-- The tabs: one per release, newest first.
-	local x = PAD
+	local x = classic and CLASSIC_TAB_X or PAD
 	for i, e in ipairs(entries) do
 		local b = tab(f, i)
 		b.index = i
@@ -662,6 +670,7 @@ function WN:Fill(entries, sel, sub)
 	end
 	for i = #entries + 1, #f.tabs do f.tabs[i]:Hide() end
 	if #entries > 0 then top = top + TAB_H + 10 end
+	if classic then top = math.max(top, CLASSIC_BELOW_PORTRAIT) end   -- (what follows starts at the left edge, clear of the portrait)
 	-- (1.9.2-beta1) the open release's updates, newest first, on a second row; its height kept on every tab (when any
 	-- release shown has updates), so switching tabs doesn't jump. An update not opened yet says NEW.
 	-- (1.9.8-beta3, Shweep: "all the new tags are causing the patch buttons to go outside the window", eight updates

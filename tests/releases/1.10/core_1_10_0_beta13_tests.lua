@@ -510,6 +510,10 @@ end)()
 		if info and (info.itemID == 4306 or info.itemID == 2447) then info.hyperlink, info.quality = nil, nil end
 		return info
 	end
+	-- (by design since 1.10.0-beta16, the beta15 audit's B15-1: the scanner now keeps the link an item instance was
+	-- last read with, so holding the link back from a slot that has already been read no longer makes it nameless.
+	-- These checks are about a slot the game has NOT described yet, as after a login: what was kept is cleared first.)
+	for g in pairs(n.instanceLinks) do n.instanceLinks[g] = nil end
 	M.uncached[4306], M.uncached[2447] = true, true
 	n:Scan(); pump(M)
 	local silk, herb = recOf(n, 4306), recOf(n, 2447)
@@ -657,10 +661,12 @@ end)()
 		-- straight from 1.9.7: the 1.10 card opens, with 1.9.8's note as one more bullet
 		local n, M, WN = boot("1.9.7", skin)
 		local e = WN.ENTRIES[1]
-		check(e.v == "1.10.0" and #e.items == 9 and e.remind and e.remind.before == "1.9.8" and e.remind.text == REMINDER, S0 .. "the 1.10 card has nine bullets of its own, and a reminder from 1.9.8")
+		-- (by design since 1.10.0-beta16, Shweep: the card rewritten as seven bullets; "we lost the reminder": it stays,
+		-- last, for the same accounts. It was nine and ten.)
+		check(e.v == "1.10.0" and #e.items == 7 and e.remind and e.remind.before == "1.9.8" and e.remind.text == REMINDER, S0 .. "the 1.10 card has seven bullets of its own, and a reminder from 1.9.8")
 		local items = WN:Items(e)
-		check(#items == 10 and items[10] == REMINDER and items[9] == e.items[9], S0 .. "coming from 1.9.7: ten bullets, the reminder last")
-		check(WN.ENTRIES[1].items[10] == nil, S0 .. "(the card's own list is untouched)")
+		check(#items == 8 and items[8] == REMINDER and items[7] == e.items[7], S0 .. "coming from 1.9.7: eight bullets, the reminder last")
+		check(WN.ENTRIES[1].items[8] == nil, S0 .. "(the card's own list is untouched)")
 		-- 1.9.8's own words, under Reminder instead of Important
 		local own
 		for _, en in ipairs(WN.ENTRIES) do if en.v == "1.9.8" then own = en.items[2] end end
@@ -672,13 +678,13 @@ end)()
 		check(drawn == 1, S0 .. "with the reminder drawn on it, once (" .. drawn .. ")")
 		-- closing it marks 1.10 seen; the reminder stays for the rest of the session
 		WN:Close()
-		check(BagSmithDB.whatsNewSeen == "1.10.0" and #WN:Items(e) == 10, S0 .. "closed: 1.10 is seen, and opening What's New again this session still shows the reminder")
+		check(BagSmithDB.whatsNewSeen == "1.10.0" and #WN:Items(e) == 8, S0 .. "closed: 1.10 is seen, and opening What's New again this session still shows the reminder")
 		check(BagSmithDB.whatsNewRemind == nil, S0 .. "nothing new is saved for it")
 		check((n.errors or 0) == 0, S0 .. "no errors")
 
 		-- from 1.9.8: nine bullets, no reminder
 		n, M, WN = boot("1.9.8", skin)
-		check(#WN:Items(WN.ENTRIES[1]) == 9 and next(WN.owed) == nil, S0 .. "coming from 1.9.8, which showed the note itself: nine bullets, no reminder")
+		check(#WN:Items(WN.ENTRIES[1]) == 7 and next(WN.owed) == nil, S0 .. "coming from 1.9.8, which showed the note itself: seven bullets, no reminder")
 		n.Window:Show(); M.runTimers(); M.runTimers()
 		c = WN.Card and WN.Card()
 		check(c and c:IsShown() and reminders(c) == 0, S0 .. "the card shows without it")
@@ -687,13 +693,13 @@ end)()
 
 	-- who is owed it, and who isn't
 	local n, M, WN = boot("1.9.0")
-	check(#WN:Items(WN.ENTRIES[1]) == 10, "from 1.9.0: owed")
+	check(#WN:Items(WN.ENTRIES[1]) == 8, "from 1.9.0: owed")
 	n, M, WN = boot("0.0.0")
-	check(#WN:Items(WN.ENTRIES[1]) == 10, "saved data from before What's New existed: owed")
+	check(#WN:Items(WN.ENTRIES[1]) == 8, "saved data from before What's New existed: owed")
 	n, M, WN = boot("1.10.0")
-	check(#WN:Items(WN.ENTRIES[1]) == 9, "already on 1.10 (a beta, or the next login after closing the card): not owed")
+	check(#WN:Items(WN.ENTRIES[1]) == 7, "already on 1.10 (a beta, or the next login after closing the card): not owed")
 	n, M, WN = boot(nil, "modern", true)
-	check(#WN:Items(WN.ENTRIES[1]) == 9 and BagSmithDB.whatsNewSeen == "1.10.0", "a first install: nothing was skipped, so nothing to remind")
+	check(#WN:Items(WN.ENTRIES[1]) == 7 and BagSmithDB.whatsNewSeen == "1.10.0", "a first install: nothing was skipped, so nothing to remind")
 	-- other cards have no reminder, and a card without one is returned as it is
 	n, M, WN = boot("1.9.7")
 	for i = 2, #WN.ENTRIES do
@@ -702,9 +708,9 @@ end)()
 	end
 	-- the hidden test command sets things as a player updating would have them
 	n, M, WN = boot("1.10.0")
-	check(#WN:Items(WN.ENTRIES[1]) == 9, "(seen 1.10: no reminder)")
+	check(#WN:Items(WN.ENTRIES[1]) == 7, "(seen 1.10: no reminder)")
 	WN:ResetForTesting()
-	check(BagSmithDB.whatsNewSeen == "1.9.0" and #WN:Items(WN.ENTRIES[1]) == 10, "/bs new reset goes back to before 1.10, and the reminder a player from there would get comes with it")
+	check(BagSmithDB.whatsNewSeen == "1.9.0" and #WN:Items(WN.ENTRIES[1]) == 8, "/bs new reset goes back to before 1.10, and the reminder a player from there would get comes with it")
 	check((n.errors or 0) == 0, "no errors")
 end)()
 
@@ -717,8 +723,9 @@ end)()
 	local n = M.loadAddon("BagSmith")
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers()
 	local e = n.WhatsNew.ENTRIES[1]
-	check(e.items[6] == "|cfffac775Works With ItemTree:|r have the ItemTree addon? Your rules can use what it knows, like Used by My Professions and Needed for a Quest, and the Loot Helper and Disenchant Helper hold back what it says to keep, apart from your junk and gear it keeps for its dust. It's optional, and BagSmith works the same without it.",
-		"the card's ItemTree bullet, word for word, with the two exceptions")
+	-- (by design since 1.10.0-beta16: the card's rewrite. The sentence about the Helpers keeps the two exceptions.)
+	check(e.items[6]:find("and the Loot Helper and Disenchant Helper won't offer what it says to keep, apart from your junk and gear it keeps for its dust.", 1, true) ~= nil,
+		"the card's ItemTree bullet says what the Helpers do, with the two exceptions")
 	local all = table.concat(n.WhatsNew:Items(e), " ") .. " " .. e.remind.text
 	check(not all:find("\226\128\148") and not all:find("\226\128\147"), "no dashes on the card")
 	local f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()

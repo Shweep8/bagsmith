@@ -30,20 +30,24 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local n, M = boot({ skin = skin, seen = "1.9.8" })
 	local WN = n.WhatsNew
 	local e = WN.ENTRIES[1]
-	check(e.v == "1.10.0" and e.heading == "BagSmith 1.10" and #e.items == 9 and not e.opens and not e.note, S0 .. "the 1.10 card leads, with nine bullets")
+	-- (by design since 1.10.0-beta16, Shweep, 23 Nov: "our what's new card is not player friendly, it's more technical
+	-- than sells the new features"; on the rewrite: "rest looks better tho, ty". Seven bullets that lead with what the
+	-- player gets, where there were nine that read like a list of features. The checks below follow the new text.)
+	check(e.v == "1.10.0" and e.heading == "BagSmith 1.10" and #e.items == 7 and not e.opens and not e.note, S0 .. "the 1.10 card leads, with seven bullets")
 	local heads = {}
 	for _, it in ipairs(e.items) do heads[#heads + 1] = it:match("^|cfffac775(.-):|r ") end
-	check(table.concat(heads, "|") == "Sections That Fill Themselves|Start From an Item or an Example|A New Filters Window|Sections Only Where You Want Them|All Items, Where You Want It|Works With ItemTree|Addon Sources|Cleaner Classic Icons|Disenchant Helper and Junk",
-		S0 .. "its bullets, as Shweep reviewed them: " .. table.concat(heads, "|"))
+	check(table.concat(heads, "|") == "Sections That Sort Themselves|Start in One Click|Simpler Filters|Tabs Your Way|All Items, Where You Want It|Friends With Your Other Addons|A Cleaner Classic Look",
+		S0 .. "its bullets, as Shweep approved them: " .. table.concat(heads, "|"))
 	local text = table.concat(e.items, " ")
 	check(not text:find("\226\128\148") and not text:find("\226\128\147"), S0 .. "no em or en dashes")
 	check(select(2, text:gsub("Thanks to Jeor!", "")) == 1 and not text:find("Ohnoto", 1, true), S0 .. "Jeor thanked for the Classic icons; no credit on the All Items bullet, as Shweep chose")
-	check(e.items[5] == "|cfffac775All Items, Where You Want It:|r with Sections set to All, your pinned sections, Favorites and the rest can sit above or below All Items. Drag its title, or move it in Settings > Sections. Pin to Top is now called Pin Section.",
+	check(e.items[5] == "|cfffac775All Items, Where You Want It:|r using Sections: All? Drag the All Items title to put your pinned sections and Favorites above or below it. Pin to Top is now called Pin Section.",
 		S0 .. "the All Items bullet, word for word")
-	check(e.items[1]:find("Give one a few rules, like Type is Cloth or Binding is Binds when equipped, and every item that fits goes there on its own.", 1, true)
-		and e.items[1]:find("and whether it's food or drink, a quest item, a crafting material or something your character can use.", 1, true), S0 .. "the first bullet says what a rule is and what it can look at")
-	check(e.items[6]:find("It's optional, and BagSmith works the same without it.", 1, true) and e.items[7]:find("Auction Price Source moved there from General.", 1, true)
-		and e.items[9] == "|cfffac775Disenchant Helper and Junk:|r an item you've marked as junk no longer shows in the Disenchant Helper.", S0 .. "ItemTree is optional; where Auction Price Source went; the Disenchant Helper's change")
+	check(e.items[1] == "|cfffac775Sections That Sort Themselves:|r done dragging every new item to the right spot? Tell a section what belongs in it, like cloth, or gear that binds when equipped, and your loot files itself from then on. Click the pencil beside a section in Settings > Custom Sections. You'll see what lands there before you save.",
+		S0 .. "the first bullet leads with what the player gets, word for word")
+	check(e.items[6]:find("All of it is optional.", 1, true) and e.items[6]:find("Auction Price Source moved there too.", 1, true)
+		and e.items[6]:find("won't offer what it says to keep, apart from your junk and gear it keeps for its dust.", 1, true)
+		and e.items[7] == "|cfffac775A Cleaner Classic Look:|r sharper item icons and borders in the Classic skin. Thanks to Jeor!", S0 .. "the addons bullet: optional, where Auction Price Source went, the Helpers with their two exceptions; and the Classic bullet")
 	-- every "Settings > ..." opens a real page
 	local P = n.SettingsPanel
 	local pages = {}
@@ -55,7 +59,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 		end
 	end
 	P:Hide()
-	check(table.concat(pages, ",") == "custom,custom,sections,addons", S0 .. "four links into Settings: Custom Sections twice, Sections, Addon Sources (" .. table.concat(pages, ",") .. ")")
+	check(table.concat(pages, ",") == "custom,custom,addons", S0 .. "three links into Settings: Custom Sections twice, Addon Sources (" .. table.concat(pages, ",") .. ")")
 	-- every setting and page the card names is really called that
 	P:Show(); P:ShowPage("addons"); M.runTimers()
 	local names = {}

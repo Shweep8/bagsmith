@@ -235,6 +235,10 @@ end)()
 		if i and (i.itemID == 4306 or i.itemID == 4338) then i.hyperlink, i.quality = nil, nil end
 		return i
 	end
+	-- (by design since 1.10.0-beta16, the beta15 audit's B15-1: the scanner now keeps the link an item instance was
+	-- last read with, so holding the link back from a slot that has already been read no longer makes it nameless.
+	-- These checks are about a slot the game has NOT described yet, as after a login: what was kept is cleared first.)
+	for g in pairs(n.instanceLinks) do n.instanceLinks[g] = nil end
 	M.uncached[4306], M.uncached[4338] = true, true
 	M.fire("BANKFRAME_OPENED"); M.runTimers(); M.runTimers()
 	n:Scan()

@@ -93,15 +93,25 @@ end
 	local it = { facts = { [5387] = fact(5387, false) } }
 	local n, M, DE = deBoot(it)
 	local IT = n.ItemTree
+	-- (By design since 1.10.0-beta16, the beta15 audit's B15-1. In beta15 a piece whose slot gave no link was listed on
+	-- ItemTree's answer for the item id, and the click then moved it to the live link. Since beta16 a Helper only asks
+	-- ItemTree about an item it can name by its link: without one the piece WAITS, is not listed, and ItemTree is not
+	-- asked by id at all; the open Helper reads the slot's link by itself when it arrives. The sequences below are the
+	-- same ones, as they now go. "Not read with a link yet" also needs the scanner's kept links cleared, as after a
+	-- login, since an instance now keeps the link it was last read with.)
+	local function forget() for g in pairs(n.instanceLinks) do n.instanceLinks[g] = nil end end
 	omit["0:1"] = true
+	forget()
 	n:Scan()
 	DE:Show(); M.runTimers()
-	local listed = DE.current
-	check(listed and listed.itemID == 5387 and listed.link == nil and listed.rec.link == nil and armed(DE), "(the cloak is listed and armed from a slot that had no link when it was read; its details were known by id)")
-	check(not n.pendingInfo and IT:Verdict(listed.rec, nil, true) == "clear" and it.links[#it.links] == false, "(ItemTree was asked by the item's id, and said nothing to keep; no rescan is waiting)")
+	check(#DE.entries == 0 and not armed(DE) and names(DE.held.by.itemtreewait) == "Test Cloak" and recOf(n, 5387).link == nil, "a slot read without a link: the cloak waits for ItemTree and isn't listed (its details were known by id)")
+	check(not n.pendingInfo and it.calls == 0, "ItemTree wasn't asked by the item's id, and no rescan is waiting")
 	omit["0:1"] = nil   -- the game now gives the slot's link; nothing rescans
 	local live = C_Container.GetContainerItemInfo(0, 1).hyperlink
 	check(type(live) == "string", "(the slot has its link now)")
+	M.runTimers(); M.runTimers()
+	local listed = DE.current
+	check(listed and listed.itemID == 5387 and listed.link == live and listed.rec.link == live and armed(DE) and it.links[#it.links] == live, "the open Helper reads the link by itself, asks ItemTree with it, and lists and arms the cloak")
 	it.silent = true
 	press(DE)
 	check(not armed(DE) and DE.current == nil, "ItemTree answers nothing as the button is pressed: disarmed, nothing cast")
@@ -119,16 +129,20 @@ end
 	-- the same slot, and ItemTree says Keep when asked with the link (and nothing to keep when asked by id alone)
 	it = { facts = {}, answer = function(id, link) return fact(id, link ~= nil) end }
 	n, M, DE = deBoot(it)
+	local function forget2() for g in pairs(n.instanceLinks) do n.instanceLinks[g] = nil end end
 	omit["0:1"] = true
+	forget2()
 	n:Scan()
 	DE:Show(); M.runTimers()
-	check(DE.current and DE.current.link == nil and armed(DE), "(listed and armed by the item's id)")
+	check(#DE.entries == 0 and not armed(DE) and it.calls == 0, "(read without a link: it waits, and ItemTree isn't asked by the item's id, where it would have said nothing to keep)")
 	omit["0:1"] = nil
 	live = C_Container.GetContainerItemInfo(0, 1).hyperlink
-	local ok, why = DE:LiveCheck(DE.current)
-	check(ok == false and why == "ItemTree says to keep that item", "ItemTree keeps it under its link: the click is refused as its Keep")
+	M.runTimers(); M.runTimers()
+	local rec = recOf(n, 5387)
+	local ok, why = DE:LiveCheck({ rec = rec, bag = rec.bag, slot = rec.slot, itemID = rec.itemID, link = rec.link })
+	check(rec.link == live and ok == false and why == "ItemTree says to keep that item", "ItemTree keeps it under its link: a click on it is refused as its Keep")
 	press(DE)
-	check(not armed(DE) and DE.current == nil, "pressed: disarmed")
+	check(not armed(DE) and DE.current == nil, "pressed: nothing is armed")
 	M.runTimers()
 	check(#DE.entries == 0 and not armed(DE) and names(DE.held.by.itemtree) == "Test Cloak" and DE.held.by.itemtreewait == nil, "the next frame's list holds it under ItemTree says to keep, and arms nothing")
 	pump(M)
@@ -159,17 +173,18 @@ end
 	n, M, DE = deBoot(it, true)
 	IT = n.ItemTree
 	omit["0:1"], omit["0:2"] = true, true
+	for g in pairs(n.instanceLinks) do n.instanceLinks[g] = nil end
 	n:Scan()
 	DE:Show(); M.runTimers()
-	check(#DE.entries == 2, "(two copies of the cloak, both read without a link, both listed)")
+	check(#DE.entries == 0 and #DE.held.by.itemtreewait == 2, "(two copies of the cloak, both read without a link: both wait)")
 	omit["0:1"] = nil   -- the first slot's link arrives; the second's hasn't
-	local first
-	for _, e in ipairs(DE.entries) do if e.bag == 0 and e.slot == 1 then first = e end end
-	ok, why = DE:LiveCheck(first)
-	check(ok == false and why == "ItemTree says to keep that item", "the first copy, asked with its link, is ItemTree's Keep: refused")
+	M.runTimers(); M.runTimers()
+	local first = recAt(n, 0, 1)
+	ok, why = DE:LiveCheck({ rec = first, bag = 0, slot = 1, itemID = 5387, link = first.link })
+	check(first.link ~= nil and ok == false and why == "ItemTree says to keep that item", "the first copy, asked with its link, is ItemTree's Keep: refused")
 	DE:Refresh()
-	check(#DE.entries == 1 and DE.entries[1].slot == 2 and DE.entries[1].link == nil and names(DE.held.by.itemtree) == "Test Cloak", "the first is held; the second, still without a link, is offered on its own answer as before")
-	check(recAt(n, 0, 1).link ~= nil and recAt(n, 0, 2).link == nil and IT:Verdict(recAt(n, 0, 2), nil, true) == "clear", "only the validated slot's record took a link; the other copy's answer wasn't put in doubt")
+	check(#DE.entries == 0 and names(DE.held.by.itemtree) == "Test Cloak" and names(DE.held.by.itemtreewait) == "Test Cloak", "the first is held as ItemTree's Keep; the second, still without a link, still waits")
+	check(recAt(n, 0, 1).link ~= nil and recAt(n, 0, 2).link == nil and IT:Verdict(recAt(n, 0, 2), nil, true) == "unknown", "only the slot that gave a link took one; the other copy borrowed neither the link nor the Keep")
 	check(it.requested == 0 and (n.errors or 0) == 0, "no errors, and ItemTree was never asked to load anything")
 	DE:Close()
 	_G.ItemTreeAPI = nil
@@ -236,7 +251,8 @@ do
 		local it = { facts = {}, answer = function(id, link) if id == 9702 then return fact(id, link ~= nil) end return fact(id, id == 9720) end }
 		local n, M, MR, f = lootBoot(it, skin, { "0:2" })
 		local IT = n.ItemTree
-		check(recOf(n, 9702).link == nil and offered(f) == "Broken Fang,Linen Belt", S0 .. "(the belt, read without a link, is offered: asked by its id, ItemTree had nothing to keep) (" .. tostring(offered(f)) .. ")")
+		-- (by design since 1.10.0-beta16, B15-1: read without a link, the belt waits; it was offered on the id's answer)
+		check(recOf(n, 9702).link == nil and offered(f) == "Broken Fang" and it.asked[9702] == nil, S0 .. "(the belt, read without a link, waits: ItemTree isn't asked about it by id) (" .. tostring(offered(f)) .. ")")
 		local belt = MR:Offer(recOf(n, 9702), false, "priced", 22)
 		check(belt.link == nil, S0 .. "(the offer has no link either)")
 		omit["0:2"] = nil
@@ -256,7 +272,7 @@ do
 		-- the same, with ItemTree answering nothing at the click
 		it = { facts = { [9702] = fact(9702, false), [9720] = fact(9720, true) } }
 		n, M, MR, f = lootBoot(it, skin, { "0:2" })
-		check(offered(f) == "Broken Fang,Linen Belt", S0 .. "(offered by its id again)")
+		check(offered(f) == "Broken Fang" and it.asked[9702] == nil, S0 .. "(read without a link: it waits, by design since beta16)")
 		belt = MR:Offer(recOf(n, 9702), false, "priced", 22)
 		omit["0:2"] = nil
 		live = C_Container.GetContainerItemInfo(0, 2).hyperlink
@@ -313,14 +329,16 @@ end
 	BagSmithDB.cache.a_cold.items = { cold }
 	Inv:Touch()
 	g = row(Inv:GlobalRecords(false), 4306)
-	check(g.count == 4 and g.qualityUnknown == true and chip(g) == false and Inv:WaitingOn(4306) == true, "no copy known: the group is not known yet, the chip leaves it out, and the list is waiting on the item")
+	-- (by design since 1.10.0-beta16, the beta15 audit's B15-2: both copies are saved rows, which building the list again
+	-- can't describe, so the list no longer waits on the item; it did)
+	check(g.count == 4 and g.qualityUnknown == true and chip(g) == false and Inv:WaitingOn(4306) == false, "no copy known: the group is not known yet and the chip leaves it out (saved rows only: nothing to wait for)")
 	-- a whole copy stands for the group: never one copy's name beside another's quality
 	BagSmithDB.cache.a_cold.items = { { itemID = 700, name = "Real Name", quality = 1, qualityUnknown = true, count = 1, cat = "Other" } }
 	BagSmithDB.cache.b_known.items = { { itemID = 700, name = "Item 700", quality = 3, nameUnknown = true, count = 1, cat = "Other" } }
 	Inv:Touch()
 	g = row(Inv:GlobalRecords(false), 700)
 	check(g.count == 2 and g.name == "Item 700" and g.quality == 3 and g.nameUnknown == true and not g.qualityUnknown, "one copy with only its name, one with only its quality: the better described one stands, whole (" .. tostring(g.name) .. ", quality " .. tostring(g.quality) .. ")")
-	check(R.QualityKnown(g) and not R.NameKnown(g) and Inv:WaitingOn(700) == true, "its quality counts, its name doesn't, and the list still waits on the item")
+	check(R.QualityKnown(g) and not R.NameKnown(g) and Inv:WaitingOn(700) == false, "its quality counts, its name doesn't (saved rows only: by design since beta16 the list doesn't wait on them)")
 	-- a first copy that is fully known is never replaced
 	BagSmithDB.cache.a_cold.items = { { itemID = 701, name = "First Known", quality = 1, count = 1, cat = "Other" } }
 	BagSmithDB.cache.b_known.items = { { itemID = 701, name = "Second Known", quality = 1, count = 1, cat = "Other" } }

@@ -120,7 +120,12 @@ end)()
 	check(IT:Holds({ itemID = 3173, global = true }) == false and IT:Holds({ empty = true }) == false and IT:Holds(nil) == false and IT:Holds({ name = "x" }) == false and it.calls == asked,
 		"a Global Inventory row, an empty slot, nothing at all: no, and no question")
 	-- by item ID alone (the Loot Helper's click has no record)
-	check(IT:Holds({ itemID = 2996 }, true) == true, "by item ID alone: answered")
+	-- (by design since 1.10.0-beta16, the beta15 audit's B15-1: a question by item id alone is no longer put to
+	-- ItemTree for a Helper. Without a link the item can't be named, so the answer is "unknown" and it is held; before,
+	-- ItemTree was asked by id and its answer taken. With the link, as a click passes it, it is asked as ever.)
+	local askedBefore = it.calls
+	check(IT:Holds({ itemID = 2996 }, true) == true and IT:Verdict({ itemID = 2996 }, true) == "unknown" and it.calls == askedBefore, "by item ID alone: held as unknown, and ItemTree isn't asked")
+	check(IT:Verdict({ itemID = 2996, link = recOf(n, 2996).link }, true) == "hold" and it.calls == askedBefore + 1, "with the item's link: asked, and answered")
 	-- an error inside ItemTree is no answer
 	it.raise = { [2321] = true }
 	-- (by design since 1.10.0-beta13, the beta12 audit's F1: that is no longer "not held, go on as before". ItemTree

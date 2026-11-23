@@ -725,11 +725,13 @@ function DE:LiveCheck(entry)
 	if info.itemID ~= entry.itemID then return false, "that slot holds a different item now" end
 	-- the same item ID is not the same item: where the client gives instances, the armed one must match the one in
 	-- the slot now; a record without an instance, or a slot whose instance cannot be read, cannot be identified
+	local sameInstance = false   -- (1.10.0-beta16) set once the instance in the slot is known to be the armed one
 	if C_Item and C_Item.GetItemGUID and ItemLocation then
 		local okG, guid = pcall(function() local loc = ItemLocation:CreateFromBagAndSlot(entry.bag, entry.slot); if loc and C_Item.DoesItemExist(loc) then return C_Item.GetItemGUID(loc) end end)
 		if not okG or guid == nil then return false, "that item could not be identified" end
 		if not (entry.rec and entry.rec.guid) then return false, "that item could not be identified" end
 		if guid ~= entry.rec.guid then return false, "that slot holds another copy of the item now" end
+		sameInstance = true
 	end
 	if info.isLocked then return false, "that item is locked right now" end
 	if self:Never()[entry.itemID] then return false, "that item is on your DE Exclusion List" end
@@ -757,8 +759,16 @@ function DE:LiveCheck(entry)
 	-- before, a refusal here was kept under the live link while the list went on reading the old key's "clear" and
 	-- armed the piece again. Only this slot's record is touched.
 	if type(info.hyperlink) == "string" and info.hyperlink ~= "" and entry.link ~= info.hyperlink then
+		-- (1.10.0-beta16, the beta15 audit's B15-1) A link that CHANGED is only taken as the same piece's when the
+		-- instance was verified above. Where the client gives no instances, a different link under an armed piece is
+		-- an unexplained replacement: refused, and the bags are read again so the list starts from what is there.
+		if entry.link and not sameInstance then
+			if ns.RescanSoon then ns:RescanSoon() end
+			return false, "that item's link changed and it couldn't be confirmed as the same piece"
+		end
 		entry.link = info.hyperlink
 		if entry.rec then entry.rec.link = info.hyperlink end
+		if ns.KeepLink then ns:KeepLink(entry.bag, entry.slot, entry.itemID, info.hyperlink) end
 	end
 	-- (1.10.0-beta8) Pawn, asked fresh, while Hold Back Pawn Upgrades is on: an upgrade, or no answer yet, is a no
 	if ns.db.deHoldPawn and ns.Pawn and ns.Pawn:Active() then
