@@ -1,5 +1,5 @@
 --[[
-	Core/ItemTree.lua (1.10.0-beta6; the Helpers' question, IT:Holds, 1.10.0-beta7)
+	Core/ItemTree.lua (1.10.0-beta6; the Helpers' question, IT:Holds, 1.10.0-beta7 and beta8)
 
 	ItemTree is another addon, and optional. It knows what an item is for on the character you're playing: whether a
 	profession of yours uses it, whether a quest needs it, whether it's an upgrade, whether vendors sell it, and what it
@@ -71,6 +71,9 @@ function IT.Read(f)
 		vendor = (type(vendors) == "table" and type(vendors.count) == "number" and vendors.count > 0) or false,
 		-- (1.10.0-beta7) its Keep mark, for the Loot Helper and the Disenchant Helper (IT:Holds); no rule reads it
 		kept = (type(keep) == "table" and keep.marked == true) or false,
+		-- (1.10.0-beta8) ... and whether that Keep is for its dust: ItemTree's state for a piece it keeps in order to
+		-- disenchant it (Shweep's Lupine Slippers, 22 Nov: "Keep", "Disenchants into Strange Dust")
+		forDust = (type(keep) == "table" and keep.state == "keepDisenchant") or false,
 		tags = {},
 	}
 	local tags = type(keep) == "table" and keep.tags
@@ -168,7 +171,9 @@ end
 -- fresh, asked again whatever is known (the Loot Helper's check at the click). True only on a clear yes: no ItemTree,
 -- the setting off, not ready, or no answer all mean the Helpers go on as they always have. It only ever adds a reason
 -- to hold an item back; it never takes one away.
-function IT:Holds(rec, fresh)
+-- (1.10.0-beta8, Shweep: "This doesn't make sense to hold it back for DE helper, right?") forDisenchant: the Disenchant
+-- Helper's question. A piece ItemTree keeps for its dust is kept in order to be disenchanted, so there it isn't held.
+function IT:Holds(rec, fresh, forDisenchant)
 	if not (ns.db and ns.db.itemTreeHold ~= false) then return false end
 	if type(rec) ~= "table" or not rec.itemID or rec.global or rec.empty then return false end
 	if not self:Ready() then return false end
@@ -184,7 +189,9 @@ function IT:Holds(rec, fresh)
 		e = now
 		if changed and not ticking then ticking = true; C_Timer.After(0, tick) end
 	end
-	return e and e.kept == true or false
+	if not (e and e.kept == true) then return false end
+	if forDisenchant and e.forDust then return false end
+	return true
 end
 
 -- Forgets answers so they're asked again: one key, or everything. What was known is kept aside to compare with, so

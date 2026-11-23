@@ -1685,7 +1685,9 @@ pages.general = function(self, db)
 	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
 	-- (1.6.0) where auction prices come from, for the AH Price column and the Loot and Disenchant Helpers (on General:
 	-- they matter to the helpers as much as the column, Shweep)
-	self:Head("Auction Prices")
+	-- (1.10.0-beta8, Shweep: "should we consider also putting the AH price stuff under Other Addons?") one card for
+	-- what BagSmith does with other addons: auction prices, ItemTree, Pawn. Was two cards, Auction Prices and Other Addons.
+	self:Head("Other Addons")
 	local using = ns.AH:SourceName()
 	local installed = {}
 	for _, k in ipairs(ns.AH.ORDER) do if ns.AH:Installed(k) then installed[#installed + 1] = ns.AH.SOURCES[k].name end end
@@ -1693,10 +1695,9 @@ pages.general = function(self, db)
 	if using and #installed < 2 and db.priceSource ~= "auto" and ns.AH.SOURCES[db.priceSource] and not ns.AH:Installed(db.priceSource) then
 		now = ("%s isn't installed, so BagSmith uses %s."):format(ns.AH.SOURCES[db.priceSource].name, using)
 	end
-	self:Seg("priceSource", "Price Source", { { "auto", "Automatic" }, { "auctionator", "Auctionator" }, { "blackthornes", "Blackthornes" } },
+	self:Seg("priceSource", "Auction Price Source", { { "auto", "Automatic" }, { "auctionator", "Auctionator" }, { "blackthornes", "Blackthornes" } },
 		"Which addon BagSmith gets auction prices from. Automatic uses the one you have, or Auctionator if you have both. " .. now)
 	-- (1.10.0-beta6) ItemTree: optional, always listed, and the switch says which of three states it's in
-	self:Head("Other Addons")
 	do
 		-- (1.10.0-beta7, Shweep: "the description is somewhat confusing"; his pick of the wording, the state on a line of
 		-- its own, and the addon's name in its own color)
@@ -1710,9 +1711,23 @@ pages.general = function(self, db)
 			or (on and ("%s is installed and its rules are available."):format(name) or ("%s is installed. Rules that use it are paused until you tick this."):format(name)))
 		-- (1.10.0-beta7) the Helpers hold back what ItemTree says to keep
 		self:Indented(function()
-			self:Check("itemTreeHold", "Hold Back What ItemTree Says to Keep", ("The Loot Helper and Disenchant Helper won't offer an item that %s says to keep."):format(name),
+			-- (1.10.0-beta8) a piece ItemTree keeps in order to disenchant it stays in the Disenchant Helper
+			self:Check("itemTreeHold", "Hold Back What ItemTree Says to Keep",
+				("The Loot Helper and Disenchant Helper won't offer an item that %s says to keep. A piece %s keeps for its dust still shows in the Disenchant Helper."):format(name, name),
 				not on and { disabled = true, checked = false } or nil)
 		end)
+	end
+	-- (1.10.0-beta8, Shweep: "Yes to pawn and we can add setting"; "off for holding it back should be default") Pawn:
+	-- its arrows and the Loot Helper's protection are as they were, always on. The switch is the Disenchant Helper's.
+	do
+		local P = ns.Pawn
+		local present = P and P:Present()
+		local active = present and P:Active()
+		self:Check("deHoldPawn", "Hold Back Pawn Upgrades", "The Disenchant Helper won't offer a piece that the Pawn addon says is an upgrade for you. The Loot Helper already never does.",
+			not active and { disabled = true, checked = false } or nil)
+		self:Text(not present and "Pawn isn't installed, so there's nothing to turn on. It's optional."
+			or (active and "Pawn is installed, and its upgrade arrows show on your items."
+			or "Pawn is installed, but its bag upgrade advisor is off, so it marks no upgrades. You can turn that on in Pawn's options."))
 	end
 	-- (1.6.0) tips on BagSmith's own controls
 	self:Head("Tooltips")   -- (1.9.0-beta2, Shweep) was "Tips"
@@ -2223,7 +2238,7 @@ local function columnsPage(self, db, bank)
 			-- AH Price: always listed, greyed out until a price addon is installed (1.6.0: Auctionator or Blackthornes Tradeskills).
 			local ok = ns.AH:Available()
 			colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil, disabled = not ok,
-				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Price Source is in General.") or ns.AH.INSTALL_HINT }
+				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in General.") or ns.AH.INSTALL_HINT }
 		else colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil } end
 	end
 	self:List(colItems,
@@ -2331,7 +2346,7 @@ pages.globalcols = function(self, db)
 		if id == "ah" then
 			local ok = ns.AH:Available()
 			return { id = id, label = ns.COL_LABEL[id], checked = checked, disabled = not ok,
-				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Price Source is in General.") or ns.AH.INSTALL_HINT }
+				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in General.") or ns.AH.INSTALL_HINT }
 		end
 		return { id = id, label = ns.COL_LABEL[id], checked = checked }
 	end

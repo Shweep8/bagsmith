@@ -391,7 +391,8 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local function x(w) return (select(4, w:GetPoint(1))) end
 	local function y(w) return -(select(5, w:GetPoint(1))) end
 	local HELP = "Adds section and filter rules that use the " .. TEAL .. " addon, such as Used by My Professions and Needed for a Quest."
-	local HOLD = "The Loot Helper and Disenchant Helper won't offer an item that " .. TEAL .. " says to keep."
+	-- (by design since 1.10.0-beta8: a second sentence says a piece kept for its dust still shows in the Disenchant Helper)
+	local HOLD = "The Loot Helper and Disenchant Helper won't offer an item that " .. TEAL .. " says to keep. A piece " .. TEAL .. " keeps for its dust still shows in the Disenchant Helper."
 
 	-- not installed
 	local n, M = boot({ it = "none", prof = { skin = skin } })
@@ -472,7 +473,7 @@ end)()
 ;(function()
 	-- the changelog, the TOC, and the words players read
 	local f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
-	check(toc:find("## Version: 1.10.0-beta7\n", 1, true), "the TOC says 1.10.0-beta7")
+	check(toc:find("## Version: 1.10.0", 1, true), "the TOC says 1.10.0 (the exact version is pinned in tests/run.lua)")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
 	check(section:find("the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep", 1, true) and section:find("the option sits under Use ItemTree", 1, true),

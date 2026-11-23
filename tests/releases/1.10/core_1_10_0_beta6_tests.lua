@@ -301,7 +301,8 @@ end
 	check(inSection(n, mats) == MATS and it.calls == asked + 9, "and the section fills again, each item asked afresh")
 	local heads = {}
 	for _, w in ipairs(P.pools.head or {}) do if w:IsShown() then heads[#heads + 1] = tostring(w.text and w.text.text or w.text) end end
-	check(table.concat(heads, " | "):find("Auction Prices | Other Addons | Tooltips", 1, true), "it sits under its own heading, Other Addons (" .. table.concat(heads, " | ") .. ")")
+	-- (by design since 1.10.0-beta8: the Auction Prices card joined Other Addons)
+	check(table.concat(heads, " | "):find("Opening BagSmith | Other Addons | Tooltips", 1, true), "it sits under its own heading, Other Addons (" .. table.concat(heads, " | ") .. ")")
 	P:Hide()
 	-- ItemTree raising an error is no answer, not an error of BagSmith's
 	it.raise = { [3173] = true }

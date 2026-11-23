@@ -750,8 +750,14 @@ function DE:LiveCheck(entry)
 		if unknownT then return false, "whether that item is tradeable could not be checked" end
 		if isTradeable then return false, "that item is still tradeable" end
 	end
-	-- (1.10.0-beta7) and the ItemTree addon's word, asked fresh
-	if ns.ItemTree and ns.ItemTree:Holds({ itemID = entry.itemID, link = info.hyperlink or entry.link }, true) then return false, "ItemTree says to keep that item" end
+	-- (1.10.0-beta8) Pawn, asked fresh, while Hold Back Pawn Upgrades is on: an upgrade, or no answer yet, is a no
+	if ns.db.deHoldPawn and ns.Pawn and ns.Pawn:Active() then
+		local up = ns.Pawn:IsUpgradeLink(info.hyperlink or entry.link, true)
+		if up == true then return false, "Pawn says that item is an upgrade" end
+		if up == nil then return false, "Pawn hasn't decided yet whether that item is an upgrade" end
+	end
+	-- (1.10.0-beta7) and the ItemTree addon's word, asked fresh (beta8: not for a piece it keeps for its dust)
+	if ns.ItemTree and ns.ItemTree:Holds({ itemID = entry.itemID, link = info.hyperlink or entry.link }, true, true) then return false, "ItemTree says to keep that item" end
 	return true
 end
 -- Why an item is in or out. Returns true, or false and a short reason.
@@ -775,16 +781,34 @@ function DE:Eligible(rec, skill)
 		if refundable(rec) then return false, "refundable" end
 		if tradeable(rec) then return false, "tradeable" end
 	end
+	-- (1.10.0-beta8) Hold Back Pawn Upgrades (off unless you turn it on): Pawn says this piece is an upgrade. What Pawn
+	-- answered is kept beside the list, so the list can follow when Pawn changes its answer (DE:PawnPass).
+	if ns.db and ns.db.deHoldPawn and ns.Pawn then
+		local up = ns.Pawn:IsUpgrade(rec)
+		if self.pawnSeen and rec.link then self.pawnSeen[rec.link] = (up == nil) and "?" or up end
+		if up == true then return false, "pawn" end
+	end
 	-- (1.10.0-beta7) last, so it's only asked about what would otherwise be offered: the ItemTree addon says keep it
-	if ns.ItemTree and ns.ItemTree:Holds(rec) then return false, "itemtree" end
+	-- (1.10.0-beta8: unless ItemTree keeps it for its dust, which is what this Helper is for)
+	if ns.ItemTree and ns.ItemTree:Holds(rec, nil, true) then return false, "itemtree" end
 	return true
 end
 
 -- Every eligible item in the bags, with its values and verdict, best disenchant first.
 -- Eligible's reasons that mean "held back" (an item that would otherwise be considered), in the shared words.
-DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic", itemtree = "itemtree" }
+DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic", itemtree = "itemtree", pawn = "pawn" }
+-- (1.10.0-beta8) Pawn finished a pass over its answers (Core/Pawn.lua). While Hold Back Pawn Upgrades is on, the list
+-- is drawn again when Pawn's answer about one of its pieces changed: Pawn can say "not yet" the first time it's asked.
+function DE:PawnPass()
+	if not (ns.db and ns.db.deEnabled and ns.db.deHoldPawn and ns.Pawn and self.pawnSeen and self.frame and self.frame:IsShown()) then return end
+	for link, seen in pairs(self.pawnSeen) do
+		local now = ns.Pawn:IsUpgradeLink(link)
+		if ((now == nil) and "?" or now) ~= seen then self:Refresh(); return end
+	end
+end
 function DE:Entries()
 	local out = {}
+	self.pawnSeen = {}
 	local skill = self:Skill()
 	local items = ns.items or {}
 	self.held = ns.Why:New()
@@ -1809,7 +1833,7 @@ ns:OnSignal("PRICE_SOURCE_CHANGED", function()
 end)
 ns:OnSignal("SETTINGS_CHANGED", function(key)
 	if key == nil or key == "deEnabled" then DE:Reconcile() end
-	if (key == nil or key == "deMargin" or key == "deAhMargin" or key == "deLeveling" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks" or key == "itemTreeHold" or key == "useItemTree") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
+	if (key == nil or key == "deMargin" or key == "deAhMargin" or key == "deLeveling" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks" or key == "itemTreeHold" or key == "useItemTree" or key == "deHoldPawn") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
 	if (key == nil or key == "deEnabled") and ns.Window and ns.Window.main and ns.Window.main.RefreshToolbar then ns.Window.main:RefreshToolbar() end
 end)
 

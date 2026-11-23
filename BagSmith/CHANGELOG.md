@@ -22,7 +22,10 @@ New:
   Needed for a Quest, An Upgrade for Me and Sold by Vendors, and for filters ItemTree's Advice. Use ItemTree in
   Settings > General turns it on or off. ItemTree is optional, and BagSmith works the same without it.
 - With ItemTree, the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep. They show it
-  with the other items they don't offer, and the option sits under Use ItemTree.
+  with the other items they don't offer, and the option sits under Use ItemTree. A piece ItemTree keeps for its
+  dust still shows in the Disenchant Helper.
+- Hold Back Pawn Upgrades, in Settings > General and off until you turn it on: with Pawn installed, the Disenchant
+  Helper won't offer a piece Pawn says is an upgrade for you.
 Changed:
 - The Gear, Consumables, Trade Goods, Quest and Junk tabs show every item of their kind, grouped under your own
   sections where you have them. Before, an item in one of your sections left its tab.
@@ -31,6 +34,8 @@ Changed:
 - An item you move back to its usual section by hand stays there, even when one of your sections would take it.
 - The Disenchant Helper no longer offers an item you've marked as junk. Mark one there and it leaves the list, and
   it comes back if you take the mark off.
+- Settings > General: auction prices, ItemTree and Pawn share one card, Other Addons. Price Source is now called
+  Auction Price Source.
 - Classic skin: item icons and their borders are cleaner in Icons and List view, with the artwork kept inside the
   border. Bold now brightens Classic borders. Thanks to Jeor!
 

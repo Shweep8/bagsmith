@@ -4498,8 +4498,10 @@ end)()
 	-- (1.6.0, by design) Auction Prices (Price Source, moved from Columns) and Tips (Show Help Tips) on General
 	-- (1.9.0-beta2, by design) the heading reads Tooltips (Shweep), with Show Inventory in Item Tooltips first
 	-- (1.10.0-beta6, by design) Other Addons (Use ItemTree), after Auction Prices
-	grouped("general", "Opening BagSmith | Auction Prices | Other Addons | Tooltips | Blizzard's Interface | Notices", {
-		replaceBlizzardBags = "Opening BagSmith", minimap = "Opening BagSmith", priceSource = "Auction Prices", useItemTree = "Other Addons", helpTips = "Tooltips", tipInventory = "Tooltips",
+	-- (1.10.0-beta8, by design: Shweep, "should we consider also putting the AH price stuff under Other Addons?") one
+	-- card, Other Addons, holds the price source, ItemTree and Pawn; the Auction Prices heading is gone
+	grouped("general", "Opening BagSmith | Other Addons | Tooltips | Blizzard's Interface | Notices", {
+		replaceBlizzardBags = "Opening BagSmith", minimap = "Opening BagSmith", priceSource = "Other Addons", useItemTree = "Other Addons", helpTips = "Tooltips", tipInventory = "Tooltips",
 		replaceBank = "Blizzard's Interface", hideBlizzBagBar = "Blizzard's Interface",
 		quiet = "Notices", whatsNew = "Notices",
 	})
@@ -6451,7 +6453,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.10%.0%-beta7\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta7, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.10%.0%-beta8\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta8, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end

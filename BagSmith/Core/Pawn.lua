@@ -78,6 +78,9 @@ function P:Pass()
 	if said and #said > 0 then ns:Debug("Pawn: asked %s", table.concat(said, ", ")) end
 	local mr = ns.MakeRoom
 	if mr and mr.frame and mr.frame:IsShown() then mr:Paint() end
+	-- (1.10.0-beta8) the Disenchant Helper's list, while it holds Pawn upgrades back, follows a changed answer
+	local de = ns.Disenchant
+	if de and de.PawnPass then de:PawnPass() end
 	P.inPass = false
 end
 -- After a gear change Pawn may still answer from your old gear for a moment
