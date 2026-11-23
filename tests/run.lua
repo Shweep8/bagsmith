@@ -6460,7 +6460,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.10%.0%-beta10\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta10, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.10%.0%-beta11\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.0-beta11, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -7225,7 +7225,8 @@ end)()
 	local alltxt = table.concat(txt, " ")
 	check(csec == 1 and vis.Gear and vis.Gear[1] == false and vis.Gear[2] == true and vis["~fav"] and vis.c1, "Settings: the custom section, and Show at Vendor / Show at AH checkboxes for each section (Gear unchecked at vendors)")
 	-- (1.6.0-beta4, by design) the approved wording (item 41): the same order in one sentence
-	check(alltxt:find("An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, or its usual section.", 1, true) and movedText:find(("moved %d item"):format(S:MoveCount())), "Settings explains which section wins, and counts the moved items")
+	-- (by design since 1.10.0-beta11: your own sections' rules are named in it; they have had their place since beta1)
+	check(alltxt:find("An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, one of your sections whose rules it fits, or its usual section.", 1, true) and movedText:find(("moved %d item"):format(S:MoveCount())), "Settings explains which section wins, and counts the moved items")
 	P:Hide()
 	-- The moved-items window.
 	S:ManageMoves()
@@ -9944,7 +9945,8 @@ end)()
 	P:ShowPage("custom")
 	local csec
 	for _, w in ipairs(P.pools.csec) do if w:IsShown() then csec = w end end
-	check(heads() == "Custom Sections" and csec and csec.id and shown("check", "showEmptySections"), "your sections are on Custom Sections")
+	-- (by design since 1.10.0-beta11: the page ends with a card, How an Item Finds Its Section)
+	check(heads() == "Custom Sections|How an Item Finds Its Section" and csec and csec.id and shown("check", "showEmptySections"), "your sections are on Custom Sections")
 	P:Hide()
 	M.removeEquipmentSets()
 end)()
@@ -9985,7 +9987,7 @@ end)()
 			for _, w in ipairs(pool) do
 				if w:IsShown() and w.points[1] and w.points[1][2] == P.frame.child then
 					local label = (w.text and w.text.text) or (w.label and w.label.text) or ""
-					rows[#rows + 1] = { y = -w.points[1][5], kind = kind, label = label, key = w.key, h = w.h or 0, w = w }
+					rows[#rows + 1] = { y = -w.points[1][5], x = w.points[1][4], kind = kind, label = label, key = w.key, h = w.h or 0, w = w }
 				end
 			end
 		end
@@ -10023,7 +10025,9 @@ end)()
 	local bad, last = 0, nil
 	for _, r in ipairs(results()) do
 		if r.kind ~= "card" and r.kind ~= "sep" then   -- (cards sit behind rows, hairlines on their edges, by design)
-			if last and r.y < last.y + last.h - 0.01 then bad = bad + 1 end
+			-- (by design since 1.10.0-beta11: buttons side by side on one row, as Custom Sections' examples are, share a
+			-- line without overlapping: the same y at another x)
+			if last and r.y < last.y + last.h - 0.01 and not (r.y == last.y and r.x ~= last.x) then bad = bad + 1 end
 			last = r
 		end
 	end

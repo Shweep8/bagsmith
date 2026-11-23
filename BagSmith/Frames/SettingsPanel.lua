@@ -2086,7 +2086,8 @@ pages.sections = function(self, db)
 	-- coin drawn inline, the header coin's own texture at the text's height
 	self:Check("sectionValues", "Show Section Values", "Each section's header shows what its items are worth: V for vendor, and AH while the AH Price column is on. Turn it off to keep headers clean; you can still hover a section's name to see them. At smaller widths this is displayed as a coin |TInterface\\MoneyFrame\\UI-GoldIcon:0|t.")
 	self:Head("Which Section an Item Goes To")
-	self:Text("An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, or its usual section.")
+	-- (1.10.0-beta11) your own sections' rules have their place in it (they have since 1.10.0-beta1)
+	self:Text("An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, one of your sections whose rules it fits, or its usual section.")
 	self:Head("Keys & Reagent Bag")
 	self:Check("keys", "Keys in Their Own Section (All and By Bag)", "By Section always gives keys their own section.")
 	self:Seg("reagent", "Reagent Bag (Sections: All)", { { "inline", "Mixed In" }, { "lane", "Own Section" } },
@@ -2238,6 +2239,15 @@ pages.custom = function(self, db)
 	self:Button("New Section...", function() ns.Sections:EditSection() end)
 	-- (1.10.0-beta1) sections that fill themselves
 	self:Text("A section can also fill itself. Give it rules with the pencil beside it, or Alt+Left-click an item and pick New Section From This Item.")
+	-- (1.10.0-beta11, the mockup's "or start from an example") each opens the editor filled in, to look over and create
+	self:Text("Or start from an example. It opens filled in for you to look over, and nothing is made until you create it:")
+	do
+		local list = {}
+		for _, ex in ipairs(ns.Sections.EXAMPLES or {}) do
+			list[#list + 1] = { ex.name, function() ns.Sections:EditSection(nil, { name = ex.name, rules = ex.rules }) end }
+		end
+		self:Buttons(list)
+	end
 	self:Check("showEmptySections", "Show Empty Custom Sections", "Shows your sections even when they're empty, so you can drag items onto them.")
 	local customs = ns.Sections:Customs()
 	if #customs == 0 then
@@ -2248,6 +2258,21 @@ pages.custom = function(self, db)
 		for _, c in ipairs(customs) do self:CustomSectionRow(c) end
 	end
 	self:MovedRow()
+	-- (1.10.0-beta11, the mockup's "How an item finds its section") the order an item is looked at, as it is on this
+	-- character: a gear set and Favorites only while they show as sections
+	self:Head("How an Item Finds Its Section", { noIcon = true, keywords = "priority order first wins rules junk favorites moved by hand" })
+	do
+		local steps = {}
+		local GS = ns.GearSets
+		if GS and GS:Available() and GS:Showing() then steps[#steps + 1] = "Its gear set" end
+		steps[#steps + 1] = "Junk"
+		if db.favSection then steps[#steps + 1] = "Favorites" end
+		steps[#steps + 1] = "Moved by hand"
+		steps[#steps + 1] = "Your sections, top to bottom"
+		steps[#steps + 1] = "Its usual section"
+		self:Text(table.concat(steps, "  >  "), "text")
+		self:Text("The first one that fits wins, so an item is only ever in one section.")
+	end
 end
 
 pages.columns = function(self, db)

@@ -42,22 +42,36 @@ end
 local OPS = { "ge", "le", "in" }
 local OP_TEXT = { ge = "at least", le = "at most", ["in"] = "between" }
 local INLINE = { quality = true, bind = true, bag = true,   -- few enough choices to show them all on the row
-	it_prof = true, it_quest = true, it_upgrade = true, it_vendor = true, it_advice = true }
+	it_prof = true, it_quest = true, it_upgrade = true, it_vendor = true, it_advice = true,
+	cons = true, quest = true, mat = true, usable = true }   -- (1.10.0-beta11)
 local PICKED = { type = true, slot = true, sec = true }      -- long lists: picked in the second window
-local KINDS = {
-	{ k = "type", hint = "What kind of item it is: Cloth, Herbs, Plate, Potions..." },
-	{ k = "slot", hint = "Where it's worn: Head, Trinket, Two-Hand..." },
-	{ k = "quality", hint = "Common, Uncommon, Rare, Epic..." },
-	{ k = "bind", hint = "Soulbound, Binds when equipped, No binding..." },
-	{ k = "ilvl", hint = "At least, at most, or between two numbers." },
-	{ k = "price", hint = "What a vendor pays for one: at least, at most, or between." },
+-- (1.10.0-beta11) The kinds of rule, in the groups + Add a Rule shows them in (the mockup's Add a Rule list). A kind
+-- may have its own words on the menu (menu) when the rule's own name is shorter.
+local GROUPS = {
+	{ title = "About the item", kinds = {
+		{ k = "type", hint = "What kind of item it is: Cloth, Herbs, Plate, Potions..." },
+		{ k = "slot", hint = "Where it's worn: Head, Trinket, Two-Hand..." },
+		{ k = "quality", hint = "Common, Uncommon, Rare, Epic..." },
+		{ k = "bind", hint = "Soulbound, Binds when equipped, No binding..." },
+		{ k = "ilvl", hint = "At least, at most, or between two numbers." },
+		{ k = "name", hint = "Its name contains a word you type." },
+	} },
+	{ title = "What it is for", kinds = {
+		{ k = "cons", menu = "Food, Drink and Potions", hint = "What kind of consumable it is: Food, Drink, Potions, Bandages..." },
+		{ k = "quest", hint = "Needed for a quest, or starts one." },
+		{ k = "mat", hint = "Used to craft something." },
+		{ k = "usable", hint = "Your class and level can use it." },
+	} },
+	{ title = "Value", kinds = {
+		{ k = "price", hint = "What a vendor pays for one: at least, at most, or between." },
+	} },
 }
 -- (for filters only: about where an item is right now, so never a section's)
-local FILTER_KINDS = {
+local FILTER_GROUP = { title = "Where it is", kinds = {
 	{ k = "sec", hint = "The section it's in: Gear, Trade Goods, one of yours..." },
 	{ k = "bag", hint = "Which of your bags it sits in." },
 	{ k = "age", hint = "How long it has been in your bags, in hours." },
-}
+} }
 -- (1.10.0-beta6) what ItemTree knows, offered while it's installed and "Use ItemTree" is on
 local ITEMTREE_KINDS = {
 	{ k = "it_prof", hint = "A recipe of one of your professions uses it, or ItemTree keeps it for one." },
@@ -275,6 +289,15 @@ function RL:Row(i)
 			L:Changed()
 		end)
 	end
+	-- (1.10.0-beta11) a rule you type into (Name): a box for the next word, and Add
+	r.word = CreateFrame("EditBox", nil, r, "InputBoxTemplate")
+	r.word:SetAutoFocus(false); r.word:SetSize(118, 20); r.word:SetMaxLetters(40)
+	r.word:SetScript("OnEnterPressed", function(box) L:AddWord(i, box) end)
+	r.word:SetScript("OnEscapePressed", function(box) box:SetText(""); box:ClearFocus() end)
+	r.word:Hide()
+	r.wordAdd = ns.TextButton(r, "Add", 44, function() L:AddWord(i, r.word) end); r.wordAdd:SetHeight(CHIP_H)
+	r.wordAdd.tip = "Adds the word to the rule. Enter does the same."
+	r.wordAdd:Hide()
 	r.line = r:CreateTexture(nil, "BACKGROUND"); r.line:SetHeight(1)
 	r.line:SetPoint("BOTTOMLEFT", 0, 0); r.line:SetPoint("BOTTOMRIGHT", 0, 0)
 	L.rows[i] = r
@@ -292,16 +315,27 @@ function RL:LayoutRow(r, row, s)
 	local R = ns.Rules
 	local def = self:Def(row.k)
 	local width = self.width
-	r.label:SetWidth((row.kept or not def) and (width - 30) or LABEL_W)   -- ("Another addon's rule" has the line to itself)
+	-- (1.10.0-beta11) a long name ("Crafting Material", "Used by My Professions") takes the room it needs, and the
+	-- rest of the line starts after it; it was cut short at the width of "Vendor Value"
+	r.label:SetWidth(0)
 	r.label:SetText(def and def.label or R:KeyLabel(row.k)); r.label:SetTextColor(unpack(s.heading))
+	local lw = LABEL_W
+	if def and not row.kept then lw = math.max(LABEL_W, math.ceil(r.label:GetStringWidth() or 0) + 8) end
+	r.label:SetWidth((row.kept or not def) and (width - 30) or lw)   -- ("Another addon's rule" has the line to itself)
 	r.line:SetColorTexture(s.line[1], s.line[2], s.line[3], 0.6)
 	local number, list = def and def.number, def and not def.number and not row.kept
+	local typed = list and def.text and true or false
 	local used = 0
 	-- is / is not, or at least / at most / between
 	r.verb:SetShown(def ~= nil and not row.kept)
+	r.verb:ClearAllPoints(); r.verb:SetPoint("TOPLEFT", lw, -1)
 	if number then
 		r.verb:SetWidth(74); r.verb.label:SetText(OP_TEXT[row.op] or OP_TEXT.ge); r.verb:SetActive(false)
 		r.verb.tip = "At least, at most, or between two numbers."
+	elseif typed then
+		-- (1.10.0-beta11) Name: contains / does not contain
+		r.verb:SetWidth(112); r.verb.label:SetText(row.n and def.verbs[2] or def.verbs[1]); r.verb:SetActive(row.n and true or false)
+		r.verb.tip = ("Switch between %s and %s."):format(def.verbs[1], def.verbs[2])
 	elseif list then
 		r.verb:SetWidth(52); r.verb.label:SetText(row.n and "is not" or "is"); r.verb:SetActive(row.n and true or false)
 		r.verb.tip = "Switch between is and is not."
@@ -338,12 +372,22 @@ function RL:LayoutRow(r, row, s)
 		r.choose:SetActive(false)
 		place(r.choose, 70)
 	end
-	if list and (used > 0 or PICKED[row.k]) then y = y + CHIP_H + 4 end
+	-- (1.10.0-beta11) the box for the next word, after the words already there
+	r.word:SetShown(typed); r.wordAdd:SetShown(typed)
+	if typed then
+		r.wordAdd:SetActive(false)
+		-- (the box's own art reaches a little past its left edge: 6 px of room before it)
+		if x > 0 and x + 124 > width - 4 then x = 0; y = y + CHIP_H + CHIP_GAP end
+		r.word:ClearAllPoints(); r.word:SetPoint("TOPLEFT", r, "TOPLEFT", x + 6, -y); r.word:Show()
+		x = x + 124 + CHIP_GAP
+		place(r.wordAdd, 44)
+	end
+	if list and (used > 0 or PICKED[row.k] or typed) then y = y + CHIP_H + 4 end
 	-- the numbers, beside the choice of at least, at most or between
 	r.andText:Hide(); r.unitText:Hide()
 	for j = 1, 2 do r.num[j]:Hide() end
 	if number then
-		local nx, ny = LABEL_W + 80, 1
+		local nx, ny = lw + 80, 1
 		local last = r.num[1]
 		r.num[1]:Set(row.a, def.money)
 		r.num[1]:ClearAllPoints(); r.num[1]:SetPoint("TOPLEFT", r, "TOPLEFT", nx, -ny); r.num[1]:Show()
@@ -373,6 +417,7 @@ function RL:LayoutRow(r, row, s)
 			or "ItemTree isn't installed, so this rule fits nothing for now."
 	elseif row.kept or not def then note = "From another addon or a newer BagSmith. It's kept as it is."
 	elseif number and not self:RowUsable(row) then note = "Type a number, or this rule is ignored."
+	elseif typed and #row.v == 0 then note = "Type a word and press Enter, or this rule is ignored."
 	elseif list and #row.v == 0 then note = "Pick at least one, or this rule is ignored." end
 	r.note:SetShown(note ~= nil)
 	if note then
@@ -436,12 +481,17 @@ function RL:RemoveRow(i)
 	table.remove(d.rows, i)
 	self:Changed()
 end
--- The kinds of rule this list offers.
-function RL:Kinds()
-	if not self.filter then return KINDS end
+-- The kinds of rule this list offers, group by group; and all of them in one list.
+function RL:Groups()
+	if not self.filter then return GROUPS end
 	local out = {}
-	for _, kind in ipairs(KINDS) do out[#out + 1] = kind end
-	for _, kind in ipairs(FILTER_KINDS) do out[#out + 1] = kind end
+	for _, g in ipairs(GROUPS) do out[#out + 1] = g end
+	out[#out + 1] = FILTER_GROUP
+	return out
+end
+function RL:Kinds()
+	local out = {}
+	for _, g in ipairs(self:Groups()) do for _, kind in ipairs(g.kinds) do out[#out + 1] = kind end end
 	return out
 end
 -- (1.10.0-beta6) ItemTree's kinds, for this list (its advice is a filter's only).
@@ -460,11 +510,15 @@ function RL:AddMenu(button)
 		return ns.ShowMenu({ { text = words:format(R.MAX_ROWS), disabled = true } }, button)
 	end
 	local items = { { text = "What should the rule look at?", title = true } }
-	for _, kind in ipairs(self:Kinds()) do
-		items[#items + 1] = { text = R.KEYS[kind.k].label, tip = kind.hint, gap = kind.k == "price" and self.filter or nil, onClick = function() L:AddRow(kind.k) end }
+	-- (1.10.0-beta11) in groups, each under a quiet line that names it
+	for _, g in ipairs(self:Groups()) do
+		items[#items + 1] = { text = g.title, disabled = true }
+		for _, kind in ipairs(g.kinds) do
+			items[#items + 1] = { text = kind.menu or R.KEYS[kind.k].label, tip = kind.hint, onClick = function() L:AddRow(kind.k) end }
+		end
+		items[#items].gap = true
 	end
 	-- (1.10.0-beta6) What ItemTree knows: its rules while it's in use, else one quiet line that says where they are
-	items[#items].gap = true
 	local IT = ns.ItemTree
 	if IT and IT:Enabled() then
 		items[#items + 1] = { text = "What ItemTree knows", title = true, color = { 0.624, 0.902, 0.882 } }   -- (1.10.0-beta7) ItemTree's teal
@@ -489,6 +543,36 @@ function RL:AddRow(k)
 	else d.rows[#d.rows + 1] = { k = k, v = {} } end
 	self:Changed()
 	self:Added()
+	-- (1.10.0-beta11) a rule you type into: ready for its first word
+	if def.text then
+		local r = self.rows[#d.rows]
+		if r and r.word and r.word:IsShown() then r.word:SetText(""); r.word:SetFocus() end
+	end
+end
+
+-- (1.10.0-beta11) Name: the word in a row's box joins the rule (Enter, or Add). Trimmed; a color code's bar or a line
+-- break can't be part of it; a word already there (whatever its capitals) isn't added twice.
+function RL:AddWord(i, box)
+	local row = self.draft and self.draft.rows[i]
+	local def = row and self:Def(row.k)
+	if not (def and def.text and type(row.v) == "table" and box) then return false end
+	local word = tostring(box:GetText() or ""):gsub("|", ""):gsub("%c", " "):match("^%s*(.-)%s*$") or ""
+	box:SetText("")
+	if word == "" or not def.valid(word) or #row.v >= ns.Rules.MAX_VALUES then return false end
+	local lower = word:lower()
+	for _, v in ipairs(row.v) do if type(v) == "string" and v:lower() == lower then return false end end
+	row.v[#row.v + 1] = word
+	self:Changed()
+	return true
+end
+-- A word typed and not yet added counts when the rules are kept: an owner calls this before it saves.
+function RL:Commit()
+	local d = self.draft
+	for i, row in ipairs(d and d.rows or {}) do
+		local r = self.rows[i]
+		local def = self:Def(row.k)
+		if def and def.text and r and r.word and (r.word:GetText() or "") ~= "" then self:AddWord(i, r.word) end
+	end
 end
 
 ------------------------------------------------------------------------

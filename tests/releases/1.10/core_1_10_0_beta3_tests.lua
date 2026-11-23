@@ -57,6 +57,9 @@ local function boot(opts)
 end
 local function cat(n, id) for _, r in ipairs(n.items) do if r.itemID == id then return r.cat, r end end end
 local function click(b) b:GetScript("OnClick")(b) end
+-- (by design since 1.10.0-beta11: + Add a Rule lists its kinds in groups, with five more of them, so a kind is picked
+-- by its name here, not by its place in the list)
+local function pick(menu, text) for _, it in ipairs(menu or {}) do if it.text == text then return it end end end
 local function typeIn(box, text) box:SetText(text); box:GetScript("OnTextChanged")(box, true) end
 local function names(list) local t = {}; for i, r in ipairs(list) do t[i] = (r.rec or r).name end; return table.concat(t, ", ") end
 local function shownLines(f) local t = {}; for _, l in ipairs(f.lines) do if l:IsShown() then t[#t + 1] = l end end; return t end
@@ -161,10 +164,10 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local texts = {}
 	for i, it in ipairs(menu) do texts[i] = it.text end
 	-- (by design since 1.10.0-beta6: one quiet line after them says the optional ItemTree addon adds more)
-	check(anchor == f.add and table.concat(texts, " | ") == "What should the rule look at? | Type | Slot | Quality | Binding | Item Level | Vendor Value | Optional: the ItemTree addon adds more rules here."
-		and menu[1].title and menu[2].tip:find("Cloth", 1, true) and menu[8].disabled, S0 .. "the menu: the six kinds of rule, each with a hint")
+	check(anchor == f.add and table.concat(texts, " | ") == "What should the rule look at? | About the item | Type | Slot | Quality | Binding | Item Level | Name | What it is for | Food, Drink and Potions | Quest Item | Crafting Material | Usable by Me | Value | Vendor Value | Optional: the ItemTree addon adds more rules here."
+		and menu[1].title and pick(menu, "Type").tip:find("Cloth", 1, true) and menu[#menu].disabled, S0 .. "the menu: the kinds of rule, each with a hint")
 	-- Quality: every choice on the row
-	menu[4].onClick(); M.runTimers()
+	pick(menu, "Quality").onClick(); M.runTimers()
 	local r1 = f.rows[1]
 	check(#E.draft.rows == 1 and r1:IsShown() and r1.label.text == "Quality" and r1.verb.label.text == "is" and not r1.verb.active, S0 .. "Quality: a row that says Quality is")
 	check(chipTexts(r1) == "Poor, Common, Uncommon, Rare, Epic, Legendary" and not r1.choose:IsShown(), S0 .. "its six choices on the row, none picked (" .. chipTexts(r1) .. ")")
@@ -181,7 +184,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	click(r1.chips[3])
 	check(chipTexts(r1) == "Poor, Common, Uncommon, Rare*, Epic, Legendary" and names(E.shown.here) == "Robe of Power", S0 .. "a click on a picked choice takes it off")
 	-- Type: picked in the second window
-	click(f.add); menu[2].onClick(); M.runTimers()
+	click(f.add); pick(menu, "Type").onClick(); M.runTimers()
 	local p = E.picker
 	check(p and p:IsShown() and f.shade:IsShown() and #E.draft.rows == 1, S0 .. "Type: the list opens over the editor, which waits behind a shade; no rule added yet")
 	check(p.title.text == "Add a Rule" and p.head.text == "Type" and p.hint.text == "What kind of item it is" and p.ask.text == "Tick every kind you want:" and p.ok.label.text == "Add Rule"
@@ -219,7 +222,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	E:PickerClick(entry(p, "Reagent"))
 	click(p.cancel)
 	check(not p:IsShown() and not f.shade:IsShown() and #E.draft.rows == 1 and E.pick == nil, S0 .. "Cancel: the list closes, the shade lifts, nothing added")
-	click(f.add); menu[2].onClick(); M.runTimers()
+	click(f.add); pick(menu, "Type").onClick(); M.runTimers()
 	check(#E.pick.v == 0 and #p.list == 8, S0 .. "opened again: it starts clean")
 	E:PickerClick(entry(p, "Trade Goods")); E:PickerClick(entry(p, "Cloth")); E:PickerClick(entry(p, "Leather"))
 	click(p.ok); M.runTimers()
@@ -324,7 +327,7 @@ end
 	typeIn(m1.boxes[2], "3"); typeIn(m1.boxes[3], "")
 	check(E.draft.rows[5].a == 300 and names(E.shown.here) == "Glimmering Mail Gauntlets", "at most 3s: they do")
 	-- a new number rule
-	click(f.add); menu[6].onClick(); M.runTimers()
+	click(f.add); pick(menu, "Item Level").onClick(); M.runTimers()
 	check(#E.draft.rows == 7 and rows[7].label.text == "Item Level" and rows[7].verb.label.text == "at least" and rows[7].note.text == "Type a number, or this rule is ignored." and not rows[7].num[1].boxes[2]:IsShown(), "Add a Rule, Item Level: a row waiting for its number")
 	click(rows[7].remove)
 	-- saved under a new name

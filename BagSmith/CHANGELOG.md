@@ -28,6 +28,11 @@ New:
   Settings > Addon Sources too, and it's off until you turn it on.
 - A new Settings page, Addon Sources, shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree
   and Pawn, each in its own card with a switch for each job.
+- More rules for your sections and filters: Name (its name contains a word you type), Food, Drink and Potions
+  (what kind of consumable it is), Quest Item, Crafting Material and Usable by Me. + Add a Rule lists the rules in
+  groups.
+- Settings > Custom Sections can start a section from an example (Cloth, Herbs, Gear to Sell, Food and Drink): it
+  opens filled in for you to look over. The page also shows the order an item finds its section in.
 - All Items is part of Section Order. With Sections: All, a pinned, Favorites or other dynamic section shows above
   All Items when it comes before it in Section Order, and below when it comes after. Drag the All Items title, or
   use the arrows in Settings > Sections, to choose.
@@ -46,6 +51,7 @@ Changed:
 - With Sections: All, Favorites no longer drops below All Items when a Keys section is showing, and Gear Sets no
   longer jumps above it when you have favorites. Each follows Section Order.
 - Settings: Plugins moved down the list, just above Advanced.
+- The rule editor no longer cuts a long rule name short, such as Used by My Professions.
 - Classic skin: item icons and their borders are cleaner in Icons and List view, with the artwork kept inside the
   border. Bold now brightens Classic borders. Thanks to Jeor!
 

@@ -398,6 +398,7 @@ function E:Save()
 	local f, d = self.frame, self.draft
 	if not (f and d) then return end
 	if ns.db ~= self.db or (d.id and not S:Custom(d.id)) then f:Hide() return end   -- the profile changed, or the section is gone
+	self:Commit()   -- (1.10.0-beta11) a word typed into a Name rule and not yet added counts
 	local rules = ns.Rules.Clean(self:Rules())
 	local id = d.id
 	if id then
@@ -416,7 +417,8 @@ function E:Save()
 	f:Hide()
 	return id
 end
-function S:EditSection(id) return E:Open(id) end
+-- (1.10.0-beta11) start: { name, rules, note } for a new section that opens filled in (an example, Save as Section)
+function S:EditSection(id, start) return E:Open(id, start) end
 
 ns:OnSignal("ADDON_READY", function()
 	-- the list on the right follows your bags, and your other sections, while the window is up

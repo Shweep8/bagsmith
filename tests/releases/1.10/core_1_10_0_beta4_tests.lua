@@ -46,6 +46,9 @@ local function boot(opts)
 end
 local function recOf(n, id) for _, r in ipairs(n.items) do if r.itemID == id then return r end end end
 local function click(b) b:GetScript("OnClick")(b) end
+-- (by design since 1.10.0-beta11: + Add a Rule lists its kinds in groups, with five more of them, so a kind is picked
+-- by its name here, not by its place in the list)
+local function pick(menu, text) for _, it in ipairs(menu or {}) do if it.text == text then return it end end end
 local function typeIn(box, text) box:SetText(text); box:GetScript("OnTextChanged")(box, true) end
 local function entry(p, label) for _, e in ipairs(p.list) do if e.label == label then return e end end end
 local function chipOf(f, group, key) for _, c in ipairs(f.checks) do if c.groupKey == group and c.key == key then return c end end end
@@ -190,10 +193,10 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local texts = {}
 	for i, it in ipairs(menu) do texts[i] = it.text end
 	-- (by design since 1.10.0-beta6: one quiet line after them says the optional ItemTree addon adds more)
-	check(table.concat(texts, " | ") == "What should the rule look at? | Type | Slot | Quality | Binding | Item Level | Vendor Value | Section | Bag | Time in Bags | Optional: the ItemTree addon adds more rules here."
-		and menu[11].disabled, S0 .. "the kinds of rule: a section's six, then Section, Bag and Time in Bags")
+	check(table.concat(texts, " | ") == "What should the rule look at? | About the item | Type | Slot | Quality | Binding | Item Level | Name | What it is for | Food, Drink and Potions | Quest Item | Crafting Material | Usable by Me | Value | Vendor Value | Where it is | Section | Bag | Time in Bags | Optional: the ItemTree addon adds more rules here."
+		and menu[#menu].disabled, S0 .. "the kinds of rule: a section's, then Section, Bag and Time in Bags")
 	-- Binding: every choice on the row, live
-	menu[5].onClick(); M.runTimers()
+	pick(menu, "Binding").onClick(); M.runTimers()
 	local r1 = L.rows[1]
 	check(#L.draft.rows == 1 and r1:IsShown() and r1.label.text == "Binding" and chipTexts(r1) == "Soulbound, Binds when equipped, Binds when used, No binding" and r1.note.text == "Pick at least one, or this rule is ignored.", S0 .. "Binding: its four choices, none picked")
 	check(shown(main) == ALL and main.st.filters.rules == nil and f:GetHeight() > h0 and f.hint:IsShown(), S0 .. "a rule with nothing picked filters nothing, and the window grows to hold it")
@@ -203,14 +206,14 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	check(r1.verb.label.text == "is not" and #main:Filtered() == 7, S0 .. "is not: everything else")
 	click(r1.verb); M.runTimers()
 	-- Type, picked in the second window, over this one
-	click(f.add); menu[2].onClick(); M.runTimers()
+	click(f.add); pick(menu, "Type").onClick(); M.runTimers()
 	local p = L.picker
 	check(p and p:IsShown() and f.shade:IsShown() and p.title.text == "Add a Rule" and p.head.text == "Type" and #L.draft.rows == 1, S0 .. "Type: the same list as the section editor's, over the Filters window")
 	L:PickerClick(entry(p, "Armor")); L:PickerClick(entry(p, "Any kind of Armor")); click(p.ok); M.runTimers()
 	check(not p:IsShown() and not f.shade:IsShown() and #L.draft.rows == 2 and chipTexts(L.rows[2]) == "Armor*" and shown(main) == "Glimmering Mail Gauntlets, Robe of Power", S0 .. "Add Rule: Type is Armor joins, and both rules must fit")
 	-- Section: a list of your sections; Bag: the bags this window shows; Time in Bags: hours
 	local mine = n.Sections:Create("Keepsakes"); M.runTimers()
-	click(f.add); menu[8].onClick(); M.runTimers()
+	click(f.add); pick(menu, "Section").onClick(); M.runTimers()
 	check(p:IsShown() and p.head.text == "Section" and p.ask.text == "Tick every section you want:" and not p.note:IsShown() and entry(p, "Gear") and entry(p, "Trade Goods") and entry(p, "Keepsakes"), S0 .. "Section: BagSmith's sections and yours, to tick")
 	L:PickerClick(entry(p, "Trade Goods")); L:PickerClick(entry(p, "Keepsakes"))
 	check(p.say.text == "Section is Trade Goods or Keepsakes", S0 .. "Your rule will say: Section is Trade Goods or Keepsakes")
@@ -221,7 +224,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	click(f.all); M.runTimers()
 	click(L.rows[3].remove); click(L.rows[1].remove); M.runTimers()
 	check(#L.draft.rows == 1 and L.rows[1].label.text == "Type" and shown(main) == "Glimmering Mail Gauntlets, Robe of Power, Seer's Belt", S0 .. "two rules removed: Type is Armor alone")
-	click(f.add); menu[9].onClick(); M.runTimers()
+	click(f.add); pick(menu, "Bag").onClick(); M.runTimers()
 	local r2 = L.rows[2]
 	check(r2.label.text == "Bag" and chipTexts(r2):find("^Backpack, Linen Bag") and not r2.choose:IsShown(), S0 .. "Bag: the bags this window shows, on the row (" .. chipTexts(r2) .. ")")
 	click(r2.chips[1]); M.runTimers()
@@ -229,7 +232,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	click(L.rows[2].remove); M.runTimers()
 	for _, r in ipairs(n.items) do if r.itemID == 4040 and r.guid then n.cdb.firstSeen[r.guid] = time() - 5 * 3600 end end
 	n:Scan(); M.runTimers()
-	click(f.add); menu[10].onClick(); M.runTimers()
+	click(f.add); pick(menu, "Time in Bags").onClick(); M.runTimers()
 	r2 = L.rows[2]
 	check(r2.label.text == "Time in Bags" and r2.verb.label.text == "at least" and r2.unitText:IsShown() and r2.unitText.text == "hours" and r2.note.text == "Type a number, or this rule is ignored.", S0 .. "Time in Bags: at least, a box, and \"hours\"")
 	typeIn(r2.num[1].boxes[1], "4"); M.runTimers()
@@ -420,7 +423,7 @@ end)()
 	f = S:EditSection(id); M.runTimers()
 	click(f.add)
 	-- (by design since 1.10.0-beta6: and one quiet line about the optional ItemTree addon)
-	check(#menu == 8 and menu[7].text == "Vendor Value" and menu[8].disabled, "the section editor offers its six kinds, as before")
+	check(pick(menu, "Vendor Value") and not pick(menu, "Section") and not pick(menu, "Bag") and not pick(menu, "Time in Bags") and menu[#menu].disabled, "the section editor offers a section's kinds only, as before")
 	click(f.cancel)
 	check((n.errors or 0) == 0, "no errors")
 end)()

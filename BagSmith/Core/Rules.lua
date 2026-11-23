@@ -85,6 +85,76 @@ R.KEYS.price = {
 	of = function(rec) if type(rec.sellPrice) == "number" then return rec.sellPrice end end,
 }
 R.KEY_ORDER = { "type", "slot", "quality", "bind", "ilvl", "price" }
+-- (1.10.0-beta11) Five more facts about the item itself, from the mockup's Add a Rule list.
+-- Name: the item's name contains one of the row's words, anywhere in it and whatever the capitals (plain letters;
+-- an accented capital isn't folded). The words are what the player typed: never a pattern, never a color code.
+local lowered = setmetatable({}, { __mode = "k" })
+local function wordsOf(row)
+	local w = lowered[row]
+	if not w then
+		w = {}
+		for _, v in ipairs(row.v) do if type(v) == "string" then w[#w + 1] = v:lower() end end
+		lowered[row] = w
+	end
+	return w
+end
+R.KEYS.name = {
+	label = "Name", text = true, verbs = { "contains", "does not contain" },
+	valid = function(v) return type(v) == "string" and #v <= 40 and v:match("%S") ~= nil and not v:find("[%c|]") end,
+	of = function(rec) if type(rec.name) == "string" and rec.name ~= "" then return { rec.name } end end,
+	-- true or false; nil while the item has no name yet
+	fits = function(row, rec)
+		local name = rec.name
+		if type(name) ~= "string" or name == "" then return nil end
+		name = name:lower()
+		for _, word in ipairs(wordsOf(row)) do if name:find(word, 1, true) then return true end end
+		return false
+	end,
+}
+-- A fact that is yes or no (the one value is "yes", as for ItemTree's below): answer(rec) says true or false, or nil
+-- while it isn't known.
+local function yesNo(label, answer)
+	return {
+		label = label, yesNo = true,
+		valid = function(v) return v == "yes" end,
+		of = function(rec)
+			local a = answer(rec)
+			if a == nil then return nil end
+			return a and { "yes" } or {}
+		end,
+	}
+end
+-- Quest Item: the game marks it as one (it's needed for a quest, or starts one), as the Quest section reads it.
+R.KEYS.quest = yesNo("Quest Item", function(rec)
+	if type(rec.classID) ~= "number" then return nil end
+	return (rec.isQuest or rec.classID == 12 or rec.bindType == 4) and true or false
+end)
+-- Crafting Material: the game's own "crafting reagent" mark.
+R.KEYS.mat = yesNo("Crafting Material", function(rec)
+	if rec.isCraftingReagent == nil then return nil end
+	return rec.isCraftingReagent and true or false
+end)
+-- Usable by Me: nothing your character can't meet (Core/Usability.lua, which reads the item's tooltip). It is about
+-- your character as well as the item, so the answer can change as you level or learn a skill; sections follow then.
+R.KEYS.usable = yesNo("Usable by Me", function(rec)
+	local U = ns.Usability
+	if not (U and U.Usable) then return nil end
+	return U:Usable(rec)
+end)
+-- Food, Drink and Potions: BagSmith's own kinds of consumable (ns.CONS_KINDS, as Split Consumables uses them), which
+-- the game's types don't separate: food and drink share one type there.
+R.KEYS.cons = {
+	label = "Consumable",
+	valid = function(v) return type(v) == "string" and ns.CONS_ID ~= nil and ns.CONS_ID[v] ~= nil end,
+	of = function(rec)
+		if type(rec.classID) ~= "number" then return nil end
+		if rec.classID ~= 0 then return {} end   -- known: not a consumable, so no kind
+		local kind = ns.ConsumableKind and ns:ConsumableKind(rec)
+		if not kind then ns.pendingInfo = true; return nil end   -- (food or drink? the game hasn't said yet; a rescan follows)
+		return { kind }
+	end,
+}
+R.MORE_KEYS = { "name", "cons", "quest", "mat", "usable" }
 -- (1.10.0-beta4) For filters only: where an item is and how long it has been there. Never a section's.
 R.KEYS.sec = {
 	label = "Section", filterOnly = true,
@@ -167,6 +237,13 @@ local function rowFits(row, rec, filter)
 	local def = R.KEYS[row.k]
 	if not def then return false end
 	if def.filterOnly and not filter then return false end   -- (1.10.0-beta4) a filter's key in a section's rules
+	if def.fits then
+		-- (1.10.0-beta11) a key with its own way of fitting (Name: one of the words is in it)
+		local hit = def.fits(row, rec, filter)
+		if hit == nil then return false end
+		if row.n then return not hit end
+		return hit
+	end
 	local have = def.of(rec, filter)
 	if have == nil then return false end
 	if def.number then
@@ -291,6 +368,10 @@ function R:ValueLabel(k, v)
 		local s = rawget(_G, ("ITEM_QUALITY%d_DESC"):format(tonumber(v) or -1))
 		return type(s) == "string" and s ~= "" and s or QUALITY[v] or tostring(v)
 	elseif k == "bind" then return BIND[v] or tostring(v)
+	elseif k == "name" then return ("\"%s\""):format(tostring(v))   -- (1.10.0-beta11) a word, as typed
+	elseif k == "cons" then
+		if v == "Other" then return "Other" end
+		return (ns.CONS_LABEL and ns.CONS_LABEL[v]) or tostring(v)
 	elseif k == "it_advice" then
 		return ADVICE_LABEL[v] or (tostring(v):gsub("^%l", string.upper))
 	elseif R.KEYS[k] and R.KEYS[k].yesNo then
@@ -343,7 +424,9 @@ function R:RowText(row)
 		if not said[name] then said[name] = true; names[#names + 1] = name end
 	end
 	local list = #names <= 2 and table.concat(names, " or ") or (table.concat(names, ", ", 1, #names - 1) .. " or " .. names[#names])
-	return ("%s %s %s"):format(self:KeyLabel(row.k), row.n and "is not" or "is", list)
+	-- (1.10.0-beta11) a key with words of its own: "Name contains ..."
+	local verbs = def and def.verbs
+	return ("%s %s %s"):format(self:KeyLabel(row.k), row.n and (verbs and verbs[2] or "is not") or (verbs and verbs[1] or "is"), list)
 end
 -- One line for a section's rules: "Type is Trade Goods: Cloth"; with more rows, "Fits all: A; B" or "Fits any: A; B".
 function R:Summary(rules)
@@ -457,6 +540,9 @@ function R:Options(k)
 		for q = 0, 5 do out[#out + 1] = { label = self:ValueLabel("quality", q), v = { q }, quality = q } end
 	elseif k == "bind" then
 		for _, b in ipairs(BIND_ORDER) do out[#out + 1] = { label = BIND[b], v = { b } } end
+	elseif k == "cons" then
+		-- (1.10.0-beta11) BagSmith's kinds of consumable, as Split Consumables names them
+		for _, kind in ipairs(ns.CONS_KINDS or {}) do out[#out + 1] = { label = self:ValueLabel("cons", kind), v = { kind } } end
 	elseif k == "it_advice" then
 		-- (1.10.0-beta6)
 		for _, word in ipairs(R.ADVICE) do out[#out + 1] = { label = ADVICE_LABEL[word], v = { word } } end

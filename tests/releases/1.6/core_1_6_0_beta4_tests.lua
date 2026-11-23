@@ -297,7 +297,7 @@
 		{ "loothelper", "Blue and purple items always ask first, as they do in the game." },
 		{ "dehelper", "Estimates start from typical disenchant results. After 20 disenchants of the same kind of item, BagSmith uses your own results instead. Your characters share them, so a disenchant on any of them counts for all." },
 		{ "keys", "Click Set Key and press a key. Shift, Ctrl and Alt combinations work, and Esc cancels. These are also in the game's Keybindings under BagSmith." },
-		{ "sections", "An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, or its usual section." },
+		{ "sections", "An item goes to the first of these that fits: its gear set, Junk if you marked it, Favorites if starred, the section you moved it to, one of your sections whose rules it fits, or its usual section." },
 		{ "custom", "Make your own sections. Drag an item onto a section's title, or Alt+Left-click it, to move it there. Every copy of the item moves with it." },
 		{ "sorting", "Click a column header to sort by it. Click again to reverse the order." },
 		{ "plugins", "Want to build on BagSmith? The guide and a starter example are in the docs/plugins folder of the source." },

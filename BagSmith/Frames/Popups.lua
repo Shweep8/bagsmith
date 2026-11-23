@@ -579,6 +579,7 @@ end
 function Popups:CommitSheet()
 	local f, v = self.filter, self.view
 	if not (f and f:IsShown()) then return end   -- a panel closed by a profile change can't save anything
+	if f.list and f.list.Commit then f.list:Commit() end   -- (1.10.0-beta11) a word typed into a Name rule and not yet added counts
 	local name = f.sheetBox:GetText()
 	if self.editing then
 		local ok, err = ns:UpdateSheet(self.editing, name, v)
@@ -628,6 +629,7 @@ end
 function Popups:SaveAsSection(f)
 	local v = f.view
 	if not (ns.SectionEditor and v) then return end
+	if f.list and f.list.Commit then f.list:Commit() end   -- (1.10.0-beta11)
 	local rules, note = self:SectionRules(v.st.filters)
 	local name = f.sheetBox:GetText() or ""
 	ns.SectionEditor:Open(nil, { name = name, rules = rules, note = note })

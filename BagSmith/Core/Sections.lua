@@ -33,6 +33,15 @@ local SPECIAL_LABEL = { ["~recent"] = "Recent Items", ["~fav"] = "Favorites", ["
 	["~all"] = "All Items" }   -- (1.10.0-beta10) All Items has a place in Section Order
 
 function S:Customs() return (ns.db and ns.db.customSections) or {} end
+-- (1.10.0-beta11) Sections to start from (Settings > Custom Sections): each opens the editor with its name and rules
+-- filled in, for the player to look over and create. Types by the game's own numbers (Trade Goods 7: Cloth 5, Herb
+-- 9, as Shweep's game lists them), so they read in the player's language.
+S.EXAMPLES = {
+	{ name = "Cloth", rules = { mode = "all", rows = { { k = "type", v = { "7:5" } } } } },
+	{ name = "Herbs", rules = { mode = "all", rows = { { k = "type", v = { "7:9" } } } } },
+	{ name = "Gear to Sell", rules = { mode = "all", rows = { { k = "bind", v = { "boe" } }, { k = "usable", v = { "yes" }, n = true } } } },
+	{ name = "Food and Drink", rules = { mode = "all", rows = { { k = "cons", v = { "Food", "Drink" } } } } },
+}
 -- Pinned sections (1.4.0): item sections (built-in or custom) shown at the top, after Recent; in All view their
 -- items leave the main list for their own section. By Bag ignores pins.
 -- (1.10.0-beta10) In All view, All Items keeps its own place in Section Order: a pinned section that comes after it

@@ -131,6 +131,9 @@ end
 local function pump(M) for _ = 1, 40 do M.runTimers() end end
 local function recOf(n, id) for _, r in ipairs(n.items) do if r.itemID == id then return r end end end
 local function click(b) b:GetScript("OnClick")(b) end
+-- (by design since 1.10.0-beta11: + Add a Rule lists its kinds in groups, with five more of them, so a kind is picked
+-- by its name here, not by its place in the list)
+local function pick(menu, text) for _, it in ipairs(menu or {}) do if it.text == text then return it end end end
 local function yes(k, n) return { mode = "all", rows = { { k = k, v = { "yes" }, n = n } } } end
 local function inSection(n, id)
 	local t = {}
@@ -197,7 +200,7 @@ end)()
 	local f = S:EditSection(id); M.runTimers()
 	check(f.rows[1].label.text == "Used by My Professions" and f.rows[1].note:IsShown() and f.rows[1].note.text == "ItemTree isn't installed, so this rule fits nothing for now." and f.rows[1].verb:IsShown(), "the editor shows the rule and says why it's waiting")
 	click(f.add)
-	check(menu[#menu].text == "Optional: the ItemTree addon adds more rules here." and menu[#menu].disabled and #menu == 8, "+ Add a Rule: one quiet line about ItemTree, no rules of its own")
+	check(menu[#menu].text == "Optional: the ItemTree addon adds more rules here." and menu[#menu].disabled and not pick(menu, "What ItemTree knows") and not pick(menu, "Used by My Professions"), "+ Add a Rule: one quiet line about ItemTree, no rules of its own")
 	click(f.cancel)
 	-- Settings > Other Addons (by design since 1.10.0-beta9: an addon you don't have shows its card with no rows)
 	local P = n.SettingsPanel
@@ -337,9 +340,9 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	click(f.add)
 	local texts = {}
 	for i, item in ipairs(menu) do texts[i] = item.text end
-	check(table.concat(texts, " | ") == "What should the rule look at? | Type | Slot | Quality | Binding | Item Level | Vendor Value | What ItemTree knows | Used by My Professions | Needed for a Quest | An Upgrade for Me | Sold by Vendors"
-		and menu[8].title and menu[9].tip:find("professions", 1, true), S0 .. "the section editor's + Add a Rule: What ItemTree knows, four rules (its advice isn't a section's)")
-	menu[9].onClick(); M.runTimers()
+	check(table.concat(texts, " | ") == "What should the rule look at? | About the item | Type | Slot | Quality | Binding | Item Level | Name | What it is for | Food, Drink and Potions | Quest Item | Crafting Material | Usable by Me | Value | Vendor Value | What ItemTree knows | Used by My Professions | Needed for a Quest | An Upgrade for Me | Sold by Vendors"
+		and pick(menu, "What ItemTree knows").title and pick(menu, "Used by My Professions").tip:find("professions", 1, true), S0 .. "the section editor's + Add a Rule: What ItemTree knows, four rules (its advice isn't a section's)")
+	pick(menu, "Used by My Professions").onClick(); M.runTimers()
 	local r1 = f.rows[1]
 	check(#E.draft.rows == 1 and r1.label.text == "Used by My Professions" and r1.verb.label.text == "is" and r1.chips[1]:IsShown() and r1.chips[1].label.text == "Yes" and r1.chips[1].active and not r1.note:IsShown() and not r1.choose:IsShown(),
 		S0 .. "Used by My Professions: a row that says is Yes")
