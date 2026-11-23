@@ -19,11 +19,12 @@ New:
   sheets and tick the tabs. Everywhere else its items stay in their usual section, so Cloth, Leather and Herbs can
   split up your Trade Goods tab while All keeps one Trade Goods section.
 - With the ItemTree addon installed, your section and filter rules can use what it knows: Used by My Professions,
-  Needed for a Quest, An Upgrade for Me and Sold by Vendors, and for filters ItemTree's Advice. Settings > Other
-  Addons turns it on or off. ItemTree is optional, and BagSmith works the same without it.
+  Needed for a Quest, An Upgrade for Me and Sold by Vendors, and for filters ItemTree's Advice. Settings > Addon
+  Sources turns it on or off. ItemTree is optional, and BagSmith works the same without it.
 - With ItemTree, the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep. They show it
   with the other items they don't offer, and each Helper has its own switch in Settings > Addon Sources. A piece
-  ItemTree keeps for its dust still shows in the Disenchant Helper.
+  ItemTree keeps for its dust still shows in the Disenchant Helper, and the Loot Helper still offers your junk.
+  While its switch is on and ItemTree can't answer about an item, that item is held back too.
 - With Pawn, the Disenchant Helper can hold back a piece Pawn says is an upgrade for you. That switch is in
   Settings > Addon Sources too, and it's off until you turn it on.
 - A new Settings page, Addon Sources, shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree

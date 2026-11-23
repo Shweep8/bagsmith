@@ -163,6 +163,9 @@ local function readSlot(bag, slot, now, bagIndex, firstStamp)
 	else
 		ns.pendingInfo = true
 		if C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(info.itemID) end
+		-- (1.10.0-beta13, the beta12 audit's F5) with no name from the game or from the item's link, the "Item 1234"
+		-- above is only for showing: marked, as an unknown quality is, so no rule reads it as the item's name
+		if not (link and (link:match("%[(.-)%]") or "") ~= "") then rec.nameUnknown = true end
 	end
 	-- (1.5.1-beta3, the beta2 audit's L4) The bag's own quality first, then the item's cached quality; only then
 	-- common, marked as unknown so nothing destructive treats it as known to be common. (Before, a quality the bag

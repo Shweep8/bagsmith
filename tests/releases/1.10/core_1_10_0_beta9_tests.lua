@@ -31,7 +31,10 @@ local function fakeItemTree(state)
 		GetItemFacts = function(id)
 			state.calls = state.calls + 1
 			state.asked[id] = (state.asked[id] or 0) + 1
-			return deep(state.facts[id])
+			-- (by design since 1.10.0-beta13, the beta12 audit's F1: an item ItemTree has no data for still gets a table
+			-- from the real one, and nothing back now means "couldn't be asked", which holds the item. This fake
+			-- answered nil for such items; it answers as ItemTree does.)
+			return deep(state.facts[id]) or { itemId = id, known = false }
 		end,
 	}
 end

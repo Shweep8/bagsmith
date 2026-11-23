@@ -20,6 +20,10 @@ local W = PAD + LW + GAP + RW + PAD
 local TOP, BOTTOM = 136, 54                 -- above and below the two lists
 local RULES_W, SHOWN_W = LW - 22, RW - 22   -- each list, beside its scroll bar
 local PREVIEW_MAX = 40
+-- (1.10.0-beta13) The line above the foot has two lines' room. A longer note (Save as Section... naming a rule that
+-- didn't fit, and what else stayed behind) takes the rest from the rules above it, so the two never overlap.
+local NOTE_ROOM = BOTTOM - 27   -- (the line sits 27 above the window's bottom edge; the lists end at BOTTOM)
+local function rulesView(f) return H - TOP - BOTTOM - (f.noteExtra or 0) end
 
 local function qualityColor(q)
 	local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q or 1]
@@ -53,7 +57,7 @@ function E:Window()
 	f.edit:SetAutoFocus(false); f.edit:SetMaxLetters(40)
 	f.edit:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
 	f.edit:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
-	f.edit:SetScript("OnTextChanged", function(box, user) if user then f.err:SetText("") end end)
+	f.edit:SetScript("OnTextChanged", function(box, user) if user then E:Error("") end end)
 	f.ask = text(f); f.ask:SetPoint("TOPLEFT", PAD, -90); f.ask:SetText("Put an item in this section when it fits")
 	f.all = ns.TextButton(f, "all of these", 92, function() E:SetMode("all") end); f.all:SetHeight(20); f.all:SetPoint("TOPLEFT", PAD, -108)
 	f.any = ns.TextButton(f, "any one of these", 118, function() E:SetMode("any") end); f.any:SetHeight(20); f.any:SetPoint("LEFT", f.all, "RIGHT", 6, 0)
@@ -156,14 +160,23 @@ function E:SetMode(mode)
 	self.draft.mode = mode == "any" and "any" or "all"
 	self:Refresh()
 end
+function E:FitNote()
+	local f = self.frame
+	if not (f and f.rules and f.err) then return end
+	local h = (f.err:GetText() or "") ~= "" and math.ceil(f.err:GetStringHeight() or 0) or 0
+	local extra = math.max(0, h - NOTE_ROOM)
+	if extra == (f.noteExtra or 0) then return end
+	f.noteExtra = extra
+	f.rules:SetHeight(rulesView(f))
+end
 function E:Error(text)
 	local f = self.frame
-	if f then f.err:SetText(text or ""); f.err:SetTextColor(1, 0.4, 0.4) end
+	if f then f.err:SetText(text or ""); f.err:SetTextColor(1, 0.4, 0.4); self:FitNote() end
 end
 -- A word that isn't a mistake (what Save as Section... left behind), in the same place.
 function E:Info(text)
 	local f = self.frame
-	if f then f.err:SetText(text or ""); f.err:SetTextColor(0.95, 0.78, 0.5) end
+	if f then f.err:SetText(text or ""); f.err:SetTextColor(0.95, 0.78, 0.5); self:FitNote() end
 end
 
 -- After anything in the draft changed, and after a rule was added (Frames/RuleList.lua calls these).
@@ -173,7 +186,7 @@ function E:Changed()
 end
 function E:Added()
 	local f = self.frame
-	if f and f.rules then f.rules:SetVerticalScroll(math.max(0, (f.rulesHeight or 0) - (H - TOP - BOTTOM))) end
+	if f and f.rules then f.rules:SetVerticalScroll(math.max(0, (f.rulesHeight or 0) - rulesView(f))) end
 end
 
 ------------------------------------------------------------------------
@@ -352,7 +365,7 @@ function E:Refresh()
 	end
 	f.rulesHeight = y
 	f.rulesChild:SetHeight(math.max(1, y))
-	local view = H - TOP - BOTTOM
+	local view = rulesView(f)
 	if f.rules.ScrollBar then f.rules.ScrollBar:SetShown(y > view) end
 	if (f.rules:GetVerticalScroll() or 0) > math.max(0, y - view) then f.rules:SetVerticalScroll(math.max(0, y - view)) end
 	self:RefreshShown(s)
@@ -384,7 +397,7 @@ function E:Open(id, start)
 	f.title:SetText(c and "Edit Section" or "New Section")
 	f.save.label:SetText(c and "Save Section" or "Create Section")
 	f.edit:SetText(c and c.name or (start and start.name) or "")
-	f.err:SetText("")
+	self:Error("")
 	if start and start.note then self:Info(start.note) end
 	f.rules:SetVerticalScroll(0); f.shown:SetVerticalScroll(0)
 	if ns.Classic then ns.Classic:RefreshTitle(f) end

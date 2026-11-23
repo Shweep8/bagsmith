@@ -34,7 +34,10 @@ local function fakeItemTree(state)
 			state.asked[id] = (state.asked[id] or 0) + 1
 			if state.raise and state.raise[id] then error("ItemTree broke") end
 			if state.ready == false then return nil end
-			return deep(state.facts[id])
+			-- (by design since 1.10.0-beta13, the beta12 audit's F1: an item ItemTree has no data for still gets a table
+			-- from the real one, and nothing back now means "couldn't be asked", which holds the item. This fake
+			-- answered nil for such items; it answers as ItemTree does.)
+			return deep(state.facts[id]) or { itemId = id, known = false }
 		end,
 	}
 end
@@ -120,7 +123,9 @@ end)()
 	check(IT:Holds({ itemID = 2996 }, true) == true, "by item ID alone: answered")
 	-- an error inside ItemTree is no answer
 	it.raise = { [2321] = true }
-	check(IT:Holds(recOf(n, 2321)) == false and (n.errors or 0) == 0, "an error inside ItemTree: not held, and nothing of BagSmith's breaks")
+	-- (by design since 1.10.0-beta13, the beta12 audit's F1: that is no longer "not held, go on as before". ItemTree
+	-- is on and couldn't answer, so the item is held and the click refused. The beta13 set checks the Helpers.)
+	check(IT:Holds(recOf(n, 2321)) == true and IT:Verdict(recOf(n, 2321)) == "unknown" and (n.errors or 0) == 0, "an error inside ItemTree: it couldn't be asked, so the item is held, and nothing of BagSmith's breaks")
 	it.raise = nil
 	-- the count changed: the answer is asked again the next time a Helper wants it
 	asked = it.calls
@@ -152,7 +157,8 @@ end)()
 	-- not ready: no; and a Helper answering first doesn't leave a waiting rule without its redraw
 	local it = { ready = false }
 	local n, M, main, S, R, IT = boot({ it = it })
-	check(IT:Holds(recOf(n, 3173)) == false and it.calls == 0, "ItemTree installed but not ready: not held, nothing asked")
+	-- (by design since 1.10.0-beta13: not ready is "couldn't be asked", and the item is held meanwhile; before, not held)
+	check(IT:Holds(recOf(n, 3173)) == true and IT:Verdict(recOf(n, 3173)) == "unknown" and it.calls == 0, "ItemTree installed but not ready: it couldn't be asked, so the item is held, and nothing is asked of it")
 	it.ready = true
 	it.onReady(); pump(M)
 	check(IT:Holds(recOf(n, 3173)) == true and it.calls == 1, "ready: asked, and held")

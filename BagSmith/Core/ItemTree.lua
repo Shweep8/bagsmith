@@ -36,7 +36,6 @@ local counts = {}   -- item id -> how many you held when the bags were last look
 local queue, queued, head = {}, {}, 1
 local changed, ticking, hooked, forgetting = false, false, false, false
 local live          -- the keys the bags and bank held when they were last looked at
-local MAX_KNOWN = 600   -- answers for keys no item has any more are let go past this many (a link changes with your level)
 local BUDGET_MS, PER_TICK = 3, 4   -- a few a frame: by the clock where the game has one, else by count
 
 local function api()
@@ -179,25 +178,45 @@ end
 -- (1.10.0-beta8, Shweep: "This doesn't make sense to hold it back for DE helper, right?") forDisenchant: the Disenchant
 -- Helper's question. A piece ItemTree keeps for its dust is kept in order to be disenchanted, so there it isn't held.
 -- (1.10.0-beta9) Each Helper has its own switch (Settings > Addon Sources), and neither depends on the rules' switch.
-function IT:Holds(rec, fresh, forDisenchant)
-	if not (ns.db and ns.db[forDisenchant and "deHoldItemTree" or "makeRoomHoldItemTree"] ~= false) then return false end
-	if type(rec) ~= "table" or not rec.itemID or rec.global or rec.empty then return false end
-	if not ready() then return false end
+-- (1.10.0-beta13, the beta12 audit's F1) Three answers, not two. ItemTree's own contract: GetItemFacts returns nil
+-- "when not ready" (and when its own inner call fails); an item it has no data for still gets a table. So nil, or an
+-- error, is "couldn't say", and an unreadable safety answer is a no:
+--   "hold"     ItemTree marks it Keep (and, for the Disenchant Helper, not for its dust)
+--   "clear"    ItemTree answered, and doesn't keep it
+--   "unknown"  ItemTree is installed and this Helper's switch is on, but it gave no answer: not ready, an error
+--              inside it, or nothing back. The Helpers hold the item and refuse at the click.
+--   nil        no opinion: ItemTree isn't installed, this Helper's switch is off, or the row isn't a real item of yours
+-- A refresh that fails never replaces an answer already held.
+function IT:Verdict(rec, fresh, forDisenchant)
+	if not (ns.db and ns.db[forDisenchant and "deHoldItemTree" or "makeRoomHoldItemTree"] ~= false) then return nil end
+	local A = api()
+	if not A then return nil end
+	if type(rec) ~= "table" or not rec.itemID or rec.global or rec.empty then return nil end
 	local key = rec.link or rec.itemID
 	local e = known[key]
-	if e == nil or fresh then
-		local A = api()
-		local ok, f = pcall(A.GetItemFacts, rec.itemID, rec.link)
-		local now = ok and IT.Read(f) or false
+	-- (false is what the rules' queue keeps when ItemTree gave it nothing: for a Helper that is no answer, so ask)
+	if not e or fresh then
+		local now
+		if ready() then
+			local ok, f = pcall(A.GetItemFacts, rec.itemID, rec.link)
+			if ok and type(f) == "table" then now = IT.Read(f) end
+		end
+		if not now then return "unknown" end
 		-- (a rule may be reading the same answer, or waiting for it: the views hear of it on the next frame)
 		if queued[key] ~= nil or (e ~= nil and not same(e, now)) or (was[key] ~= nil and not same(was[key], now)) then changed = true end
 		known[key], idOf[key], was[key], queued[key] = now, rec.itemID, nil, nil
 		e = now
 		if changed and not ticking then ticking = true; C_Timer.After(0, tick) end
 	end
-	if not (e and e.kept == true) then return false end
-	if forDisenchant and e.forDust then return false end
-	return true
+	if e.kept == true and not (forDisenchant and e.forDust) then return "hold" end
+	return "clear"
+end
+-- Must a Helper hold this item back on ItemTree's account? Yes for its Keep, and (1.10.0-beta13) yes too when it is on
+-- and couldn't answer: before, no answer read as "no", which let a failed refresh undo a Keep. The second value is the
+-- verdict, for the words. (The Helpers ask IT:Verdict themselves.)
+function IT:Holds(rec, fresh, forDisenchant)
+	local verdict = self:Verdict(rec, fresh, forDisenchant)
+	return verdict == "hold" or verdict == "unknown", verdict
 end
 
 -- Forgets answers so they're asked again: one key, or everything. What was known is kept aside to compare with, so
@@ -236,6 +255,8 @@ function IT:Hook()
 		pcall(A.RegisterReadyCallback, function()
 			-- (rules asked while it wasn't ready got no answer: look again)
 			if IT:Wanted() and ns.Sections and ns.Sections.Reapply then ns.Sections:Reapply() end
+			-- (1.10.0-beta13) and so did the Helpers, which held everything back meanwhile: they hear of it too
+			ns:Fire("ITEMTREE_READY")
 		end)
 	end
 end
@@ -265,18 +286,18 @@ ns:OnSignal("ADDON_READY", function()
 			end
 		end
 		if not next(known) and not ticking then counts = now; return end
-		local stale, gone, total = {}, {}, 0
+		local stale, gone = {}, {}
 		for key, id in pairs(idOf) do
-			total = total + 1
 			if not live[key] then
-				gone[#gone + 1] = key   -- (the item left, its link changed with your level, or it's in a saved bank)
+				gone[#gone + 1] = key   -- (the item left, or its link changed with your level)
 			elseif counts[id] ~= nil and now[id] ~= counts[id] then
 				stale[#stale + 1] = key
 			end
 		end
-		if total > MAX_KNOWN then
-			for _, key in ipairs(gone) do known[key], idOf[key], was[key] = nil, nil, nil end
-		end
+		-- (1.10.0-beta13, the beta12 audit's F4) An item you no longer hold is let go at once. Its answer used to be
+		-- kept until there were a great many, so when your last copy left and came back, the old answer was still
+		-- there and nothing asked again: its count had no "before" to differ from.
+		for _, key in ipairs(gone) do known[key], idOf[key], was[key] = nil, nil, nil end
 		counts = now
 		for _, key in ipairs(stale) do forget(key) end
 	end)

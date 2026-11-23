@@ -757,7 +757,12 @@ function DE:LiveCheck(entry)
 		if up == nil then return false, "Pawn hasn't decided yet whether that item is an upgrade" end
 	end
 	-- (1.10.0-beta7) and the ItemTree addon's word, asked fresh (beta8: not for a piece it keeps for its dust)
-	if ns.ItemTree and ns.ItemTree:Holds({ itemID = entry.itemID, link = info.hyperlink or entry.link }, true, true) then return false, "ItemTree says to keep that item" end
+	-- (1.10.0-beta13, the beta12 audit's F1) and no answer from it now refuses too, whatever it said before
+	if ns.ItemTree then
+		local verdict = ns.ItemTree:Verdict({ itemID = entry.itemID, link = info.hyperlink or entry.link }, true, true)
+		if verdict == "hold" then return false, "ItemTree says to keep that item" end
+		if verdict == "unknown" then return false, "ItemTree couldn't be asked about that item just now (try again in a moment, or untick its Hold Back in the Disenchant Helper in Settings > Addon Sources)" end
+	end
 	return true
 end
 -- Why an item is in or out. Returns true, or false and a short reason.
@@ -790,13 +795,18 @@ function DE:Eligible(rec, skill)
 	end
 	-- (1.10.0-beta7) last, so it's only asked about what would otherwise be offered: the ItemTree addon says keep it
 	-- (1.10.0-beta8: unless ItemTree keeps it for its dust, which is what this Helper is for)
-	if ns.ItemTree and ns.ItemTree:Holds(rec, nil, true) then return false, "itemtree" end
+	-- (1.10.0-beta13, F1: on but no answer: the piece waits under "couldn't be checked")
+	if ns.ItemTree then
+		local verdict = ns.ItemTree:Verdict(rec, nil, true)
+		if verdict == "hold" then return false, "itemtree" end
+		if verdict == "unknown" then return false, "unknown" end
+	end
 	return true
 end
 
 -- Every eligible item in the bags, with its values and verdict, best disenchant first.
 -- Eligible's reasons that mean "held back" (an item that would otherwise be considered), in the shared words.
-DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic", itemtree = "itemtree", pawn = "pawn" }
+DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic", itemtree = "itemtree", pawn = "pawn", unknown = "unknown" }
 -- (1.10.0-beta8) Pawn finished a pass over its answers (Core/Pawn.lua). While Hold Back Pawn Upgrades is on, the list
 -- is drawn again when Pawn's answer about one of its pieces changed: Pawn can say "not yet" the first time it's asked.
 function DE:PawnPass()
@@ -1831,6 +1841,8 @@ end
 ns:OnSignal("PRICE_SOURCE_CHANGED", function()
 	if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
 end)
+-- (1.10.0-beta13) ItemTree became ready: what waited under "couldn't be checked" is asked about again
+ns:OnSignal("ITEMTREE_READY", function() if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end end)
 ns:OnSignal("SETTINGS_CHANGED", function(key)
 	if key == nil or key == "deEnabled" then DE:Reconcile() end
 	if (key == nil or key == "deMargin" or key == "deAhMargin" or key == "deLeveling" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks" or key == "deHoldItemTree" or key == "deHoldPawn") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end

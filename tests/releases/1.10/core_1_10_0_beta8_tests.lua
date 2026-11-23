@@ -56,7 +56,10 @@ local function fakeItemTree(state)
 		GetItemFacts = function(id, link)
 			state.calls = state.calls + 1
 			state.asked[id] = (state.asked[id] or 0) + 1
-			return deep(state.facts[id])
+			-- (by design since 1.10.0-beta13, the beta12 audit's F1: an item ItemTree has no data for still gets a table
+			-- from the real one, and nothing back now means "couldn't be asked", which holds the item. This fake
+			-- answered nil for such items; it answers as ItemTree does.)
+			return deep(state.facts[id]) or { itemId = id, known = false }
 		end,
 	}
 end
@@ -349,7 +352,8 @@ end
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
 	-- (by design since 1.10.0-beta9: the same things, said for the Other Addons page)
-	check(section:find("A piece\n  ItemTree keeps for its dust still shows in the Disenchant Helper.", 1, true), "the changelog's 1.10.0 section: a piece kept for its dust still shows in the Disenchant Helper")
+	-- (by design since 1.10.0-beta13: the sentence goes on to the Loot Helper's junk, the other exception)
+	check(section:find("A piece\n  ItemTree keeps for its dust still shows in the Disenchant Helper, and the Loot Helper still offers your junk.", 1, true), "the changelog's 1.10.0 section: a piece kept for its dust still shows in the Disenchant Helper")
 	check(section:find("With Pawn, the Disenchant Helper can hold back a piece Pawn says is an upgrade for you.", 1, true) and section:find("it's off until you turn it on", 1, true), "Pawn's Disenchant Helper switch, off until you turn it on")
 	check(section:find("is now called Auction Price Source.", 1, true), "and Auction Price Source")
 	check(not section:find("\226\128\148") and not section:find("\226\128\147"), "with no dashes")

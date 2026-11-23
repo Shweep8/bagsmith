@@ -155,12 +155,18 @@ end)()
 	helmRed = false
 	M.fire("SKILL_LINES_CHANGED"); pump(M)
 	check(inSection(n, sell) == "" and recOf(n, 9002).cat == "Gear", "the helm becomes usable (a skill learned): it leaves Gear to Sell by itself (" .. inSection(n, sell) .. ")")
-	-- nothing red any more: another level changes nothing and asks nothing of the sections
+	-- nothing red any more: another level changes nothing
+	-- (by design since 1.10.0-beta13, the beta12 audit's F2: beta11 asked nothing of the sections here, since no
+	-- tooltip was red. That missed an item out of reach by its level alone, which has no red tooltip to find. A level
+	-- gained now always looks once; skills, spells and reputation still compare the answers first.)
 	local reapplied = 0
 	local real = S.Reapply
 	S.Reapply = function(...) reapplied = reapplied + 1; return real(...) end
 	M.fire("PLAYER_LEVEL_UP", 21); pump(M)
-	check(reapplied == 0, "with nothing unusable in the bags, a level gained doesn't make the sections look again")
+	check(reapplied == 1 and inSection(n, sell) == "" and recOf(n, 9002).cat == "Gear", "with nothing unusable in the bags, a level gained looks at the sections once, and nothing moves (" .. reapplied .. ")")
+	reapplied = 0
+	M.fire("SKILL_LINES_CHANGED"); pump(M); M.fire("SPELLS_CHANGED"); pump(M)
+	check(reapplied == 0, "a skill or a spell changing with the same answers still asks nothing of them")
 	S.Reapply = real
 	-- no rule asks: nothing is looked at again either
 	S:Delete(sell); pump(M)

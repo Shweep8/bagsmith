@@ -32,11 +32,16 @@ WN.ENTRIES = {
 		"|cfffac775A New Filters Window:|r filters use the same rules now. Pick qualities at the top, add rules with + Add a Rule, and watch how many items are left. Like what you've filtered? Save as Section turns it into a section.",
 		"|cfffac775Sections Only Where You Want Them:|r a section can show on every tab or only on some, so Cloth, Leather and Herbs can split up your Trade Goods tab while All keeps one Trade Goods section. And the Gear, Consumables, Trade Goods, Quest and Junk tabs now show every item of their kind, grouped under your own sections.",
 		"|cfffac775All Items, Where You Want It:|r with Sections set to All, your pinned sections, Favorites and the rest can sit above or below All Items. Drag its title, or move it in Settings > Sections. Pin to Top is now called Pin Section.",
-		"|cfffac775Works With ItemTree:|r have the ItemTree addon? Your rules can use what it knows, like Used by My Professions and Needed for a Quest, and the Loot Helper and Disenchant Helper hold back what it says to keep. It's optional, and BagSmith works the same without it.",
+		-- (1.10.0-beta13, the beta12 audit's F8; Shweep: "okay update") the two exceptions said
+		"|cfffac775Works With ItemTree:|r have the ItemTree addon? Your rules can use what it knows, like Used by My Professions and Needed for a Quest, and the Loot Helper and Disenchant Helper hold back what it says to keep, apart from your junk and gear it keeps for its dust. It's optional, and BagSmith works the same without it.",
 		"|cfffac775Addon Sources:|r a new Settings page shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree and Pawn, with a switch for each job. Auction Price Source moved there from General. Find it in Settings > Addon Sources.",
 		"|cfffac775Cleaner Classic Icons:|r in the Classic skin, item icons and their borders are cleaner, with the artwork kept inside the border. Thanks to Jeor!",
 		"|cfffac775Disenchant Helper and Junk:|r an item you've marked as junk no longer shows in the Disenchant Helper.",
-	} },
+	},
+	-- (1.10.0-beta13, the beta12 audit's F6; Shweep: "yes as a reminder") Someone who comes straight from 1.9.7 or
+	-- earlier never saw 1.9.8's note: this card opens instead, and closing it marks that note seen. They get it here,
+	-- in his own words, as one more bullet. Nobody else does (WN:Items).
+	remind = { before = "1.9.8", text = "|cfff09595Reminder:|r if two of your characters share a first name, Global Inventory and tooltips won't be 100% accurate until you've logged in to each of them and visited the bank on each. Apologies, I wish this had been caught sooner." } },
 	-- (1.9.2-beta1, Shweep) a release's updates have entries of their own, shown under its tab: 1.9.2 (Jeor's red tint)
 	-- and 1.9.1 (which had no card), as Shweep approved them
 	-- (1.9.8-beta1, after Shweep's "this should have had a card in what's new" on 1.9.7: an entry is drafted for every
@@ -290,6 +295,29 @@ function WN:Pending()
 	return ns.db and ns.db.whatsNew ~= false and (#self:UnseenReleases() > 0 or self:UnseenOpener() ~= nil)
 end
 function WN:MarkSeen() BagSmithDB.whatsNewSeen = base(ns.version) end
+-- (1.10.0-beta13) A card's bullets for this player: its own, and its reminder when they came here straight from a
+-- version older than the one the reminder is from (WN.owed).
+WN.owed = {}
+function WN:Items(e)
+	local r = e and e.remind
+	if not (r and self.owed[r.before]) then return e.items end
+	local out = {}
+	for i, text in ipairs(e.items) do out[i] = text end
+	out[#out + 1] = r.text
+	return out
+end
+-- Which reminders are owed, noted at load before anything is marked seen: the last What's New this account closed was
+-- older than the release a reminder is from. Nothing is saved: it lasts until the next load, by when the card that
+-- carries it has been seen and closed (or is still waiting, and it is noted again).
+function WN:NoteReminders()
+	self.owed = {}
+	local seen = type(BagSmithDB) == "table" and BagSmithDB.whatsNewSeen or nil
+	if type(seen) ~= "string" then return end   -- (a first install: nothing was skipped)
+	for _, e in ipairs(self.ENTRIES) do
+		local r = e.remind
+		if r and newer(r.before, seen) and not newer(e.v, ns.version) then self.owed[r.before] = true end
+	end
+end
 -- An update's notes you haven't opened: NEW on its button, for the newest release's updates only (never an old one's)
 function WN:PatchNew(e)
 	local newest = groups(self:Latest())[1]
@@ -519,7 +547,7 @@ local function measure(f, e, textW)
 	m:SetFontObject(GameFontNormal); m:SetWidth(textW); m:SetText(e.heading or ("BagSmith " .. tostring(e.v)))
 	local y = m:GetStringHeight() + 2
 	m:SetFontObject(GameFontHighlight); m:SetWidth(textW - INDENT)
-	for _, text in ipairs(e.items) do m:SetText(text); y = y + ITEM_GAP + m:GetStringHeight() end
+	for _, text in ipairs(WN:Items(e)) do m:SetText(text); y = y + ITEM_GAP + m:GetStringHeight() end
 	if e.note then m:SetFontObject(GameFontHighlightSmall); m:SetWidth(textW); m:SetText(e.note); y = y + NOTE_GAP + m:GetStringHeight() end
 	return y + 4
 end
@@ -728,7 +756,7 @@ function WN:Fill(entries, sel, sub)
 		h:SetTextColor(1, 0.82, 0)
 		h:ClearAllPoints(); h:SetPoint("TOPLEFT", f.content, "TOPLEFT", PAD, -y); h:Show()
 		y = y + h:GetStringHeight() + 2
-		for bi, text in ipairs(e.items) do
+		for bi, text in ipairs(WN:Items(e)) do
 			n = n + 1
 			local s2 = line(f, n)
 			s2:SetFontObject(GameFontHighlight); s2:SetTextColor(1, 1, 1); s2:SetWidth(textW - INDENT); s2:SetText(WN.Linkify(text))
@@ -897,9 +925,11 @@ function WN:ResetForTesting(skipped)
 	if p[3] > 0 then p[3] = p[3] - 1 elseif p[2] > 0 then p[2] = p[2] - 1 else p[1] = math.max(0, p[1] - 1) end
 	BagSmithDB.whatsNewSeen = ("%d.%d.%d"):format(p[1], p[2], p[3])
 	BagSmithDB.whatsNewPatchSeen, BagSmithDB.whatsNewButtonSeen = nil, nil   -- (1.9.2-beta1) the updates' NEW tags too
+	self:NoteReminders()   -- (1.10.0-beta13) and what a player updating from there would be reminded of
 end
 
 ns:OnSignal("ADDON_READY", function()
+	WN:NoteReminders()   -- (1.10.0-beta13) before anything is marked seen
 	-- A first install has nothing to compare against: mark this version seen.
 	if BagSmithDB.whatsNewSeen == nil then
 		WN:MarkAllSeen()   -- (1.9.2-beta1) the updates' notes too

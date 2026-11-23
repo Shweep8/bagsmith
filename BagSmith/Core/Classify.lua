@@ -386,7 +386,22 @@ local function foldFits(f)
 	if next(f.bd or {}) then n = n + 1 end
 	if next(f.w or {}) then n = n + 1 end
 	if f.ageMin or f.ageMax then n = n + 1 end
+	-- (1.10.0-beta13, the beta12 audit's F3) The older fields each narrow the filter. Under "any one of these" a rule
+	-- widens it, so they can't join such a group without changing what the filter shows: they stay as they are and
+	-- still apply (ns.UnfoldedWords names them for the Filters window). Nothing BagSmith saves has that shape.
+	local rows = type(f.rules) == "table" and type(f.rules.rows) == "table" and #f.rules.rows or 0
+	if rows > 0 and f.rules.mode == "any" and n > rows then return false end
 	return n <= ns.Rules.MAX_ROWS
+end
+-- The older fields a filter still carries beside its rules (they couldn't be folded in), in the window's words.
+function ns.UnfoldedWords(f)
+	local out = {}
+	if type(f) ~= "table" then return out end
+	if next(f.cat or {}) then out[#out + 1] = "Section" end
+	if next(f.bd or {}) then out[#out + 1] = "Binding" end
+	if next(f.w or {}) then out[#out + 1] = "Bag" end
+	if f.ageMin or f.ageMax then out[#out + 1] = "Time in Bags" end
+	return out
 end
 local fold = ns.FoldFilters
 function ns.FoldFilters(f)
@@ -453,7 +468,13 @@ function ns:FilterPredicate(f, sheet)
 			if not (here and f.cat[here]) then return false end
 		end
 		if hasT and not f.t[r.itemSubType or ""] then return false end
-		if hasBd and not f.bd[ns:BindText(r) ~= "" and ns:BindText(r) or "None"] then return false end
+		-- (1.10.0-beta13, the beta12 audit's F3) an item whose binding the game hasn't sent yet fits no binding box, as it
+		-- fits no Binding rule: before, it counted as No binding here and as nothing once the box became a rule
+		if hasBd then
+			local b = ns:BindText(r)
+			if b == "" then b = (r.isBound or type(r.bindType) == "number") and "None" or nil end
+			if not (b and f.bd[b]) then return false end
+		end
 		if hasW and not f.w[r.where or ""] then return false end
 		if f.new and not r.isNew then return false end
 		if f.ageMin or f.ageMax then

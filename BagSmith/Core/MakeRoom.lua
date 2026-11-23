@@ -579,7 +579,12 @@ function MR:Suggestions(waiting, judge)
 			end
 			-- (1.10.0-beta7) the ItemTree addon says keep it. Asked last, and only about what would otherwise be
 			-- offered. Not for junk: a grey, or your own junk mark, is your word.
-			if not why and worth and not junk and ns.ItemTree and ns.ItemTree:Holds(r) then why = "itemtree" end
+			-- (1.10.0-beta13, the beta12 audit's F1) and when ItemTree is on but couldn't answer, the item waits: an
+			-- unreadable safety answer is a no
+			if not why and worth and not junk and ns.ItemTree then
+				local verdict = ns.ItemTree:Verdict(r)
+				if verdict == "hold" then why = "itemtree" elseif verdict == "unknown" then why = "unknown" end
+			end
 			if why then
 				if worth then ns.Why:Add(held, why, r.name) end
 			elseif worth then
@@ -1024,7 +1029,12 @@ function MR:StillOk(o)
 		if up == nil then return false, "pawn" end
 	end
 	-- (1.10.0-beta7) ItemTree says keep it: asked fresh, right before destroying. Not for an item offered as junk.
-	if not o.junk and ns.ItemTree and ns.ItemTree:Holds({ itemID = o.itemID, link = info.hyperlink or o.link }, true) then return false, "itemtree" end
+	-- (1.10.0-beta13, F1) no answer from it now (not ready, an error inside it) refuses too, whatever it said before
+	if not o.junk and ns.ItemTree then
+		local verdict = ns.ItemTree:Verdict({ itemID = o.itemID, link = info.hyperlink or o.link }, true)
+		if verdict == "hold" then return false, "itemtree" end
+		if verdict == "unknown" then return false, "itemtreeunknown" end
+	end
 	-- Last: it must still be worth letting go for what's waiting now. The valuable item that justified the offer
 	-- may have been looted by someone else or skipped since (1.3.0-beta2). Protections are checked first, so a
 	-- protected item says why it's protected.
@@ -1052,6 +1062,8 @@ local REFUSED = {
 	upgrade = "Pawn says that item is an upgrade, so nothing was destroyed.",
 	pawn = "Pawn hasn't decided yet whether that item is an upgrade. Try again in a moment.",
 	itemtree = "ItemTree says to keep that item, so nothing was destroyed.",   -- (1.10.0-beta7)
+	-- (1.10.0-beta13) it says how to go on, since ItemTree may stay silent
+	itemtreeunknown = "ItemTree couldn't be asked about that item just now, so nothing was destroyed. Try again in a moment, or untick its Hold Back in the Loot Helper in Settings > Addon Sources.",
 	stale = "That offer was for a different loot window, so nothing was destroyed.",
 	nohelp = "Destroying that wouldn't make room for what's waiting now, so nothing was destroyed.",
 	unknown = "BagSmith couldn't check your gear sets just now, so nothing was destroyed. Try again in a moment.",
@@ -2133,6 +2145,8 @@ function MR:Install()
 		if MR.frame and MR.frame:IsShown() then MR:Refresh() end
 	end
 	ns:OnSignal("PRICE_SOURCE_CHANGED", repriced)
+	-- (1.10.0-beta13) ItemTree became ready: what waited under "couldn't be checked" is asked about again
+	ns:OnSignal("ITEMTREE_READY", function() if MR.frame and MR.frame:IsShown() then MR:Refresh() end end)
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
 		if key == "makeRoomValue" then repriced(); return end
 		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" and key ~= "makeRoomHoldItemTree" and key ~= "makeRoomHoldPawn" then return end

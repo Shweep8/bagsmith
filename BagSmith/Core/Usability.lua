@@ -137,8 +137,6 @@ function U:Usable(rec)
 end
 -- Does a section's rules, or a window's filter, ask whether an item is usable?
 local function ruleWanted()
-	local R = ns.Rules
-	if not R then return false end
 	local function uses(rules)
 		if type(rules) ~= "table" or type(rules.rows) ~= "table" then return false end
 		for _, row in ipairs(rules.rows) do if type(row) == "table" and row.k == "usable" then return true end end
@@ -164,15 +162,22 @@ local function answers()
 	end
 	return table.concat(parts, ",")
 end
-local reapplying, lastAnswers = false, nil
-local function reapplySoon()
-	if reapplying or not ruleWanted() then return end
+-- (1.10.0-beta13, the beta12 audit's F2) force: a level gained. An item that was out of reach by its level alone
+-- has no tooltip answer to compare (the level check answers before the tooltip is read), so the comparison is
+-- skipped that once and the sections are looked at whatever it says.
+local reapplying, lastAnswers, forced = false, nil, false
+local function reapplySoon(force)
+	if not ruleWanted() then return end
+	if force then forced = true end
+	if reapplying then return end
 	reapplying = true
 	C_Timer.After(0.5, function()
 		reapplying = false
+		local must = forced
+		forced = false
 		if not (ruleWanted() and ns.Sections and ns.Sections.Reapply) then return end
 		local now = answers()
-		if now == lastAnswers then return end
+		if now == lastAnswers and not must then return end
 		lastAnswers = now
 		ns.Sections:Reapply()
 	end)
@@ -218,12 +223,12 @@ end
 local function tooltipData()   -- no item named: only while some item still has no answer
 	if next(unknown) then refreshSoon(); reapplySoon() end
 end
-local function progressed()   -- level, skills, spells, reputation: the red ones may now be usable
-	-- (1.10.0-beta11) a rule's sections only need another look when something was red
-	local any = false
-	for _, v in pairs(cache) do if v then any = true; break end end
+local function progressed(level)   -- level, skills, spells, reputation: the red ones may now be usable
+	-- (1.10.0-beta13, F2) every one of these asks for another look at the sections while a rule uses Usable by Me
+	-- (beta11 asked only when a tooltip had been red, which missed an item held back by its level alone); what
+	-- keeps that from being costly is the comparison in reapplySoon. A level gained skips the comparison.
 	U:ForgetUnusable(); refreshSoon()
-	if any then reapplySoon() end
+	reapplySoon(level == true)
 end
 local function entered()   -- logging in, a reload, another character: everything afresh
 	U:Invalidate(); refreshSoon(); reapplySoon()
@@ -233,7 +238,8 @@ ns:OnSignal("SETTINGS_CHANGED", function(key)
 	elseif key == "unusableOverlayOpacity" then U:Refresh() end
 end)
 ns:OnSignal("ADDON_READY", function()
-	for _, event in ipairs({ "PLAYER_LEVEL_UP", "SKILL_LINES_CHANGED", "SPELLS_CHANGED", "UPDATE_FACTION" }) do ns:On(event, progressed) end
+	ns:On("PLAYER_LEVEL_UP", function() progressed(true) end)
+	for _, event in ipairs({ "SKILL_LINES_CHANGED", "SPELLS_CHANGED", "UPDATE_FACTION" }) do ns:On(event, function() progressed(false) end) end
 	ns:On("GET_ITEM_INFO_RECEIVED", itemData)
 	ns:On("TOOLTIP_DATA_UPDATE", tooltipData)
 	ns:On("PLAYER_ENTERING_WORLD", entered)

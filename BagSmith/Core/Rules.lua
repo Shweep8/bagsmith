@@ -59,7 +59,8 @@ R.KEYS = {
 	quality = {
 		label = "Quality",
 		valid = function(v) return type(v) == "number" and v >= 0 and v <= 7 and v == math.floor(v) end,
-		of = function(rec) if type(rec.quality) == "number" then return { rec.quality } end end,
+		-- (1.10.0-beta13, the beta12 audit's F5) a quality filled in for display while the game hasn't said is no answer
+		of = function(rec) if type(rec.quality) == "number" and not rec.qualityUnknown then return { rec.quality } end end,
 	},
 	bind = {
 		label = "Binding",
@@ -88,6 +89,15 @@ R.KEY_ORDER = { "type", "slot", "quality", "bind", "ilvl", "price" }
 -- (1.10.0-beta11) Five more facts about the item itself, from the mockup's Add a Rule list.
 -- Name: the item's name contains one of the row's words, anywhere in it and whatever the capitals (plain letters;
 -- an accented capital isn't folded). The words are what the player typed: never a pattern, never a color code.
+-- (1.10.0-beta13, the beta12 audit's F5) Until the game names an item, its row reads "Item 1234" (Core/Scanner.lua,
+-- which marks it nameUnknown). That is for showing, not a fact about the item: a Name rule answers nothing for it.
+-- (The text is checked too, for a row that was saved and read back without the mark.)
+function R.NameKnown(rec)
+	local name = rec.name
+	if rec.nameUnknown or type(name) ~= "string" or name == "" then return false end
+	if rec.itemID ~= nil and name == "Item " .. tostring(rec.itemID) then return false end
+	return true
+end
 local lowered = setmetatable({}, { __mode = "k" })
 local function wordsOf(row)
 	local w = lowered[row]
@@ -101,11 +111,11 @@ end
 R.KEYS.name = {
 	label = "Name", text = true, verbs = { "contains", "does not contain" },
 	valid = function(v) return type(v) == "string" and #v <= 40 and v:match("%S") ~= nil and not v:find("[%c|]") end,
-	of = function(rec) if type(rec.name) == "string" and rec.name ~= "" then return { rec.name } end end,
+	of = function(rec) if R.NameKnown(rec) then return { rec.name } end end,
 	-- true or false; nil while the item has no name yet
 	fits = function(row, rec)
 		local name = rec.name
-		if type(name) ~= "string" or name == "" then return nil end
+		if not R.NameKnown(rec) then return nil end
 		name = name:lower()
 		for _, word in ipairs(wordsOf(row)) do if name:find(word, 1, true) then return true end end
 		return false

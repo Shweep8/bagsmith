@@ -472,6 +472,8 @@ function Popups:BuildFilters(view)
 	end
 	f.add = ns.TextButton(f.rulesChild, "+ Add a Rule", 104, function(b) L:AddMenu(b) end); f.add:SetHeight(22)
 	f.hint = fs(f.rulesChild); f.hint:SetText("Pick two or more on one line and either one counts."); tint(f.hint, "muted")
+	-- (1.10.0-beta13, the beta12 audit's F3) conditions from an older version that couldn't become rules here
+	f.older = fs(f.rulesChild); f.older:SetWidth(RULES_W - 4); f.older:SetJustifyH("LEFT"); f.older:SetWordWrap(true); f.older:Hide()
 
 	-- Everything under the rules rides one frame, moved to sit below however many rules there are.
 	local tail = CreateFrame("Frame", nil, f); tail:SetSize(FW, 150)
@@ -532,6 +534,11 @@ function Popups:SetFilterMode(f, mode)
 	L:Changed()
 end
 
+-- "A", "A and B", "A, B and C"
+local function joinWords(list)
+	if #list <= 2 then return table.concat(list, " and ") end
+	return table.concat(list, ", ", 1, #list - 1) .. " and " .. list[#list]
+end
 -- Lays out the rules and what rides below them, and sizes the window to fit.
 function Popups:LayoutFilters(f)
 	local L = f.list
@@ -544,6 +551,15 @@ function Popups:LayoutFilters(f)
 	h = h + 28
 	f.hint:SetShown(lists > 0)
 	if lists > 0 then f.hint:ClearAllPoints(); f.hint:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", 0, -h); h = h + 16 end
+	-- (1.10.0-beta13, F3) older conditions still in force beside "any one of these": said, since no rule shows them
+	local older = ns.UnfoldedWords and ns.UnfoldedWords(L.bound) or {}
+	f.older:SetShown(#older > 0)
+	if #older > 0 then
+		f.older:SetText(("This filter also narrows by %s, kept from an older version. That still applies, though it can't be shown as a rule here. Clear All removes it."):format(joinWords(older)))
+		f.older:SetTextColor(0.95, 0.6, 0.45)
+		f.older:ClearAllPoints(); f.older:SetPoint("TOPLEFT", f.rulesChild, "TOPLEFT", 0, -h)
+		h = h + math.max(28, (f.older.GetStringHeight and f.older:GetStringHeight() or 28)) + 4
+	end
 	f.rulesHeight = h
 	f.rulesChild:SetHeight(math.max(1, h))
 	local view = math.min(h, RULES_MAX)
@@ -593,10 +609,6 @@ end
 -- Save as Section...: the rules a section can use, handed to the section editor to look over. A section's rules are
 -- about the item itself, so the search, the quick picks and the rules about where an item is right now stay behind,
 -- and the editor says which.
-local function joinWords(list)
-	if #list <= 2 then return table.concat(list, " and ") end
-	return table.concat(list, ", ", 1, #list - 1) .. " and " .. list[#list]
-end
 function Popups:SectionRules(filters)
 	local R = ns.Rules
 	local f = ns.FoldFilters(ns.CleanFilters(filters))
@@ -621,10 +633,33 @@ function Popups:SectionRules(filters)
 		end
 	end
 	if f.new then leave("New") end
-	if f.usable then leave("Usable by Me") end
+	-- older fields that couldn't be shown as rules (ns.UnfoldedWords) can't come along either
+	local kept = ns.UnfoldedWords and ns.UnfoldedWords(f) or {}
+	-- (1.10.0-beta13) Usable by Me is a rule a section can have since beta11: the quick pick becomes that rule, where
+	-- "all of these" (or nothing else) makes that mean the same. (The rule waits for an item's tooltip before it files
+	-- the item; the quick pick shows the item meanwhile.)
+	if f.usable then
+		if rules.mode ~= "any" or #rows == 0 then
+			rows[#rows + 1] = { k = "usable", v = { "yes" } }
+			if #rows == 1 then rules.mode = "all" end
+		else
+			leave("Usable by Me")
+		end
+	end
+	-- (1.10.0-beta13, the beta12 audit's F3) A section holds R.MAX_ROWS rules. A filter can come to one more (its rules
+	-- plus Quality, plus Usable by Me), and Rules.Clean would drop the last without a word: the ones that don't fit are
+	-- taken off here and named in the note, so the player sees it before anything is created.
+	local over = {}
+	while #rows > R.MAX_ROWS do table.insert(over, 1, R:RowText(table.remove(rows))) end
 	local out = R.Clean({ mode = rules.mode, rows = rows })
-	local note = #left > 0 and ("Left out, since a section's rules are about the item itself: %s."):format(joinWords(left)) or nil
-	return out, note
+	local notes = {}
+	if #over > 0 then
+		notes[#notes + 1] = ("A section can have %d rules, so the last %s left out: %s."):format(
+			R.MAX_ROWS, #over == 1 and "one was" or (#over .. " were"), table.concat(over, "; "))
+	end
+	if #left > 0 then notes[#notes + 1] = ("Left out, since a section's rules are about the item itself: %s."):format(joinWords(left)) end
+	if #kept > 0 then notes[#notes + 1] = ("Left out, kept from an older version: %s."):format(joinWords(kept)) end
+	return out, #notes > 0 and table.concat(notes, " ") or nil
 end
 function Popups:SaveAsSection(f)
 	local v = f.view
