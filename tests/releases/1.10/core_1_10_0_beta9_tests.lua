@@ -345,8 +345,10 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	for _, w in ipairs(checks) do if x(w) ~= x(checks[1]) then sameX = false end; if not w.box:IsEnabled() then enabled = false end end
 	check(#checks == 5 and sameX and enabled, S0 .. "five switches, none indented under another, none greyed")
 	check(row(P, "check", "useItemTree").help.text == "Adds rules such as Used by My Professions and Needed for a Quest."
-		and row(P, "check", "makeRoomHoldItemTree").help.text == "Won't offer an item ItemTree says to keep."
-		and row(P, "check", "deHoldItemTree").help.text == "Won't offer a piece ItemTree says to keep, unless it's kept for its dust.", S0 .. "ItemTree's three rows say what each does")
+		-- (by design since 1.10.0-beta14, Shweep: "both are fine": the two Hold Back lines say what waits, the two
+		-- exceptions, and that Clear Soul Shards is separate)
+		and row(P, "check", "makeRoomHoldItemTree").help.text == "Won't offer an item ItemTree says to keep, or one it hasn't answered about yet. Your junk is still offered, and Clear Soul Shards doesn't ask ItemTree."
+		and row(P, "check", "deHoldItemTree").help.text == "Won't offer a piece ItemTree says to keep, or one it hasn't answered about yet. Gear it keeps for its dust is still offered.", S0 .. "ItemTree's three rows say what each does")
 	check(row(P, "check", "makeRoomHoldPawn").help.text == "Won't offer a piece Pawn says is an upgrade." and row(P, "check", "deHoldPawn").help.text == "Won't offer a piece Pawn says is an upgrade.", S0 .. "Pawn's two rows too")
 	local colored = false
 	for _, r in ipairs(rows(P)) do

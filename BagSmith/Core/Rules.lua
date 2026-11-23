@@ -60,7 +60,7 @@ R.KEYS = {
 		label = "Quality",
 		valid = function(v) return type(v) == "number" and v >= 0 and v <= 7 and v == math.floor(v) end,
 		-- (1.10.0-beta13, the beta12 audit's F5) a quality filled in for display while the game hasn't said is no answer
-		of = function(rec) if type(rec.quality) == "number" and not rec.qualityUnknown then return { rec.quality } end end,
+		of = function(rec) if R.QualityKnown(rec) then return { rec.quality } end end,
 	},
 	bind = {
 		label = "Binding",
@@ -94,8 +94,17 @@ R.KEY_ORDER = { "type", "slot", "quality", "bind", "ilvl", "price" }
 -- (The text is checked too, for a row that was saved and read back without the mark.)
 function R.NameKnown(rec)
 	local name = rec.name
-	if rec.nameUnknown or type(name) ~= "string" or name == "" then return false end
+	if rec.nameUnknown or type(name) ~= "string" or name == "" or name == "?" then return false end   -- ("?": a saved row with no name at all)
 	if rec.itemID ~= nil and name == "Item " .. tostring(rec.itemID) then return false end
+	return true
+end
+-- (1.10.0-beta14, the beta13 re-audit's R3 and R4) Is the row's quality the item's, or only what is shown meanwhile?
+-- One answer for a Quality rule and for the Filters window's Quality chips. Not known: marked so by the scanner (or
+-- when a saved row is read back); and a Common beside a made-up name, which is how a row saved before the marks
+-- existed looks when the game had sent neither.
+function R.QualityKnown(rec)
+	if type(rec.quality) ~= "number" or rec.qualityUnknown then return false end
+	if rec.quality == 1 and not R.NameKnown(rec) then return false end
 	return true
 end
 local lowered = setmetatable({}, { __mode = "k" })

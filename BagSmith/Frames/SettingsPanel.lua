@@ -1726,8 +1726,11 @@ pages.addons = function(self, db)
 		self:Text("Knows what your items are for on this character.")
 		if installed then
 			self:Check("useItemTree", "Section and Filter Rules", "Adds rules such as Used by My Professions and Needed for a Quest.")
-			self:Check("makeRoomHoldItemTree", "Hold Back in the Loot Helper", "Won't offer an item ItemTree says to keep.")
-			self:Check("deHoldItemTree", "Hold Back in the Disenchant Helper", "Won't offer a piece ItemTree says to keep, unless it's kept for its dust.")
+			-- (1.10.0-beta14, the re-audit's R5 and R6; Shweep: "both are fine") what "hold back" covers, said where the
+			-- switches are: items ItemTree hasn't answered about, the two exceptions, and Clear Soul Shards, which is the
+			-- player's own action with its own count to keep and doesn't ask ItemTree
+			self:Check("makeRoomHoldItemTree", "Hold Back in the Loot Helper", "Won't offer an item ItemTree says to keep, or one it hasn't answered about yet. Your junk is still offered, and Clear Soul Shards doesn't ask ItemTree.")
+			self:Check("deHoldItemTree", "Hold Back in the Disenchant Helper", "Won't offer a piece ItemTree says to keep, or one it hasn't answered about yet. Gear it keeps for its dust is still offered.")
 		end
 	end
 	-- Pawn: an addon card

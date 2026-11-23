@@ -36,6 +36,10 @@ local counts = {}   -- item id -> how many you held when the bags were last look
 local queue, queued, head = {}, {}, 1
 local changed, ticking, hooked, forgetting = false, false, false, false
 local live          -- the keys the bags and bank held when they were last looked at
+-- (1.10.0-beta14, the beta13 re-audit's R5) keys whose last fresh read failed while an answer was held. The answer
+-- stays for the rules; a Helper's list no longer leans on it, and asks again, until ItemTree answers.
+local doubt = {}
+local announcing = false
 local BUDGET_MS, PER_TICK = 3, 4   -- a few a frame: by the clock where the game has one, else by count
 
 local function api()
@@ -131,10 +135,13 @@ local function tick()
 	while head <= #queue do
 		local key = queue[head]; head = head + 1
 		local q = queued[key]; queued[key] = nil
-		if q and known[key] == nil then
+		-- (1.10.0-beta14, the re-audit's R1) not for an item that was yours when it was asked about and has left since
+		-- (the bag change cancels those; this is the same rule where the answer would be stored)
+		if q and known[key] == nil and not (q.held and live and not live[key]) then
 			local ok, f = pcall(A.GetItemFacts, q.id, q.link)
 			local e = ok and IT.Read(f) or false
 			known[key], idOf[key] = e, q.id
+			if e then doubt[key] = nil end
 			if not same(was[key], e) then changed = true end
 			was[key] = nil
 			n = n + 1
@@ -152,7 +159,9 @@ local function tick()
 end
 local function ask(key, id, link)
 	if queued[key] or known[key] ~= nil then return end
-	queued[key] = { id = id, link = link }
+	-- held: the key was among your items at the last look (a row read from saved data, such as the bank away from the
+	-- bank, never is; it is answered all the same)
+	queued[key] = { id = id, link = link, held = (live ~= nil and live[key] == true) or nil }
 	queue[#queue + 1] = key
 	if not ticking then ticking = true; C_Timer.After(0, tick) end
 end
@@ -195,13 +204,19 @@ function IT:Verdict(rec, fresh, forDisenchant)
 	local key = rec.link or rec.itemID
 	local e = known[key]
 	-- (false is what the rules' queue keeps when ItemTree gave it nothing: for a Helper that is no answer, so ask)
-	if not e or fresh then
+	-- (1.10.0-beta14, R5) and an answer in doubt is asked for again, so a list can't offer on the strength of a "clear"
+	-- that the last click could not confirm
+	if not e or fresh or doubt[key] then
 		local now
 		if ready() then
 			local ok, f = pcall(A.GetItemFacts, rec.itemID, rec.link)
 			if ok and type(f) == "table" then now = IT.Read(f) end
 		end
-		if not now then return "unknown" end
+		if not now then
+			if e then doubt[key] = true end
+			return "unknown"
+		end
+		doubt[key] = nil
 		-- (a rule may be reading the same answer, or waiting for it: the views hear of it on the next frame)
 		if queued[key] ~= nil or (e ~= nil and not same(e, now)) or (was[key] ~= nil and not same(was[key], now)) then changed = true end
 		known[key], idOf[key], was[key], queued[key] = now, rec.itemID, nil, nil
@@ -230,7 +245,7 @@ local function forget(key)
 		ask(key, id, type(key) == "string" and key or nil)
 	else
 		-- (no rule wants it any more: let it go; it's asked afresh if one ever does)
-		known[key], idOf[key], was[key] = nil, nil, nil
+		known[key], idOf[key], was[key], doubt[key] = nil, nil, nil, nil
 	end
 end
 function IT:Forget()
@@ -238,11 +253,28 @@ function IT:Forget()
 	for key in pairs(known) do keys[#keys + 1] = key end
 	for _, key in ipairs(keys) do forget(key) end
 end
+-- (1.10.0-beta14, the re-audit's R5) ItemTree's answers may have changed: said once to whoever is showing them (an
+-- open Helper draws its list again), however many notices arrive together.
+local function announce()
+	if announcing then return end
+	announcing = true
+	C_Timer.After(0.2, function() announcing = false; ns:Fire("ITEMTREE_CHANGED") end)
+end
 -- A moment after something that can change ItemTree's answers with no word from it: once, however many times asked.
 function IT:ForgetSoon()
 	if forgetting or not next(known) then return end
 	forgetting = true
-	C_Timer.After(1, function() forgetting = false; IT:Forget() end)
+	C_Timer.After(1, function() forgetting = false; IT:Forget(); announce() end)
+end
+-- (1.10.0-beta14, R5) While a Helper is open with items waiting for ItemTree, it looks again by itself: fn runs once,
+-- IT.RETRY seconds from now, however many times this is asked meanwhile (who names the asker). A failure that passes
+-- with no word from ItemTree is noticed this way.
+IT.RETRY = 3
+local retrying = {}
+function IT:RetrySoon(who, fn)
+	if retrying[who] or type(fn) ~= "function" then return end
+	retrying[who] = true
+	C_Timer.After(IT.RETRY, function() retrying[who] = nil; fn() end)
 end
 
 -- ItemTree's own word that its answers changed, or that its data is ready. Registered once it's there.
@@ -250,7 +282,8 @@ function IT:Hook()
 	local A = api()
 	if hooked or not A then return end
 	hooked = true
-	if type(A.RegisterChangeCallback) == "function" then pcall(A.RegisterChangeCallback, function() IT:Forget() end) end
+	-- (1.10.0-beta14) and an open Helper hears of it: what it held as waiting is asked about again
+	if type(A.RegisterChangeCallback) == "function" then pcall(A.RegisterChangeCallback, function() IT:Forget(); announce() end) end
 	if type(A.RegisterReadyCallback) == "function" then
 		pcall(A.RegisterReadyCallback, function()
 			-- (rules asked while it wasn't ready got no answer: look again)
@@ -285,6 +318,13 @@ ns:OnSignal("ADDON_READY", function()
 				end
 			end
 		end
+		-- (1.10.0-beta14, the beta13 re-audit's R1) A lookup still waiting in the queue for an item that was yours and
+		-- has left is cancelled, with the old answer kept aside for it. Before, the queue answered for the absent item
+		-- a moment later, and when a copy came back that answer was found and nothing asked again.
+		for key, q in pairs(queued) do
+			if live[key] then q.held = true
+			elseif q.held then queued[key], was[key] = nil, nil end
+		end
 		if not next(known) and not ticking then counts = now; return end
 		local stale, gone = {}, {}
 		for key, id in pairs(idOf) do
@@ -297,14 +337,14 @@ ns:OnSignal("ADDON_READY", function()
 		-- (1.10.0-beta13, the beta12 audit's F4) An item you no longer hold is let go at once. Its answer used to be
 		-- kept until there were a great many, so when your last copy left and came back, the old answer was still
 		-- there and nothing asked again: its count had no "before" to differ from.
-		for _, key in ipairs(gone) do known[key], idOf[key], was[key] = nil, nil, nil end
+		for _, key in ipairs(gone) do known[key], idOf[key], was[key], doubt[key] = nil, nil, nil, nil end
 		counts = now
 		for _, key in ipairs(stale) do forget(key) end
 	end)
 	-- The setting, or another profile: start over, and redraw at once (off means those rules fit nothing).
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
 		if key ~= "useItemTree" and key ~= nil then return end
-		known, was, idOf, queue, queued, head, changed = {}, {}, {}, {}, {}, 1, false   -- (the bags' counts stay: they're the bags', not ItemTree's)
+		known, was, idOf, queue, queued, head, changed, doubt = {}, {}, {}, {}, {}, 1, false, {}   -- (the bags' counts stay: they're the bags', not ItemTree's)
 		if key == "useItemTree" then
 			ns:Fire("ITEMTREE_FACTS")
 			if ns.Sections and ns.Sections.Reapply then ns.Sections:Reapply() end

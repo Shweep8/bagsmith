@@ -143,7 +143,9 @@ local function ruleWanted()
 		return false
 	end
 	for _, c in ipairs(ns.Sections and ns.Sections:Customs() or {}) do if uses(c.rules) then return true end end
-	for _, v in pairs(ns.views or {}) do if v.st and v.st.filters and uses(v.st.filters.rules) then return true end end
+	-- (1.10.0-beta14, the beta13 re-audit's R2) the Usable by Me quick pick is the filter's own field, not a rule row:
+	-- it asks just the same
+	for _, v in pairs(ns.views or {}) do if v.st and v.st.filters and (v.st.filters.usable or uses(v.st.filters.rules)) then return true end end
 	return false
 end
 -- The answers may have changed (you leveled, learned a skill, or the game sent an item's tooltip): while a rule asks,

@@ -554,7 +554,9 @@ end
 -- Character cache (for the alt viewer)
 ------------------------------------------------------------------------
 local KEEP = { "bag", "slot", "bagIndex", "itemID", "link", "icon", "quality", "count", "name", "where", "ilvl", "minLevel",
-	"itemType", "itemSubType", "equipLoc", "sellPrice", "classID", "subclassID", "bindType", "isBound", "hasNoValue", "cat", "firstSeen", "guid", "maxStack", "ownCat", "isQuest", "isCraftingReagent", "gearSets" }
+	"itemType", "itemSubType", "equipLoc", "sellPrice", "classID", "subclassID", "bindType", "isBound", "hasNoValue", "cat", "firstSeen", "guid", "maxStack", "ownCat", "isQuest", "isCraftingReagent", "gearSets",
+	-- (1.10.0-beta14, the beta13 re-audit's R3) what was only filled in for showing stays marked when it is saved
+	"qualityUnknown", "nameUnknown" }
 local function serialize(list)
 	local out = {}
 	for i, rec in ipairs(list) do
@@ -702,8 +704,10 @@ function ns:CachedRecords(key, bank)
 		local rec = {}
 		for k, v in pairs(s) do rec[k] = v end
 		rec.count = rec.count or 1
-		rec.quality = rec.quality or 1
-		rec.name = rec.name or "?"
+		-- (1.10.0-beta14, R3) a quality or a name the save doesn't have is filled in for showing, and marked: before, a
+		-- row saved while the game hadn't sent its quality read back as a known Common
+		if rec.quality == nil then rec.quality, rec.qualityUnknown = 1, true end
+		if rec.name == nil then rec.name, rec.nameUnknown = "?", true end
 		-- The section comes from the current profile on every read: the item's own
 		-- category (saved, or worked out again for older saves), then this
 		-- profile's moves. A saved "Junk" (that character's marks) stays.

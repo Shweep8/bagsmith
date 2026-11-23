@@ -391,12 +391,23 @@ local function foldFits(f)
 	-- still apply (ns.UnfoldedWords names them for the Filters window). Nothing BagSmith saves has that shape.
 	local rows = type(f.rules) == "table" and type(f.rules.rows) == "table" and #f.rules.rows or 0
 	if rows > 0 and f.rules.mode == "any" and n > rows then return false end
+	-- (1.10.0-beta14, the beta13 re-audit's R4) A rule holds Rules.MAX_VALUES choices. A field with more would lose
+	-- the rest when it became one (Rules.Clean cuts the row), so it stays a field: it still applies, whole.
+	for _, set in ipairs({ f.cat or {}, f.bd or {}, f.w or {} }) do
+		local c = 0
+		for _ in pairs(set) do c = c + 1 end
+		if c > ns.Rules.MAX_VALUES then return false end
+	end
 	return n <= ns.Rules.MAX_ROWS
 end
 -- The older fields a filter still carries beside its rules (they couldn't be folded in), in the window's words.
 function ns.UnfoldedWords(f)
 	local out = {}
 	if type(f) ~= "table" then return out end
+	-- (1.10.0-beta14, R4) Type: item kinds by name, from before sections. No window writes it any more and it never
+	-- becomes a rule (a name is not the game's type), but a sheet from long ago or an import can carry it, and it
+	-- narrows the filter like the rest: named, wherever the others are.
+	if next(f.t or {}) then out[#out + 1] = "Type" end
 	if next(f.cat or {}) then out[#out + 1] = "Section" end
 	if next(f.bd or {}) then out[#out + 1] = "Binding" end
 	if next(f.w or {}) then out[#out + 1] = "Bag" end
@@ -461,7 +472,9 @@ function ns:FilterPredicate(f, sheet)
 	return function(r)
 		if usable and usable:IsUnusable(r) then return false end
 		if rules and not Rules:Fits(rules, r, ctx) then return false end
-		if hasQ and not f.q[r.quality] then return false end
+		-- (1.10.0-beta14, R4) a quality that isn't known yet fits no chip, as it fits no Quality rule: the chips and the
+		-- rule Save as Section... makes of them mean the same
+		if hasQ and not ((not Rules or Rules.QualityKnown(r)) and f.q[r.quality]) then return false end
 		if hasCat and not (f.cat[r.cat] or (ns.PARENT_CAT[r.cat] and f.cat[ns.PARENT_CAT[r.cat]])) then
 			-- (1.10.0-beta5) or the section it's in on this tab, when that is one that only shows on some sheets
 			local here = (sheet and S) and S:CatOn(r, sheet) or nil

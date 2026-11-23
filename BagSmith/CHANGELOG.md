@@ -24,7 +24,9 @@ New:
 - With ItemTree, the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep. They show it
   with the other items they don't offer, and each Helper has its own switch in Settings > Addon Sources. A piece
   ItemTree keeps for its dust still shows in the Disenchant Helper, and the Loot Helper still offers your junk.
-  While its switch is on and ItemTree can't answer about an item, that item is held back too.
+  While its switch is on and ItemTree hasn't answered about an item yet, that item is held back under Waiting for
+  ItemTree, and shows by itself once ItemTree answers. Clear Soul Shards is your own action with its own count to
+  keep, and doesn't ask ItemTree.
 - With Pawn, the Disenchant Helper can hold back a piece Pawn says is an upgrade for you. That switch is in
   Settings > Addon Sources too, and it's off until you turn it on.
 - A new Settings page, Addon Sources, shows what BagSmith does with Auctionator, Blackthornes Tradeskills, ItemTree

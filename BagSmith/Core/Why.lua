@@ -26,6 +26,8 @@ Why.LABEL = {
 	protected = "Protected by you",   -- (1.7.0-beta1) the Loot Helper's Protect
 	questneed = "Needed for a quest",   -- (1.7.0-beta3) a quest objective asks for it
 	unknown = "Couldn't be checked right now",
+	-- (1.10.0-beta14, Shweep: "agreed") ItemTree is on for this Helper and hasn't answered about these yet
+	itemtreewait = "Waiting for ItemTree",
 }
 -- singular and plural for the empty card's sentence
 Why.NOUN = {
@@ -45,8 +47,9 @@ Why.NOUN = {
 	protected = { "item you protected", "items you protected" },
 	questneed = { "item a quest needs", "items quests need" },
 	unknown = { "item that couldn't be checked", "items that couldn't be checked" },
+	itemtreewait = { "item waiting for ItemTree", "items waiting for ItemTree" },
 }
-Why.ORDER = { "favorite", "protected", "gearset", "junk", "quest", "questneed", "pawn", "itemtree", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
+Why.ORDER = { "favorite", "protected", "gearset", "junk", "quest", "questneed", "pawn", "itemtree", "itemtreewait", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
 Why.SHOWN_NAMES = 3
 
 function Why:New() return { total = 0, by = {} } end

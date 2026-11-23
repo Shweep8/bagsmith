@@ -583,7 +583,8 @@ function MR:Suggestions(waiting, judge)
 			-- unreadable safety answer is a no
 			if not why and worth and not junk and ns.ItemTree then
 				local verdict = ns.ItemTree:Verdict(r)
-				if verdict == "hold" then why = "itemtree" elseif verdict == "unknown" then why = "unknown" end
+				-- (1.10.0-beta14, the re-audit's R5) under a heading of its own that names ItemTree
+				if verdict == "hold" then why = "itemtree" elseif verdict == "unknown" then why = "itemtreewait" end
 			end
 			if why then
 				if worth then ns.Why:Add(held, why, r.name) end
@@ -1146,6 +1147,12 @@ function MR:LiveShards()
 	end
 	return total
 end
+-- (1.10.0-beta14, the beta13 re-audit's R6; Shweep: "leave as is and say so") Clear Soul Shards does not ask the
+-- ItemTree addon, whatever its Hold Back switch says. It is the player's own action, started by the player, with the
+-- player's own count to keep (Soul Shards to Keep), the same kind of "your word" as a junk mark; and if ItemTree
+-- kept shards, asking it would leave this button with nothing it may do. Its gates are its own, below: the count
+-- kept (read live), the lock, the bag family, and the confirmation when Ask Before Destroying is on. The Hold Back
+-- help line in Settings > Addon Sources and the changelog say so.
 function MR:DestroyNextShard(btn)
 	local list, can = self:Shards()
 	-- (1.5.1-beta3, L3) a batch started without a question isn't carried on once Ask Before Destroying is on: this
@@ -1745,6 +1752,11 @@ function MR:PaintSections(f, waiting, shardsOnly, y, hi)
 	local options = {}
 	if #waiting > 0 then placeRule(f, f.rule1, y + 6); y = y + 14 end
 	local heldN = held and held.total or 0
+	-- (1.10.0-beta14, R5) items waiting for ItemTree: the open Helper looks again by itself in a few seconds, and keeps
+	-- doing so while any wait (a failure that passes with no word from ItemTree is noticed this way)
+	if held and held.by.itemtreewait and #held.by.itemtreewait > 0 and ns.ItemTree and ns.ItemTree.RetrySoon then
+		ns.ItemTree:RetrySoon("loot", function() if MR.frame and MR.frame:IsShown() then MR:Refresh() end end)
+	end
 	-- (1.7.0-beta10) One list of the ways to make room for the target: free ways first (combining stacks, Clean Up Bags),
 	-- then items to let go, least missed first; the cost on the right. One choice, one button.
 	local n = shardsOnly and 0 or (#combine + (cleanUp and 1 or 0) + #destroy)
@@ -2147,6 +2159,8 @@ function MR:Install()
 	ns:OnSignal("PRICE_SOURCE_CHANGED", repriced)
 	-- (1.10.0-beta13) ItemTree became ready: what waited under "couldn't be checked" is asked about again
 	ns:OnSignal("ITEMTREE_READY", function() if MR.frame and MR.frame:IsShown() then MR:Refresh() end end)
+	-- (1.10.0-beta14, R5) or said its answers changed
+	ns:OnSignal("ITEMTREE_CHANGED", function() if MR.frame and MR.frame:IsShown() then MR:Refresh() end end)
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
 		if key == "makeRoomValue" then repriced(); return end
 		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" and key ~= "makeRoomHoldItemTree" and key ~= "makeRoomHoldPawn" then return end

@@ -96,7 +96,11 @@ end
 		check(IT:Verdict(recOf(n, 2996), true) == "unknown" and IT:Verdict(recOf(n, 2996), true, true) == "unknown", how .. ": a known Keep asked afresh, and ItemTree fails: unknown, not clear")
 		check(IT:Verdict(recOf(n, 6530), true) == "unknown", how .. ": the same for a known no")
 		check(IT:Holds(recOf(n, 2996), true) == true and IT:Holds(recOf(n, 6530), true) == true and IT:Holds(recOf(n, 6530), true, true) == true, how .. ": IT:Holds says hold for both: no answer is never a no")
-		check(IT:Verdict(recOf(n, 2996)) == "hold" and IT:Verdict(recOf(n, 6530)) == "clear", how .. ": the answers it gave before are still held (a failed refresh replaces nothing)")
+		-- (by design since 1.10.0-beta14, the beta13 re-audit's R5: the answer held before is still kept, for the rules.
+		-- A Helper's list no longer leans on it after a read that failed: it asks again, and says unknown while ItemTree
+		-- still fails. Before, this check read the old answers back through IT:Verdict.)
+		check(IT:Facts(recOf(n, 2996)).kept == true and IT:Facts(recOf(n, 6530)).kept == false, how .. ": the answers it gave before are still held for the rules (a failed refresh replaces nothing)")
+		check(IT:Verdict(recOf(n, 2996)) == "unknown" and IT:Verdict(recOf(n, 6530)) == "unknown", how .. ": and a Helper's list asks again rather than lean on them: unknown while ItemTree fails")
 		it[how] = nil
 	end
 	check(IT:Verdict(recOf(n, 2996), true) == "hold" and IT:Verdict(recOf(n, 6530), true) == "clear", "ItemTree answers again: hold and clear, as before")
@@ -208,7 +212,9 @@ do
 		check(f and f:IsShown() and offered(f) == "Broken Fang", S0 .. "ItemTree on but not ready: what it would be asked about waits, and only your junk is offered (" .. tostring(f and offered(f)) .. ")")
 		check(f.held:IsShown() and f.held.text == "2 protected items aren't offered", S0 .. "the two are counted with what isn't offered (" .. tostring(f.held.text) .. ")")
 		local line = plain(f.heldInfo.lines[1])
-		check(line:find("Couldn't be checked right now (2):", 1, true) and line:find("Gnoll Paw", 1, true) and line:find("Linen Belt", 1, true) and #f.heldInfo.lines == 1, S0 .. "under Couldn't be checked right now (" .. line .. ")")
+		-- (by design since 1.10.0-beta14, Shweep: "agreed": a heading of its own that names ItemTree; it was "Couldn't be
+		-- checked right now")
+		check(line:find("Waiting for ItemTree (2):", 1, true) and line:find("Gnoll Paw", 1, true) and line:find("Linen Belt", 1, true) and #f.heldInfo.lines == 1, S0 .. "under Waiting for ItemTree (" .. line .. ")")
 		check(it.calls == 0 and it.requested == 0, S0 .. "ItemTree wasn't asked for facts, or to load")
 		local ok, why = MR:StillOk(MR:Offer(recOf(n, 9702), false, "priced", 22))
 		check(ok == false and why == "itemtreeunknown", S0 .. "an offer for the belt is refused at the click (" .. tostring(why) .. ")")
@@ -253,11 +259,10 @@ do
 		-- the list drawn while it fails: answers it already gave stand; what it's never said waits
 		MR:Refresh()
 		check(offered(f) == "Broken Fang,Linen Belt", S0 .. "the list drawn again while ItemTree fails: its earlier answers stand (" .. offered(f) .. ")")
-		it.raise = nil
+		-- (by design since 1.10.0-beta14: ItemTree's change notice now redraws the open Helper itself, so the failure is
+		-- in place before the notice here, and the heading names ItemTree)
 		it.onChange("stock"); pump(M)
-		it.raise = true
-		MR:Refresh()
-		check(offered(f) == "Broken Fang" and plain(f.heldInfo.lines[1]):find("Couldn't be checked right now (2):", 1, true) ~= nil, S0 .. "ItemTree said its answers changed, then fails: both wait again (" .. offered(f) .. ")")
+		check(offered(f) == "Broken Fang" and plain(f.heldInfo.lines[1]):find("Waiting for ItemTree (2):", 1, true) ~= nil, S0 .. "ItemTree says its answers changed while it fails: both wait again (" .. offered(f) .. ")")
 		-- the switch off: the Helper is as it was without ItemTree, and it isn't asked
 		local calls = it.calls
 		n:Set("makeRoomHoldItemTree", false); M.runTimers()
@@ -312,10 +317,12 @@ end
 	local it = { facts = facts(), ready = false }
 	n, M, DE = deBoot(it)
 	DE:Show(); M.runTimers()
-	check(offeredNames(DE) == "" and DE.held and DE.held.total == 3 and names(DE.held.by.unknown) == "Enchanted Moonstalker Cloak, Lupine Slippers of the Falcon, Rare Chest",
-		"ItemTree on but not ready: nothing is offered, and all three wait (" .. offeredNames(DE) .. " / " .. names(DE.held and DE.held.by.unknown) .. ")")
+	-- (by design since 1.10.0-beta14: the reason and its heading name ItemTree; they were "unknown" and "Couldn't be
+	-- checked right now")
+	check(offeredNames(DE) == "" and DE.held and DE.held.total == 3 and names(DE.held.by.itemtreewait) == "Enchanted Moonstalker Cloak, Lupine Slippers of the Falcon, Rare Chest",
+		"ItemTree on but not ready: nothing is offered, and all three wait (" .. offeredNames(DE) .. " / " .. names(DE.held and DE.held.by.itemtreewait) .. ")")
 	local lines = n.Why:Lines(DE.held)
-	check(#lines == 1 and plain(lines[1]):find("Couldn't be checked right now (3):", 1, true) ~= nil, "Not offered: Couldn't be checked right now (3) (" .. plain(lines[1]) .. ")")
+	check(#lines == 1 and plain(lines[1]):find("Waiting for ItemTree (3):", 1, true) ~= nil, "Not offered: Waiting for ItemTree (3) (" .. plain(lines[1]) .. ")")
 	check(it.calls == 0 and it.requested == 0, "ItemTree wasn't asked for facts, or to load")
 	it.ready = true
 	it.onReady(); M.runTimers()
@@ -349,10 +356,10 @@ end
 	DE:Refresh()
 	check(offeredNames(DE) == "Lupine Slippers of the Falcon, Rare Chest" and names(DE.held.by.itemtree) == "Enchanted Moonstalker Cloak", "the list drawn again holds the cloak under ItemTree says to keep")
 	-- the list while ItemTree fails about something it never answered
-	it.onChange("stock"); pump(M)
+	-- (by design since 1.10.0-beta14: the change notice redraws the open Helper itself, so the failure is in place first)
 	it.raise = true
-	DE:Refresh()
-	check(offeredNames(DE) == "" and DE.held.total == 3 and #(DE.held.by.unknown or {}) == 3, "its answers were let go and it fails: all three wait again (" .. offeredNames(DE) .. ")")
+	it.onChange("stock"); pump(M)
+	check(offeredNames(DE) == "" and DE.held.total == 3 and #(DE.held.by.itemtreewait or {}) == 3, "its answers were let go while it fails: all three wait again (" .. offeredNames(DE) .. ")")
 	-- the switch off
 	local calls = it.calls
 	n:Set("deHoldItemTree", false); M.runTimers()
@@ -718,13 +725,16 @@ end)()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
 	local flat = section:gsub("%s+", " ")
 	check(not flat:find("Other Addons", 1, true) and flat:find("and for filters ItemTree's Advice. Settings > Addon Sources turns it on or off.", 1, true), "the changelog's ItemTree line says Settings > Addon Sources")
-	check(flat:find("A piece ItemTree keeps for its dust still shows in the Disenchant Helper, and the Loot Helper still offers your junk. While its switch is on and ItemTree can't answer about an item, that item is held back too.", 1, true),
+	-- (by design since 1.10.0-beta14: the second sentence names the heading and what happens next, and a third says
+	-- Clear Soul Shards is separate)
+	check(flat:find("A piece ItemTree keeps for its dust still shows in the Disenchant Helper, and the Loot Helper still offers your junk. While its switch is on and ItemTree hasn't answered about an item yet, that item is held back under Waiting for ItemTree, and shows by itself once ItemTree answers.", 1, true),
 		"and says what happens when ItemTree can't answer")
 	check(not section:find("\226\128\148") and not section:find("\226\128\147"), "with no dashes")
 	-- the words a player reads at a refused click
 	local mr = io.open("BagSmith/Core/MakeRoom.lua"); local src = mr:read("*a"); mr:close()
 	check(src:find("ItemTree couldn't be asked about that item just now, so nothing was destroyed. Try again in a moment, or untick its Hold Back in the Loot Helper in Settings > Addon Sources.", 1, true), "the Loot Helper's refusal says how to go on")
-	check(n.Why.LABEL.unknown == "Couldn't be checked right now", "and the list's heading for what waits is the one BagSmith already used")
+	-- (by design since 1.10.0-beta14: its own heading)
+	check(n.Why.LABEL.itemtreewait == "Waiting for ItemTree" and n.Why.LABEL.unknown == "Couldn't be checked right now", "and the list's heading for what waits names ItemTree")
 	f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
 	check(toc:find("## Version: 1.10.0", 1, true), "the TOC says 1.10.0 (the exact version is pinned in tests/run.lua)")
 end)()

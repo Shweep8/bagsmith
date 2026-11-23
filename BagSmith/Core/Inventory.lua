@@ -187,6 +187,10 @@ local function wornRecord(e)
 			rec.name, rec.quality, rec.ilvl, rec.minLevel, rec.itemType, rec.itemSubType = name, quality, ilvl, minLevel, iType, iSub
 			rec.equipLoc, rec.icon, rec.sellPrice, rec.classID, rec.subclassID = equipLoc, icon, sellPrice, classID, subclassID
 		end
+		-- (1.10.0-beta14, R3) the Common above, and a name that is only "item 1234", are for showing until the game
+		-- describes the item
+		if not (ok and name and quality) then rec.qualityUnknown = true end
+		if not (ok and name) and not (e.link and (e.link:match("%[(.-)%]") or "") ~= "") then rec.nameUnknown = true end
 	end
 	if not rec.icon and GetItemIcon then rec.icon = GetItemIcon(id) end
 	rec.isBound = true

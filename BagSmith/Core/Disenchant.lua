@@ -799,14 +799,14 @@ function DE:Eligible(rec, skill)
 	if ns.ItemTree then
 		local verdict = ns.ItemTree:Verdict(rec, nil, true)
 		if verdict == "hold" then return false, "itemtree" end
-		if verdict == "unknown" then return false, "unknown" end
+		if verdict == "unknown" then return false, "itemtreewait" end   -- (1.10.0-beta14: its own heading, which names ItemTree)
 	end
 	return true
 end
 
 -- Every eligible item in the bags, with its values and verdict, best disenchant first.
 -- Eligible's reasons that mean "held back" (an item that would otherwise be considered), in the shared words.
-DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic", itemtree = "itemtree", pawn = "pawn", unknown = "unknown" }
+DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic", itemtree = "itemtree", pawn = "pawn", itemtreewait = "itemtreewait" }
 -- (1.10.0-beta8) Pawn finished a pass over its answers (Core/Pawn.lua). While Hold Back Pawn Upgrades is on, the list
 -- is drawn again when Pawn's answer about one of its pieces changed: Pawn can say "not yet" the first time it's asked.
 function DE:PawnPass()
@@ -1655,6 +1655,11 @@ function DE:Refresh()
 	-- on. A refresh queued before a close (combat's end runs both) leaves a closed helper disarmed.
 	if not self:IsOpen() then self:Arm(nil); return end
 	self.entries = self:Entries()
+	-- (1.10.0-beta14, the re-audit's R5) pieces waiting for ItemTree: the open Helper looks again by itself in a few
+	-- seconds, and keeps doing so while any wait
+	if self.held and self.held.by.itemtreewait and #self.held.by.itemtreewait > 0 and ns.ItemTree and ns.ItemTree.RetrySoon then
+		ns.ItemTree:RetrySoon("disenchant", function() if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end end)
+	end
 	-- the current item: keep it if it is still there, else the first
 	local keep
 	if self.current then
@@ -1843,6 +1848,8 @@ ns:OnSignal("PRICE_SOURCE_CHANGED", function()
 end)
 -- (1.10.0-beta13) ItemTree became ready: what waited under "couldn't be checked" is asked about again
 ns:OnSignal("ITEMTREE_READY", function() if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end end)
+-- (1.10.0-beta14, R5) or said its answers changed
+ns:OnSignal("ITEMTREE_CHANGED", function() if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end end)
 ns:OnSignal("SETTINGS_CHANGED", function(key)
 	if key == nil or key == "deEnabled" then DE:Reconcile() end
 	if (key == nil or key == "deMargin" or key == "deAhMargin" or key == "deLeveling" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks" or key == "deHoldItemTree" or key == "deHoldPawn") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
