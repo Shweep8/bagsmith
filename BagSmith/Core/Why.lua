@@ -15,6 +15,7 @@ Why.LABEL = {
 	junk = "Marked as junk",   -- (1.10.0-beta3) the Disenchant Helper leaves these for the vendor
 	quest = "Quest items",
 	pawn = "Pawn upgrades",
+	itemtree = "ItemTree says to keep",   -- (1.10.0-beta7) the optional ItemTree addon's Keep mark
 	novalue = "No vendor price",
 	refundable = "Refundable",
 	tradeable = "Still tradeable",
@@ -33,6 +34,7 @@ Why.NOUN = {
 	junk = { "item you marked as junk", "items you marked as junk" },
 	quest = { "quest item", "quest items" },
 	pawn = { "Pawn upgrade", "Pawn upgrades" },
+	itemtree = { "item ItemTree says to keep", "items ItemTree says to keep" },
 	novalue = { "item with no vendor price", "items with no vendor price" },
 	refundable = { "refundable item", "refundable items" },
 	tradeable = { "still-tradeable item", "still-tradeable items" },
@@ -44,7 +46,7 @@ Why.NOUN = {
 	questneed = { "item a quest needs", "items quests need" },
 	unknown = { "item that couldn't be checked", "items that couldn't be checked" },
 }
-Why.ORDER = { "favorite", "protected", "gearset", "junk", "quest", "questneed", "pawn", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
+Why.ORDER = { "favorite", "protected", "gearset", "junk", "quest", "questneed", "pawn", "itemtree", "deExcluded", "lootExcluded", "refundable", "tradeable", "epic", "skill", "novalue", "unknown" }
 Why.SHOWN_NAMES = 3
 
 function Why:New() return { total = 0, by = {} } end

@@ -21,6 +21,8 @@ New:
 - With the ItemTree addon installed, your section and filter rules can use what it knows: Used by My Professions,
   Needed for a Quest, An Upgrade for Me and Sold by Vendors, and for filters ItemTree's Advice. Use ItemTree in
   Settings > General turns it on or off. ItemTree is optional, and BagSmith works the same without it.
+- With ItemTree, the Loot Helper and Disenchant Helper also hold back an item ItemTree says to keep. They show it
+  with the other items they don't offer, and the option sits under Use ItemTree.
 Changed:
 - The Gear, Consumables, Trade Goods, Quest and Junk tabs show every item of their kind, grouped under your own
   sections where you have them. Before, an item in one of your sections left its tab.

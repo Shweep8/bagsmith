@@ -750,6 +750,8 @@ function DE:LiveCheck(entry)
 		if unknownT then return false, "whether that item is tradeable could not be checked" end
 		if isTradeable then return false, "that item is still tradeable" end
 	end
+	-- (1.10.0-beta7) and the ItemTree addon's word, asked fresh
+	if ns.ItemTree and ns.ItemTree:Holds({ itemID = entry.itemID, link = info.hyperlink or entry.link }, true) then return false, "ItemTree says to keep that item" end
 	return true
 end
 -- Why an item is in or out. Returns true, or false and a short reason.
@@ -773,12 +775,14 @@ function DE:Eligible(rec, skill)
 		if refundable(rec) then return false, "refundable" end
 		if tradeable(rec) then return false, "tradeable" end
 	end
+	-- (1.10.0-beta7) last, so it's only asked about what would otherwise be offered: the ItemTree addon says keep it
+	if ns.ItemTree and ns.ItemTree:Holds(rec) then return false, "itemtree" end
 	return true
 end
 
 -- Every eligible item in the bags, with its values and verdict, best disenchant first.
 -- Eligible's reasons that mean "held back" (an item that would otherwise be considered), in the shared words.
-DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic" }
+DE.HELD = { never = "deExcluded", favorite = "favorite", ["gear set"] = "gearset", junk = "junk", skill = "skill", refundable = "refundable", tradeable = "tradeable", epic = "epic", itemtree = "itemtree" }
 function DE:Entries()
 	local out = {}
 	local skill = self:Skill()
@@ -1805,7 +1809,7 @@ ns:OnSignal("PRICE_SOURCE_CHANGED", function()
 end)
 ns:OnSignal("SETTINGS_CHANGED", function(key)
 	if key == nil or key == "deEnabled" then DE:Reconcile() end
-	if (key == nil or key == "deMargin" or key == "deAhMargin" or key == "deLeveling" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
+	if (key == nil or key == "deMargin" or key == "deAhMargin" or key == "deLeveling" or key == "deIncludeEpics" or key == "deSkipRefundable" or key == "marks" or key == "itemTreeHold" or key == "useItemTree") and ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end
 	if (key == nil or key == "deEnabled") and ns.Window and ns.Window.main and ns.Window.main.RefreshToolbar then ns.Window.main:RefreshToolbar() end
 end)
 

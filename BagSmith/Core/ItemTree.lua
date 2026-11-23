@@ -1,5 +1,5 @@
 --[[
-	Core/ItemTree.lua (1.10.0-beta6)
+	Core/ItemTree.lua (1.10.0-beta6; the Helpers' question, IT:Holds, 1.10.0-beta7)
 
 	ItemTree is another addon, and optional. It knows what an item is for on the character you're playing: whether a
 	profession of yours uses it, whether a quest needs it, whether it's an upgrade, whether vendors sell it, and what it
@@ -69,6 +69,8 @@ function IT.Read(f)
 		quest = (type(needs) == "table" and #needs > 0) or false,
 		upgrade = (type(gear) == "table" and gear.upgrade == true) or false,
 		vendor = (type(vendors) == "table" and type(vendors.count) == "number" and vendors.count > 0) or false,
+		-- (1.10.0-beta7) its Keep mark, for the Loot Helper and the Disenchant Helper (IT:Holds); no rule reads it
+		kept = (type(keep) == "table" and keep.marked == true) or false,
 		tags = {},
 	}
 	local tags = type(keep) == "table" and keep.tags
@@ -161,6 +163,30 @@ function IT:Facts(rec)
 	return nil
 end
 
+-- (1.10.0-beta7) Does ItemTree say to keep this item? For the Loot Helper and the Disenchant Helper, which act on the
+-- answer: asked on the spot if it isn't known (a handful of items, the ones a Helper would otherwise offer), and with
+-- fresh, asked again whatever is known (the Loot Helper's check at the click). True only on a clear yes: no ItemTree,
+-- the setting off, not ready, or no answer all mean the Helpers go on as they always have. It only ever adds a reason
+-- to hold an item back; it never takes one away.
+function IT:Holds(rec, fresh)
+	if not (ns.db and ns.db.itemTreeHold ~= false) then return false end
+	if type(rec) ~= "table" or not rec.itemID or rec.global or rec.empty then return false end
+	if not self:Ready() then return false end
+	local key = rec.link or rec.itemID
+	local e = known[key]
+	if e == nil or fresh then
+		local A = api()
+		local ok, f = pcall(A.GetItemFacts, rec.itemID, rec.link)
+		local now = ok and IT.Read(f) or false
+		-- (a rule may be reading the same answer, or waiting for it: the views hear of it on the next frame)
+		if queued[key] ~= nil or (e ~= nil and not same(e, now)) or (was[key] ~= nil and not same(was[key], now)) then changed = true end
+		known[key], idOf[key], was[key], queued[key] = now, rec.itemID, nil, nil
+		e = now
+		if changed and not ticking then ticking = true; C_Timer.After(0, tick) end
+	end
+	return e and e.kept == true or false
+end
+
 -- Forgets answers so they're asked again: one key, or everything. What was known is kept aside to compare with, so
 -- nothing is redrawn when the new answers say the same. Asked again at once only while a rule wants them.
 local function forget(key)
@@ -213,7 +239,8 @@ ns:OnSignal("ADDON_READY", function()
 	-- The bags changed: an item whose count changed is asked again (ItemTree's change notice is for changes with no
 	-- bag change), and one that's gone is let go.
 	ns:OnSignal("ITEMS_CHANGED", function()
-		if not next(known) and not ticking then counts = {}; return end
+		-- (1.10.0-beta7) the counts are kept whether or not anything is known yet: a Helper's question can come between
+		-- two looks at the bags, and a stack that changed right after it must still be noticed
 		local now = {}
 		live = {}
 		for _, list in ipairs({ ns.items or {}, ns.bankItems or {} }) do
@@ -224,6 +251,7 @@ ns:OnSignal("ADDON_READY", function()
 				end
 			end
 		end
+		if not next(known) and not ticking then counts = now; return end
 		local stale, gone, total = {}, {}, 0
 		for key, id in pairs(idOf) do
 			total = total + 1
@@ -242,7 +270,7 @@ ns:OnSignal("ADDON_READY", function()
 	-- The setting, or another profile: start over, and redraw at once (off means those rules fit nothing).
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
 		if key ~= "useItemTree" and key ~= nil then return end
-		known, was, idOf, counts, queue, queued, head, changed, live = {}, {}, {}, {}, {}, {}, 1, false, nil
+		known, was, idOf, queue, queued, head, changed = {}, {}, {}, {}, {}, 1, false   -- (the bags' counts stay: they're the bags', not ItemTree's)
 		if key == "useItemTree" then
 			ns:Fire("ITEMTREE_FACTS")
 			if ns.Sections and ns.Sections.Reapply then ns.Sections:Reapply() end

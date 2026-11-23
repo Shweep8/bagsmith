@@ -467,7 +467,7 @@ function RL:AddMenu(button)
 	items[#items].gap = true
 	local IT = ns.ItemTree
 	if IT and IT:Enabled() then
-		items[#items + 1] = { text = "What ItemTree knows", title = true }
+		items[#items + 1] = { text = "What ItemTree knows", title = true, color = { 0.624, 0.902, 0.882 } }   -- (1.10.0-beta7) ItemTree's teal
 		for _, kind in ipairs(self:ItemTreeKinds()) do
 			items[#items + 1] = { text = R.KEYS[kind.k].label, tip = kind.hint, onClick = function() L:AddRow(kind.k) end }
 		end

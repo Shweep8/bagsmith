@@ -1676,6 +1676,8 @@ pages.profile = function(self, db)
 end
 
 -- General: how BagSmith opens, which of Blizzard's windows it stands in for, and its notices.
+-- (1.10.0-beta7) The ItemTree addon's name, in the color that marks what comes from it (Shweep: "can we color the addon name?").
+Panel.ITEMTREE = "|cff9fe6e1ItemTree|r"
 pages.general = function(self, db)
 	self:Head("Opening BagSmith")
 	self:Check("replaceBlizzardBags", "Open with the Bag Keybind (B)", "Turn off to keep Blizzard's bags on B. You can still open BagSmith from the minimap button or /bs.")
@@ -1696,13 +1698,21 @@ pages.general = function(self, db)
 	-- (1.10.0-beta6) ItemTree: optional, always listed, and the switch says which of three states it's in
 	self:Head("Other Addons")
 	do
+		-- (1.10.0-beta7, Shweep: "the description is somewhat confusing"; his pick of the wording, the state on a line of
+		-- its own, and the addon's name in its own color)
 		local IT = ns.ItemTree
 		local installed = IT and IT:Installed()
-		local status = not installed and "ItemTree isn't installed. You don't need it. If you add it later, this switch comes alive."
-			or (db.useItemTree ~= false and "ItemTree is installed, and BagSmith is using it." or "ItemTree is installed. Tick this whenever you want BagSmith to use it.")
-		self:Check("useItemTree", "Use ItemTree", "ItemTree is another addon that knows what your items are for. With this on, your sections and filters can use what it knows, "
-			.. "like which items your professions use or which a quest needs. BagSmith works the same without it. " .. status,
+		local on = installed and db.useItemTree ~= false
+		local name = Panel.ITEMTREE
+		self:Check("useItemTree", "Use ItemTree", ("Adds section and filter rules that use the %s addon, such as Used by My Professions and Needed for a Quest."):format(name),
 			not installed and { disabled = true, checked = false } or nil)
+		self:Text(not installed and ("%s isn't installed, so there's nothing to turn on. It's optional."):format(name)
+			or (on and ("%s is installed and its rules are available."):format(name) or ("%s is installed. Rules that use it are paused until you tick this."):format(name)))
+		-- (1.10.0-beta7) the Helpers hold back what ItemTree says to keep
+		self:Indented(function()
+			self:Check("itemTreeHold", "Hold Back What ItemTree Says to Keep", ("The Loot Helper and Disenchant Helper won't offer an item that %s says to keep."):format(name),
+				not on and { disabled = true, checked = false } or nil)
+		end)
 	end
 	-- (1.6.0) tips on BagSmith's own controls
 	self:Head("Tooltips")   -- (1.9.0-beta2, Shweep) was "Tips"

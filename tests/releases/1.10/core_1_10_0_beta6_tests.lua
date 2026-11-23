@@ -145,6 +145,15 @@ local function shown(main)
 	return table.concat(t, ", ")
 end
 local MATS = "Bear Meat, Bolt of Linen Cloth, Empty Vial, Fine Thread, Leaded Vial, Sweet Nectar"
+-- (by design since 1.10.0-beta7, Shweep: "the description is somewhat confusing": the row's description is one
+-- sentence, the state is on a line of its own under it, and the addon's name is in its own color)
+local function plain(s) return (tostring(s or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+local function stateLine(P)
+	for _, w in ipairs(P.pools.text or {}) do
+		local words = plain(w.text and w.text.text)
+		if w:IsShown() and (words:find("^ItemTree is") or words:find("^ItemTree isn't")) then return words end
+	end
+end
 
 ;(function()
 	-- ItemTree's real answers, as the few a rule reads
@@ -195,8 +204,8 @@ end)()
 	local row
 	for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == "useItemTree" then row = w end end
 	check(row and row.text.text == "Use ItemTree" and not row.box:IsEnabled() and not row.box:GetChecked(), "Use ItemTree is listed, greyed and unticked")
-	check(row.help.text:find("ItemTree is another addon that knows what your items are for.", 1, true) and row.help.text:find("BagSmith works the same without it.", 1, true)
-		and row.help.text:find("ItemTree isn't installed. You don't need it. If you add it later, this switch comes alive.", 1, true), "it says what ItemTree is, and that you don't need it")
+	check(plain(row.help.text) == "Adds section and filter rules that use the ItemTree addon, such as Used by My Professions and Needed for a Quest."
+		and stateLine(P) == "ItemTree isn't installed, so there's nothing to turn on. It's optional.", "it says what the switch adds, and that ItemTree is optional")
 	P:Hide()
 	check(n.db.useItemTree == true, "(the setting itself is on, for the day ItemTree is installed)")
 	check((n.errors or 0) == 0, "no errors")
@@ -284,11 +293,11 @@ end
 	P:Show(); P:ShowPage("general"); M.runTimers()
 	local row
 	for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == "useItemTree" then row = w end end
-	check(row and row.box:IsEnabled() and not row.box:GetChecked() and row.help.text:find("ItemTree is installed. Tick this whenever you want BagSmith to use it.", 1, true), "Settings: installed and off, ready to tick")
+	check(row and row.box:IsEnabled() and not row.box:GetChecked() and stateLine(P) == "ItemTree is installed. Rules that use it are paused until you tick this.", "Settings: installed and off, ready to tick")
 	row.box:SetChecked(true); click(row.box); pump(M)
 	row = nil
 	for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == "useItemTree" then row = w end end
-	check(n.db.useItemTree == true and row and row.box:GetChecked() and row.help.text:find("ItemTree is installed, and BagSmith is using it.", 1, true), "ticked: on, and it says BagSmith is using it")
+	check(n.db.useItemTree == true and row and row.box:GetChecked() and stateLine(P) == "ItemTree is installed and its rules are available.", "ticked: on, and it says its rules are available")
 	check(inSection(n, mats) == MATS and it.calls == asked + 9, "and the section fills again, each item asked afresh")
 	local heads = {}
 	for _, w in ipairs(P.pools.head or {}) do if w:IsShown() then heads[#heads + 1] = tostring(w.text and w.text.text or w.text) end end

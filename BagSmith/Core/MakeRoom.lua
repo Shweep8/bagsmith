@@ -576,6 +576,9 @@ function MR:Suggestions(waiting, judge)
 				local sets, unreadable = ns.GearSets:SetsAt(r.bag, r.slot)
 				if unreadable then why = "unknown" elseif sets then why = "gearset" end
 			end
+			-- (1.10.0-beta7) the ItemTree addon says keep it. Asked last, and only about what would otherwise be
+			-- offered. Not for junk: a grey, or your own junk mark, is your word.
+			if not why and worth and not junk and ns.ItemTree and ns.ItemTree:Holds(r) then why = "itemtree" end
 			if why then
 				if worth then ns.Why:Add(held, why, r.name) end
 			elseif worth then
@@ -1019,6 +1022,8 @@ function MR:StillOk(o)
 		if up == true then return false, "upgrade" end
 		if up == nil then return false, "pawn" end
 	end
+	-- (1.10.0-beta7) ItemTree says keep it: asked fresh, right before destroying. Not for an item offered as junk.
+	if not o.junk and ns.ItemTree and ns.ItemTree:Holds({ itemID = o.itemID, link = info.hyperlink or o.link }, true) then return false, "itemtree" end
 	-- Last: it must still be worth letting go for what's waiting now. The valuable item that justified the offer
 	-- may have been looted by someone else or skipped since (1.3.0-beta2). Protections are checked first, so a
 	-- protected item says why it's protected.
@@ -1045,6 +1050,7 @@ local REFUSED = {
 	quest = "That's a quest item, so nothing was destroyed.",
 	upgrade = "Pawn says that item is an upgrade, so nothing was destroyed.",
 	pawn = "Pawn hasn't decided yet whether that item is an upgrade. Try again in a moment.",
+	itemtree = "ItemTree says to keep that item, so nothing was destroyed.",   -- (1.10.0-beta7)
 	stale = "That offer was for a different loot window, so nothing was destroyed.",
 	nohelp = "Destroying that wouldn't make room for what's waiting now, so nothing was destroyed.",
 	unknown = "BagSmith couldn't check your gear sets just now, so nothing was destroyed. Try again in a moment.",
@@ -2128,7 +2134,7 @@ function MR:Install()
 	ns:OnSignal("PRICE_SOURCE_CHANGED", repriced)
 	ns:OnSignal("SETTINGS_CHANGED", function(key)
 		if key == "makeRoomValue" then repriced(); return end
-		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" then return end
+		if key ~= nil and key ~= "makeRoomAsk" and key ~= "makeRoomAskRare" and key ~= "itemTreeHold" and key ~= "useItemTree" then return end
 		if MR.shardBatch and not MR.shardConfirmed and ns.db and ns.db.makeRoomAsk then MR.shardBatch = nil end
 		if MR.frame and MR.frame:IsShown() then MR:Refresh() end
 	end)
