@@ -1,3 +1,13 @@
+## 1.10.1
+
+Fixed:
+- Bags that stayed shut at vendors, the mailbox, trades and the auction house. For some players the game's own bag
+  call closed BagSmith the instant it opened, so nothing showed up. Opening with your bag key always worked.
+
+Changed:
+- Settings > General: Open with the Bag Keybind names the key your bags are really on, such as Tab, instead of always
+  saying B.
+
 ## 1.10.0
 
 New:

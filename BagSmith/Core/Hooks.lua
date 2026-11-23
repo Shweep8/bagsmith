@@ -20,14 +20,20 @@ parked:Hide()
 Hooks.parked = parked   -- (read by the controller probe, to name this frame in its report)
 local originalParent = ContainerFrameContainer or UIParent
 
-local function managed(bag)
-	if not ns.db or not ns.db.replaceBlizzardBags then return false end
+-- The bags BagSmith stands in for, whatever the setting says. (1.10.1-beta1: split from managed, so Settings can
+-- tell which of the game's bag keys open BagSmith.)
+local function covers(bag)
 	for _, b in ipairs(ns.ALL_BAGS) do
 		-- (1.7.5-beta1) Forever's keyring (-1) stays Blizzard's: its keyring button opens Blizzard's keyring window,
 		-- as it did when -1 was taken for the bank. The keys also show in BagSmith's bags, in Keys.
 		if b == bag and b ~= ns.BANK and not (ns.KEYRING_WAS_BANK and b == ns.KEYRING_WAS_BANK) then return true end
 	end
 	return false
+end
+Hooks.Covers = covers
+local function managed(bag)
+	if not ns.db or not ns.db.replaceBlizzardBags then return false end
+	return covers(bag)
 end
 
 function Hooks:Install()
@@ -79,6 +85,11 @@ function Hooks:Install()
 	-- could match and be ignored while Blizzard still played its bag sound
 	-- (player report: the first press after the game menu did nothing).
 	local handled = false
+	-- The rest of this frame's bag calls belong to what was just handled.
+	local function settle()
+		handled = true
+		C_Timer.After(0, function() handled = false end)
+	end
 	local function stackSummary()
 		local names = {}
 		for name in tostring(debugstack and debugstack() or ""):gmatch("in function [`'<]([^'>]+)") do
@@ -87,19 +98,27 @@ function Hooks:Install()
 		end
 		return table.concat(names, " < ")
 	end
-	local function request(call, kind, bag)
+	-- opener (1.10.1-beta1): the call came from one of the game's own windows asking for the bags (a vendor, the
+	-- mail, a trade, the auction house: OpenAllBags(thatWindow)). The bags end open for it, whatever a toggle inside
+	-- the same call did to BagSmith's window a moment before: when the game believes its own bags are shut, its
+	-- OpenAllBags runs ToggleBackpack and ToggleBag, and BagSmith hears those first. The bag key's own OpenAllBags
+	-- names no window, so the first press after the game menu still acts as it did.
+	local function request(call, kind, bag, opener)
 		if not managed(bag or ns.BACKPACK) then return end
 		local before = ns.Window:IsShown()
 		local outcome
-		if handled then
+		if opener and kind == "open" and not before then
+			ns.Window:Show()
+			settle()
+			outcome = "opened for the game's window"
+		elseif handled then
 			outcome = "ignored (this press is already handled)"
 		else
 			if kind == "toggle" then ns.Window:Toggle()
 			elseif kind == "open" and not before then ns.Window:Show()
 			elseif kind == "close" and before then ns.Window:Hide() end
 			if ns.Window:IsShown() ~= before then
-				handled = true
-				C_Timer.After(0, function() handled = false end)
+				settle()
 				outcome = "acted"
 			else
 				outcome = "no change"
@@ -135,15 +154,23 @@ function Hooks:Install()
 		request("ToggleBackpack_Combined", "toggle")
 	end)
 	-- Direct calls: cinematics, vehicles, the game menu (CloseAllWindows).
-	hook("OpenAllBags", function() request("OpenAllBags", "open") end)
+	hook("OpenAllBags", function(frame) request("OpenAllBags", "open", nil, frame ~= nil) end)
 	hook("CloseAllBags", function() request("CloseAllBags", "close") end)
 
 	-- Blizzard opens the bags for you at merchants, mail, trade and the bank.
 	-- Those paths run OpenAllBags inside other calls, so instead of hooking
 	-- them (which double-fires with ToggleAllBags) we listen to the events.
+	-- (1.10.1-beta1, a player's report: no bags at a vendor, though the bag key opened BagSmith; his /bs debug read
+	-- "ToggleBag acted; window open -> closed", called from the vendor window's OpenAllBags) Where BagSmith hears
+	-- the event before the game's window has opened its own bags, the game's OpenAllBags came next, toggled the
+	-- backpack, and BagSmith took that toggle as a press of the bag key and shut the window it had just opened. So
+	-- the game's bag calls for the rest of this frame are not presses: BagSmith is open for the window, or was
+	-- already. (A window that shows a frame or more later is covered by "opener" in request, above.)
 	local autoOpened = false
 	local function autoShow()
-		if managed(ns.BACKPACK) and not ns.Window:IsShown() then ns.Window:Show(); autoOpened = true end
+		if not managed(ns.BACKPACK) then return end
+		if not ns.Window:IsShown() then ns.Window:Show(); autoOpened = true end
+		settle()
 	end
 	local function autoHide()
 		if autoOpened and ns.Window:IsShown() then ns.Window:Hide() end

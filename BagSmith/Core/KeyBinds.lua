@@ -73,6 +73,54 @@ local function actionName(action)
 	return _G["BINDING_NAME_" .. action] or (GetBindingName and GetBindingName(action)) or action
 end
 
+-- (1.10.1-beta1, Shweep: "will our settings update to show what their keybind is? so if not B", and "what if they
+-- have a secondary keybind for it and there is a keybind for opening bags and reagent bag") Every key that opens
+-- BagSmith in place of Blizzard's bags, spelled out ("Tab", "Shift-B"), each once: both keys of each of the game's
+-- bag actions, Open All Bags first, then Toggle Backpack, the reagent bag's and each bag's own. A bag's own key
+-- counts when BagSmith stands in for that bag (Hooks.Covers: its hook on ToggleBag acts for the same bags). An empty
+-- list when none has a key; nil where the game can't be asked (Settings then says B, as before).
+KB.BAG_ACTIONS = {   -- the game's action, and the bag its key toggles where it is one bag's
+	{ "OPENALLBAGS" }, { "TOGGLEBACKPACK" },
+	{ "TOGGLEREAGENTBAG1", 5 }, { "TOGGLEBAG1", 4 }, { "TOGGLEBAG2", 3 }, { "TOGGLEBAG3", 2 }, { "TOGGLEBAG4", 1 },
+}
+function KB:BagKeys()
+	if type(GetBindingKey) ~= "function" then return nil end
+	local out, seen = {}, {}
+	for _, a in ipairs(KB.BAG_ACTIONS) do
+		if not a[2] or (ns.Hooks and ns.Hooks.Covers(a[2])) then
+			for _, key in ipairs({ GetBindingKey(a[1]) }) do
+				local name = KB:Pretty(key)
+				if name and not seen[name] then seen[name] = true; out[#out + 1] = name end
+			end
+		end
+	end
+	return out
+end
+-- The words for Settings > General: the setting's name with the key in it, and its help line. One key or two are
+-- named in both; with more, the name gives the first two and a count, and the help lists them all.
+KB.BAG_LABEL = "Open with the Bag Keybind (%s)"
+local function gameName(action, fallback)
+	local name = actionName(action)
+	return (type(name) == "string" and name ~= "" and name ~= action) and name or fallback
+end
+function KB:BagKeyWords()
+	local keys = KB:BagKeys() or { "B" }
+	local n = #keys
+	local where = "You can still open BagSmith from the minimap button or /bs."
+	if n == 0 then
+		return KB.BAG_LABEL:format("Not Set"),
+			("No key opens your bags right now. Set one in the game's Key Bindings, under %s or %s. %s"):format(
+				gameName("OPENALLBAGS", "Open All Bags"), gameName("TOGGLEBACKPACK", "Toggle Backpack"), where)
+	end
+	if n <= 2 then
+		local shown = n == 1 and keys[1] or (keys[1] .. " or " .. keys[2])
+		return KB.BAG_LABEL:format(shown), ("Turn off to keep Blizzard's bags on %s. %s"):format(shown, where)
+	end
+	local all = table.concat(keys, ", ", 1, n - 1) .. " and " .. keys[n]
+	return KB.BAG_LABEL:format(("%s, %s and %d more"):format(keys[1], keys[2], n - 2)),
+		("Turn off to keep Blizzard's bags on your bag keys: %s. %s"):format(all, where)
+end
+
 -- Bind a key (the game's form, "ALT-CTRL-SHIFT-K") to an action, replacing
 -- the action's old keys. Returns a message to show, or nil.
 function KB:Set(action, key)
