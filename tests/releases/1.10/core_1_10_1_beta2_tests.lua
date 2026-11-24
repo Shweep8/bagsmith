@@ -323,9 +323,9 @@ do
 	check(not table.concat(e.items, " "):find("\226\128\148"), "no dashes")
 	check(#WN:UnseenReleases() == 0 and not WN:Pending(), "coming from 1.10.0 the card still doesn't open by itself")
 	local function slurp(p) local f = assert(io.open(p, "r")); local s = f:read("*a"); f:close(); return s end
-	local top = slurp("BagSmith/CHANGELOG.md"):match("^## 1%.10%.1\n(.-)\n## 1%.10%.0\n")
+	local top = slurp("BagSmith/CHANGELOG.md"):match("\n## 1%.10%.1\n(.-)\n## 1%.10%.0\n")   -- (by design since 1.11.0-beta1: 1.11.0's section is first)
 	check(top and top:find("New:\n%- Auto%-Close Bags I Opened %(Settings > General%), on as it has always worked%.") and top:find("\nFixed:\n%- Bags that stayed shut at vendors") and top:find("With the game's Use Combined Bags\n  turned off", 1, true) and top:find("\nChanged:\n%- Settings > General: Open with the Bag Keybind names the key"),
 		"the changelog's 1.10.1: the new switch, the fix and who had it, and the Settings line")
 	check(top and not top:find("\226\128\148"), "no dashes")
-	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.10%.1"), "the TOC version is 1.10.1's (the exact one is pinned in tests/run.lua)")
+	check(slurp("BagSmith/BagSmith.toc"):find("## Version: %d+%.%d+%.%d+"), "the TOC has a version (by design since 1.11.0: the exact one is pinned in tests/run.lua)")
 end

@@ -1841,15 +1841,22 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 	self.animate = false
 	self:HideUnused(usedSet, host)
 	self.used = used
-	y = self:PlaceGearSetsNote(host, y, width, onSheet and #lanes == 0)
+	y = self:PlaceGearSetsNote(host, y, width, onSheet, #lanes)
 	return self:PlaceHiddenNotice(host, y, width)
 end
 
 -- The Gear Sets sheet with nothing on it: no sets yet (with a Create Gear
 -- Set button), or another character's bags with no set items saved.
-function View:PlaceGearSetsNote(host, y, width, show)
+-- (1.11.0-beta1, a player: "how do I add another gear set? I can make one, but theres no way to make a second";
+-- Shweep: "I will let you keep doing them in the bags too") And under the sets you have: how many of the game's
+-- limit they are, and a New Gear Set button that stays. At the limit it is greyed and says why.
+function View:PlaceGearSetsNote(host, y, width, show, lanes)
 	local note = self.gsNote
-	if not show then
+	local GSets = ns.GearSets
+	local own = not ns.ui.owner and GSets and GSets:Available()
+	local have = own and #GSets:Sets() or 0
+	local under = show and (lanes or 0) > 0 and have > 0   -- the footer, under the sets
+	if not show or ((lanes or 0) > 0 and not under) then
 		if note then note:Hide() end
 		return y
 	end
@@ -1862,6 +1869,24 @@ function View:PlaceGearSetsNote(host, y, width, show)
 		note.btn.tip = "Saves what you're wearing now as a gear set (shirt and tabard left out)."
 		self.gsNote = note
 	end
+	if under then
+		local most = GSets:MaxSets()
+		local full = have >= most
+		note:SetParent(host)
+		note:ClearAllPoints(); note:SetPoint("TOPLEFT", host, "TOPLEFT", 0, -(y + 8)); note:SetWidth(width)
+		note.text:SetText(("%d of %d gear sets"):format(have, most)); note.text:SetWidth(math.max(80, width - 24)); note.text:SetTextColor(Skins:Color("muted"))
+		note.btn.label:SetText("New Gear Set")
+		note.btn:Show()
+		if note.btn.SetClassic then note.btn:SetClassic(ns.Classic and ns.Classic.IsOn and ns.Classic.IsOn() or false) end
+		note.btn:SetActive(false)
+		View.GlobalOff(note.btn, full, "New Gear Set", ("You have the most sets the game allows (%d). Delete one to make another."):format(most))
+		local h = 10 + math.max(14, math.ceil(note.text:GetStringHeight() or 14)) + 10 + 22 + 10
+		note:SetHeight(h)
+		note:Show()
+		return y + 8 + h + 8
+	end
+	note.btn.label:SetText("Create Gear Set")
+	View.GlobalOff(note.btn, false)
 	note:SetParent(host)
 	note:ClearAllPoints(); note:SetPoint("TOPLEFT", host, "TOPLEFT", 0, -(y + 8)); note:SetWidth(width)
 	local mine = not ns.ui.owner and ns.GearSets and ns.GearSets:Available()

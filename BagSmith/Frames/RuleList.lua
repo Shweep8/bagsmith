@@ -29,6 +29,12 @@ ns.RuleList = RL
 
 local LABEL_W, CHIP_H, CHIP_GAP = 88, 20, 4
 local PAD, PW, PH, PROW = 14, 330, 440, 22   -- (1.10.0-beta6: no taller than the windows it opens over)
+-- (1.11.0-beta1, Shweep: "I just felt like some of them are actually pretty long as a drop-down") A long list (Type
+-- with its kinds, Slot, many sections) showed ten lines at a time in that height. The window now grows for a list
+-- that needs it, as far as PH_MAX and the screen allow, and so can stand taller than the window behind it. Sized
+-- when it opens, for the list at its longest (every kind of item opened), so it doesn't change size under the pointer.
+local PH_MAX, PH_FIXED = 640, 80 + 130   -- the tallest it gets; what is above and below the list
+RL.PICKER_H, RL.PICKER_MAX = PH, PH_MAX
 -- (1.10.0-beta6, Shweep's screenshots: "the Edit Section and Change a Rule window glitch each other out") The second
 -- window used to be a child of its host a few levels up in the SAME layer. In Classic the game's own frame art draws a
 -- window's border and title at a fixed high level, above anything inside that window, so the host's border and title
@@ -661,6 +667,20 @@ function RL:OpenPicker(index, k)
 		for _, v in ipairs(pick.v) do local class = tonumber(tostring(v):match("^(%d+):")); if class then pick.open[class] = true end end
 	end
 	self.pick = pick
+	-- (1.11.0-beta1) as tall as its list at its longest needs, within the screen
+	do
+		local lines = 0
+		if k == "type" then
+			for _, g in ipairs(ns.Rules:TypeGroups()) do lines = lines + 1 + (#g.kinds > 1 and (#g.kinds + 1) or 0) end
+		else
+			local was = pick.open
+			lines = #self:PickerList()
+			pick.open = was
+		end
+		local screen = ((UIParent and UIParent:GetHeight()) or 768) - 60
+		local tall = math.max(PH, math.min(PH_FIXED + lines * PROW, PH_MAX, screen))
+		p:SetHeight(tall); p.scroll:SetHeight(tall - PH_FIXED)
+	end
 	p.title:SetText(index and "Change a Rule" or "Add a Rule")
 	p.ok.label:SetText(index and "Done" or "Add Rule")
 	p.head:SetText(ns.Rules.KEYS[k].label); p.hint:SetText(PICK_HINT[k] or "")
@@ -772,7 +792,7 @@ function RL:RefreshPicker()
 		r:ClearAllPoints(); r:SetPoint("TOPLEFT", p.child, "TOPLEFT", 0, -(i - 1) * PROW); r:Show()
 	end
 	for i = #list + 1, #p.rows do p.rows[i]:Hide() end
-	local h, view = #list * PROW, PH - 80 - 130
+	local h, view = #list * PROW, (p:GetHeight() or PH) - PH_FIXED
 	p.child:SetHeight(math.max(1, h))
 	if p.scroll.ScrollBar then p.scroll.ScrollBar:SetShown(h > view) end
 	if (p.scroll:GetVerticalScroll() or 0) > math.max(0, h - view) then p.scroll:SetVerticalScroll(math.max(0, h - view)) end

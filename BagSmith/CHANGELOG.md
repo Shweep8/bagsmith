@@ -1,3 +1,19 @@
+## 1.11.0
+
+New:
+- Gear sets can be made from your bags any time. The Gear Sets tab keeps a New Gear Set button under your sets and
+  shows how many of the game's limit you have, and each set's menu has Rename..., Delete... and New Gear Set...
+  Before, the button went away after your first set.
+- New Section From This Item offers more to tick when it's true of the item: its kind of consumable (Food, Drink,
+  Potions and so on), Quest Item, Crafting Material, whether you can use it (for gear and recipes), and, with
+  ItemTree, what it knows about the item.
+
+Changed:
+- A menu too long for your screen shows arrows at its top and bottom, so you can see there is more and click to reach
+  it. The mouse wheel still scrolls it.
+- The lists for a Type, Slot or Section rule open in a taller window when your screen has room, so more of a long list
+  shows at once.
+
 ## 1.10.1
 
 New:

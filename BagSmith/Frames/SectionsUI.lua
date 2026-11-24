@@ -175,10 +175,25 @@ function ns.ShowMenu(items, anchor, keepPlace)
 	local maxRows = m.listMax and #display or math.max(4, math.floor((screenH - pad * 2) / tallestRow))
 	local visible = math.min(#display, maxRows)
 	m.maxOffset = m.listMax and 0 or math.max(0, #display - visible)
-	m.offset = math.max(0, math.min(m.offset or 0, m.maxOffset))
+	-- (1.11.0-beta1, Shweep: "Do we have to worry about any of those drop-downs being too long and not fitting on
+	-- the page") A menu that scrolls as a whole showed no sign of it: the wheel moved it, and nothing said there was
+	-- more (at the game's largest UI scale the Filters window's + Add a Rule lost its last two entries that way). It
+	-- gets the arrows the section list has, in two of its rows: lit when there is more that way, and a click moves it.
+	local rowsNow = display
+	if m.maxOffset > 0 then
+		local room = math.max(2, visible - 2)   -- (the arrows take two of the rows the screen has room for)
+		m.maxOffset = #display - room
+		m.offset = math.max(0, math.min(m.offset or 0, m.maxOffset))
+		rowsNow = { { arrow = -1, enabled = m.offset > 0, whole = true } }
+		for i = m.offset + 1, m.offset + room do rowsNow[#rowsNow + 1] = display[i] end
+		rowsNow[#rowsNow + 1] = { arrow = 1, enabled = m.offset < m.maxOffset, whole = true }
+		visible = #rowsNow
+	else
+		m.offset = 0
+	end
 	local y = pad
 	for i = 1, visible do
-		local it = display[i + m.offset]
+		local it = rowsNow[i]
 		local r = m.rows[i]
 		if not r then
 			r = CreateFrame("Button", nil, m)
@@ -192,7 +207,8 @@ function ns.ShowMenu(items, anchor, keepPlace)
 			r.text:SetJustifyH("LEFT"); r.text:SetWordWrap(false)
 			r:SetScript("OnClick", function(self)
 				if self.arrowDir then
-					m.listOffset = (m.listOffset or 0) + self.arrowDir * 3
+					if self.arrowWhole then m.offset = (m.offset or 0) + self.arrowDir * 3   -- (1.11.0-beta1: the whole menu's)
+					else m.listOffset = (m.listOffset or 0) + self.arrowDir * 3 end
 					ns.ShowMenu(m.items, nil, true)
 					return
 				end
@@ -216,6 +232,7 @@ function ns.ShowMenu(items, anchor, keepPlace)
 		if it.arrow then
 			-- A scroll arrow for the list: lit when there's more that way.
 			r.arrowDir = it.enabled and it.arrow or nil
+			r.arrowWhole = it.whole and true or nil
 			r.arrow:SetTexture(it.arrow < 0 and "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp-Up" or "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up")
 			r.arrow:SetAlpha(it.enabled and 1 or 0.25); r.arrow:Show()
 			r.text:SetText(""); r.check:Hide(); r.icon:Hide()
@@ -226,7 +243,7 @@ function ns.ShowMenu(items, anchor, keepPlace)
 			r:Show()
 			y = y + 16
 		else
-			r.arrowDir = nil
+			r.arrowDir, r.arrowWhole = nil, nil
 			r.arrow:Hide()
 			-- An icon on the left (undo, star, pouch, wallet), where a check would go.
 			if it.icon then
@@ -606,6 +623,15 @@ function S:SectionMenu(laneId, owner)
 			end
 			items[#items + 1] = { text = "Update from What I'm Wearing...", onClick = function() GS:ConfirmUpdate(name, owner) end }
 			items[#items + 1] = { text = "Put on Action Bar", onClick = function() GS:PickUp(name) end, gap = true }
+			-- (1.11.0-beta1, Shweep: "I will let you keep doing them in the bags too") what Settings > Sections has for
+			-- a set, here on the set: rename it, delete it, and make another (greyed at the game's limit, with why)
+			items[#items + 1] = { text = "Rename...", onClick = function() GS:PromptRename(name) end }
+			items[#items + 1] = { text = "Delete...", onClick = function() GS:ConfirmDelete(name, owner) end, gap = true }
+			local most = GS:MaxSets()
+			local full = #GS:Sets() >= most
+			items[#items + 1] = { text = "New Gear Set...", disabled = full, gap = true,
+				tip = full and ("You have the most sets the game allows (%d). Delete one to make another."):format(most) or "Saves what you're wearing now as a gear set (shirt and tabard left out).",
+				onClick = function() GS:PromptNew() end }
 		end
 		-- (one choice for every set, like their one place in Section Order)
 		items[#items + 1] = { text = "Show Gear Sets at Vendor", checked = S:Shown("~gs", "vendor"), onClick = function() if same() then S:SetShown("~gs", "vendor", not S:Shown("~gs", "vendor")) end end }
@@ -811,7 +837,7 @@ function S:FromItemRules()
 	local f = self.fromFrame
 	local rows = {}
 	for _, fact in ipairs(f and f.facts or {}) do
-		if f.on[fact.k] then rows[#rows + 1] = { k = fact.k, v = { fact.v } } end
+		if f.on[fact.k] then rows[#rows + 1] = { k = fact.k, v = { fact.v }, n = fact.n } end   -- (1.11.0-beta1: n, "Usable by Me: No")
 	end
 	return { mode = "all", rows = rows }
 end
@@ -861,7 +887,8 @@ function S:RefreshFromItem()
 		c.key = fact.k
 		c:ClearAllPoints(); c:SetPoint("TOPLEFT", FPAD, y)
 		c:SetChecked(f.on[fact.k] and true or false)
-		c.label:SetText(("%s: %s"):format(fact.label, fact.text)); c.label:SetTextColor(unpack(s.text))
+		-- (1.11.0-beta1) what ItemTree knows says so, in its teal, as in + Add a Rule
+		c.label:SetText(("%s: %s%s"):format(fact.label, fact.text, fact.addon and (" |cff9fe6e1(" .. fact.addon .. ")|r") or "")); c.label:SetTextColor(unpack(s.text))
 		c:Show(); c.label:Show()
 		y = y - FROW
 	end
@@ -877,7 +904,10 @@ function S:RefreshFromItem()
 	local ticked = next(f.on) ~= nil
 	f.sub:SetText(not ticked and "Tick at least one to see what goes in." or (#here == 0 and "Nothing in your bags or bank would go here right now." or "Looking at your bags and bank."))
 	y = y - 18
-	local shown = math.min(#here, FMAX)
+	-- (1.11.0-beta1) with the newer rules an item can have more to tick: the list of what would go in gives up rows
+	-- (down to three) so the window still fits the screen
+	local room = math.floor((((UIParent and UIParent:GetHeight()) or 768) - 60 - (-y) - 150) / FROW)
+	local shown = math.min(#here, math.max(3, math.min(FMAX, room)))
 	for i = 1, shown do
 		local rec, r = here[i], fromRow(f, i)
 		r.id, r.link = rec.itemID, rec.link

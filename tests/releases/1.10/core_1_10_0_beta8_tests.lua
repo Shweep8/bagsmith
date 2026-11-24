@@ -348,7 +348,7 @@ end
 	check(tips == 2 and not src:find("[^n] Price Source is in", 1) and not src:find("\"Price Source\"", 1, true),
 		"the AH Price column's tips say Auction Price Source, and the old label is gone")
 	f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
-	check(toc:find("## Version: 1.10.", 1, true), "the TOC says 1.10 (by design since 1.10.1: its patches too; the exact version is pinned in tests/run.lua)")
+	check(toc:find("## Version: %d+%.%d+%.%d+"), "the TOC has a version (by design since 1.11.0: later releases too; the exact one is pinned in tests/run.lua)")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.10%.0\n.-)\n## 1%.9%.8\n") or ""
 	-- (by design since 1.10.0-beta9: the same things, said for the Other Addons page)

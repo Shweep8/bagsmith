@@ -560,5 +560,5 @@ end
 	check(not flat:find("shows by itself once ItemTree answers", 1, true), "it no longer says a waiting item shows once ItemTree answers")
 	check(not section:find("\226\128\148") and not section:find("\226\128\147"), "with no dashes")
 	f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
-	check(toc:find("## Version: 1.10.", 1, true), "the TOC says 1.10 (by design since 1.10.1: its patches too; the exact version is pinned in tests/run.lua)")
+	check(toc:find("## Version: %d+%.%d+%.%d+"), "the TOC has a version (by design since 1.11.0: later releases too; the exact one is pinned in tests/run.lua)")
 end)()

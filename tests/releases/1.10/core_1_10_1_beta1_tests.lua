@@ -372,10 +372,11 @@ end
 do
 	local function slurp(p) local f = assert(io.open(p, "r")); local s = f:read("*a"); f:close(); return s end
 	local log = slurp("BagSmith/CHANGELOG.md")
-	local top = log:match("^## 1%.10%.1\n(.-)\n## 1%.10%.0\n")
-	check(top ~= nil, "the changelog opens with 1.10.1, above 1.10.0")
+	-- (by design since 1.11.0-beta1: 1.11.0's section comes first; 1.10.1's is still above 1.10.0's)
+	local top = log:match("\n## 1%.10%.1\n(.-)\n## 1%.10%.0\n")
+	check(top ~= nil, "the changelog has 1.10.1, above 1.10.0")
 	check(top and top:find("Fixed:\n%- Bags that stayed shut at vendors, the mailbox, trades and the auction house%.") and top:find("Changed:\n%- Settings > General: Open with the Bag Keybind names the key your bags are really on"),
 		"with the fix and the Settings line")
 	check(top and not top:find("\226\128\148"), "and no dashes")
-	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.10%.1"), "the TOC version is 1.10.1's (by design since beta2: the exact one is pinned in tests/run.lua)")
+	check(slurp("BagSmith/BagSmith.toc"):find("## Version: %d+%.%d+%.%d+"), "the TOC has a version (by design since 1.11.0: the exact one is pinned in tests/run.lua)")
 end

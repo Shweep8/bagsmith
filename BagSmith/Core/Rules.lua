@@ -477,6 +477,35 @@ function R:FactsOf(rec)
 			out[#out + 1] = { k = k, v = v, label = R.KEYS[k].label, text = text }
 		end
 	end
+	-- (1.11.0-beta1, left out of 1.10 and taken for 1.11 by Shweep) The newer kinds of rule, each offered only when it
+	-- is true of this item, so the list stays short: its kind of consumable; Quest Item; Crafting Material; and what
+	-- ItemTree knows of it, while ItemTree's rules are in use. Usable by Me is offered for gear and recipes only (for
+	-- anything else the answer is always yes), and as it is for this character: yes, or no (a rule that reads "is
+	-- not", n = true), which is what makes a section of gear you can't use. A fact not known yet isn't offered.
+	local function yes(k)
+		local have = R.KEYS[k].of(rec)
+		return type(have) == "table" and have[1] == "yes"
+	end
+	local kind = R.KEYS.cons.of(rec)
+	if type(kind) == "table" and kind[1] ~= nil then
+		out[#out + 1] = { k = "cons", v = kind[1], label = R.KEYS.cons.label, text = self:ValueLabel("cons", kind[1]) }
+	end
+	for _, k in ipairs({ "quest", "mat" }) do
+		if yes(k) then out[#out + 1] = { k = k, v = "yes", label = R.KEYS[k].label, text = "Yes" } end
+	end
+	if rec.classID == 2 or rec.classID == 4 or rec.classID == 9 then
+		local have = R.KEYS.usable.of(rec)
+		if type(have) == "table" then
+			local usable = have[1] == "yes"
+			out[#out + 1] = { k = "usable", v = "yes", n = (not usable) or nil, label = R.KEYS.usable.label, text = usable and "Yes" or "No" }
+		end
+	end
+	local IT = ns.ItemTree
+	if IT and IT.Enabled and IT:Enabled() then
+		for _, k in ipairs({ "it_prof", "it_quest", "it_upgrade", "it_vendor" }) do
+			if yes(k) then out[#out + 1] = { k = k, v = "yes", label = R.KEYS[k].label, text = "Yes", addon = "ItemTree" } end
+		end
+	end
 	return out
 end
 
