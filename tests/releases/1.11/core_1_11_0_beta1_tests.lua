@@ -401,7 +401,8 @@ do
 	local top = slurp("BagSmith/CHANGELOG.md"):match("^## 1%.11%.0\n(.-)\n## 1%.10%.1\n")
 	check(top ~= nil, "the changelog opens with 1.11.0, above 1.10.1")
 	check(top and top:find("New:\n%- Gear sets can be made from your bags any time%.") and top:find("\n%- New Section From This Item offers more to tick"), "its New lines: gear sets, New Section From This Item")
-	check(top and top:find("\nChanged:\n%- A menu too long for your screen shows arrows") and top:find("\n%- The lists for a Type, Slot or Section rule open in a taller window"), "its Changed lines: the arrows, the taller list window")
+	-- (by design since 1.11.0-beta2: Changed now opens with where 1.10.1's Auto-Close switch went)
+	check(top and top:find("\nChanged:\n") and top:find("\n%- A menu too long for your screen shows arrows") and top:find("\n%- The lists for a Type, Slot or Section rule open in a taller window"), "its Changed lines: the arrows, the taller list window")
 	check(top and not top:find("\226\128\148"), "no dashes")
 	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.11%.0"), "the TOC version is 1.11.0's (the exact one is pinned in tests/run.lua)")
 end

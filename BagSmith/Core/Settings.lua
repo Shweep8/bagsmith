@@ -132,9 +132,13 @@ local DEFAULTS = {
 	fadeMoving = false, movingAlpha = 0.5,   -- (1.6.0) the bag windows fade while the character moves (back on hover)
 	helpTips = true,                         -- (1.6.0) tooltips on BagSmith's own controls (item tooltips always show)
 	replaceBlizzardBags = true,   -- open with the bag keybind and stand in for Blizzard's bags
-	-- (1.10.1-beta2, Shweep) Auto-Close Bags I Opened: leaving a vendor, the mail, a trade or the auction house closes
-	-- the bags even when the player had opened them himself, as it always has. Off: only bags that opened for it.
-	autoCloseOwnBags = true,
+	-- (1.11.0-beta2, Shweep: "something more like auto open with, and then list out all the places", then "The lighter
+	-- version is good") Auto-Open and Auto-Close (Settings > Automations): a switch for each place BagSmith opens the
+	-- bags at, all on, and one choice for what leaving does to them: "always" closes them (as ever), "auto" only closes
+	-- bags that opened by themselves, "never" leaves them. The choice takes over from 1.10.1's Auto-Close Bags I Opened
+	-- (autoCloseOwnBags: on is "always", off is "auto"; validateProfile carries a saved one across).
+	autoOpenVendor = true, autoOpenMail = true, autoOpenTrade = true, autoOpenAH = true, autoOpenBank = true, autoOpenGuildBank = true,
+	closeOnLeave = "always",
 	-- Plugin preferences: one bounded plain-data namespace per plugin ID ({ schemaVersion, data }), owned by
 	-- the plugin through BagSmith.API; core only persists and validates the shape.
 	plugins = {},
@@ -347,6 +351,7 @@ local validators = {
 	end,
 	reagent = oneOf("inline", "lane"), makeRoomValue = oneOf("ah", "vendor"), priceSource = oneOf("auto", "auctionator", "blackthornes"), deMargin = num(0, 2), deAhMargin = num(0, 2), deLeveling = oneOf("auto", "always", "never"), autoConfirmKey = oneOf("always", "shift", "ctrl", "custom"), grp = oneOf("none", "type", "bag"),
 	recentWindow = oneOf("session", "1h", "15m"), recentMax = num(0, 200, true),
+	closeOnLeave = oneOf("always", "auto", "never"),   -- (1.11.0-beta2)
 	sheetPrefs = function(v)
 		if type(v) ~= "table" then return nil end
 		local out = {}
@@ -697,6 +702,12 @@ end
 
 local function validateProfile(saved)
 	renameClashingSheets(saved)
+	-- (1.11.0-beta2) 1.10.1's Auto-Close Bags I Opened is the "when I leave" choice now: off becomes Close If
+	-- Auto-Opened, on is Always Close, the default.
+	if type(saved) == "table" and saved.autoCloseOwnBags ~= nil then
+		if saved.autoCloseOwnBags == false and saved.closeOnLeave == nil then saved.closeOnLeave = "auto" end
+		saved.autoCloseOwnBags = nil
+	end
 	-- (1.10.0-beta9) Hold Back What ItemTree Says to Keep (beta7 and beta8 only) became one switch per Helper. A
 	-- profile that had it off, or had Use ItemTree off (which switched the hold off too), keeps both off.
 	if type(saved) == "table" and saved.itemTreeHold ~= nil then

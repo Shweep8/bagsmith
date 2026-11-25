@@ -459,7 +459,8 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	S:SectionMenu(cloth)
 	local edit, rename
 	for i, it in ipairs(menu) do if it.text == "Edit Section..." then edit = i end if it.text == "Rename..." then rename = i end end
-	check(edit and rename and edit == rename - 1, S0 .. "a custom section's menu: Edit Section..., just above Rename...")
+	-- (by design since 1.11.0-beta2: Sections on This Sheet... sits between the two)
+	check(edit and rename and edit == rename - 2 and menu[edit + 1].text == "Sections on This Sheet...", S0 .. "a custom section's menu: Edit Section..., above Sections on This Sheet... and Rename...")
 	menu[edit].onClick(); M.runTimers()
 	check(f:IsShown() and E.draft.id == cloth and #E.draft.rows == 2, S0 .. "and it opens the editor with the section's two rules")
 	click(f.cancel)

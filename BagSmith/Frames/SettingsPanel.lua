@@ -1763,12 +1763,8 @@ pages.general = function(self, db)
 	-- (1.10.1-beta1, Shweep) the name and its help say the player's own bag key, not always B (KeyBinds.lua)
 	local bagLabel, bagHelp = ns.KeyBinds:BagKeyWords()
 	self:Check("replaceBlizzardBags", bagLabel, bagHelp)
-	-- (1.10.1-beta2, Shweep: "keep it as it is but add a setting default (true) for that so players can turn it off in
-	-- future"; the name is his pick) Greyed while Blizzard's bags are on the key: BagSmith opens and closes nothing
-	-- for a window then. (1.10.1, Shweep: "slightly improve the description ... a tad confusing as written"; his
-	-- pick of three.)
-	self:Check("autoCloseOwnBags", "Auto-Close Bags I Opened", "When you leave a vendor, the mailbox, a trade or the auction house, your bags close, even if you already had them open. Turn off, and bags you already had open stay open.",
-		(not db.replaceBlizzardBags) and { disabled = true, checked = db.autoCloseOwnBags } or nil)
+	-- (1.11.0-beta2) 1.10.1's Auto-Close Bags I Opened moved to Automations, as the When I Leave choice of the
+	-- Auto-Open and Auto-Close card
 	self:Check("minimap", "Show Minimap Button", "With it off, you can still open BagSmith with /bs or from the game's addon list.")
 	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
 	-- (1.10.0-beta9) auction prices, ItemTree and Pawn have a page of their own: Addon Sources (pages.addons)
@@ -1901,6 +1897,24 @@ pages.automation = function(self, db)
 	self:Head("Clear Soul Shards")
 	-- (Shweep: "clear shards button where? that needs context. Also does it auto destroy any that exceed that count?")
 	self:Step("shardKeep", "Soul Shards to Keep", 1, "%d", "|cff8788eeWarlocks|r only. Soul Shards are only cleared when you click Clear Shards (on their section in your bags) or use the Loot Helper, and you always keep this many. Shards in your soul bag count toward it and are never cleared.")
+	-- (1.11.0-beta2, Shweep: "something more like auto open with, and then list out all the places that BagSmith auto
+	-- opens when you go to and default them all to true"; "The lighter version is good"; "Yeah automations is fine for
+	-- that") A switch for each place, and one choice for leaving. Greyed while Blizzard's bags are on the bag key,
+	-- when BagSmith opens for none of them; the bank's switch stays, since the bank opens BagSmith's bags either way.
+	self:Head("Auto-Open and Auto-Close")
+	self:Text("BagSmith opens your bags when you visit these, and closes them when you leave.")
+	do
+		local off = not db.replaceBlizzardBags
+		local function grey(key) return off and { disabled = true, checked = db[key] } or nil end
+		self:Check("autoOpenVendor", "Auto-Open at Vendors", nil, grey("autoOpenVendor"))
+		self:Check("autoOpenMail", "Auto-Open at the Mailbox", nil, grey("autoOpenMail"))
+		self:Check("autoOpenTrade", "Auto-Open When Trading", nil, grey("autoOpenTrade"))
+		self:Check("autoOpenAH", "Auto-Open at the Auction House", nil, grey("autoOpenAH"))
+		self:Check("autoOpenBank", "Auto-Open at the Bank", nil)
+		self:Check("autoOpenGuildBank", "Auto-Open at the Guild Bank", nil, grey("autoOpenGuildBank"))
+		self:Seg("closeOnLeave", "When I Leave", { { "always", "Always Close" }, { "auto", "Close If Auto-Opened" }, { "never", "Never Close" } },
+			"Always Close closes your bags when you leave, even if you already had them open. Close If Auto-Opened leaves bags you already had open. Never Close leaves them all open.", true)
+	end
 	self:Head("Auto Travel Mode")
 	self:Text("Travel Mode is a compact view for adventuring. The signpost by the close button turns it on and off. These settings turn it off when you need your full bags, and back on afterwards.")
 	self:Check("travelLeaveBank", "Leave Travel Mode at the Bank", "Turns it back on when you close the bank.")
@@ -2254,6 +2268,8 @@ pages.custom = function(self, db)
 	self:Text("Make your own sections. Drag an item onto a section's title, or Alt+Left-click it, to move it there. Every copy of the item moves with it.")
 	-- (1.10.0-beta3) New Section... opens the editor: a name, and rules if you want them
 	self:Button("New Section...", function() ns.Sections:EditSection() end)
+	-- (1.11.0-beta2) several sections to a sheet at once
+	self:Button("Sections on a Sheet...", function() ns.Sections:OpenSheetSections() end)
 	-- (1.10.0-beta1) sections that fill themselves
 	self:Text("A section can also fill itself. Give it rules with the pencil beside it, or Alt+Left-click an item and pick New Section From This Item.")
 	-- (1.10.0-beta11, the mockup's "or start from an example") each opens the editor filled in, to look over and create

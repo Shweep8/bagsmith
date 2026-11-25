@@ -7,8 +7,15 @@ New:
 - New Section From This Item offers more to tick when it's true of the item: its kind of consumable (Food, Drink,
   Potions and so on), Quest Item, Crafting Material, whether you can use it (for gear and recipes), and, with
   ItemTree, what it knows about the item.
+- Auto-Open and Auto-Close (Settings > Automations): a switch for each place BagSmith opens your bags at (vendors,
+  the mailbox, trades, the auction house, the bank and the guild bank), and a When I Leave choice: Always Close, Close
+  If Auto-Opened or Never Close. Everything starts as it has always worked.
+- Sections on a Sheet (Settings > Custom Sections, or a section's menu in your bags): pick a sheet and tick the
+  sections of yours that should show there only, several at once.
 
 Changed:
+- Auto-Close Bags I Opened, from 1.10.1, is now the When I Leave choice on Automations. What you had carries over:
+  ticked is Always Close, unticked is Close If Auto-Opened.
 - A menu too long for your screen shows arrows at its top and bottom, so you can see there is more and click to reach
   it. The mouse wheel still scrolls it.
 - The lists for a Type, Slot or Section rule open in a taller window when your screen has room, so more of a long list

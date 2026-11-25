@@ -658,6 +658,9 @@ function S:SectionMenu(laneId, owner)
 		-- (1.10.0-beta3) its name and its rules, in the editor
 		items[#items + 1] = { text = "Edit Section...", onClick = function() if same() then S:EditSection(laneId) end end,
 			tip = "Change its name, and the rules that fill it by itself." }
+		-- (1.11.0-beta2) and, from the sheet's side, which of your sections show on the tab you're on
+		items[#items + 1] = { text = "Sections on This Sheet...", onClick = function() if same() then S:OpenSheetSections() end end,
+			tip = "Choose which of your sections show on this sheet only, several at once." }
 		items[#items + 1] = { text = "Rename...", onClick = function() if same() then S:PromptRename(laneId) end end }
 		items[#items + 1] = { text = "Delete...", onClick = function() if same() then S:ConfirmDelete(laneId) end end }
 	end
@@ -776,6 +779,131 @@ function S:ManageMoves()
 	f.search:SetText("")
 	f:Show()
 	self:RefreshMovedWindow()
+end
+
+------------------------------------------------------------------------
+-- Sections on a Sheet (1.11.0-beta2): the sheets a section shows on, set from the sheet's side, several sections at
+-- once. Pick a sheet and tick the sections of yours that should show there. A tick is that sheet on the section's
+-- list (Core/Sections.lua, S:SetOnSheet), the same setting the section editor's "only some sheets" makes one
+-- section at a time; each tick takes effect at once, and the bags behind follow.
+------------------------------------------------------------------------
+local SW, SPAD, SROW, SVIEW = 380, 14, 22, 10
+function S:SheetWindow()
+	local f = self.sheetFrame
+	if f then return f end
+	f = CreateFrame("Frame", "BagSmithSheetSections", UIParent, "BackdropTemplate")
+	f:SetSize(SW, 170 + SVIEW * SROW); f:SetFrameStrata("DIALOG"); f:SetClampedToScreen(true); f:EnableMouse(true)
+	f:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
+	f:SetMovable(true); f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	local function text(template, width, wrap)
+		local t = f:CreateFontString(nil, "OVERLAY", template or "GameFontHighlightSmall")
+		t:SetJustifyH("LEFT"); t:SetJustifyV("TOP"); t:SetWidth(width or (SW - SPAD * 2)); t:SetWordWrap(wrap and true or false)
+		return t
+	end
+	f.title = text("GameFontNormalLarge"); f.title:SetPoint("TOPLEFT", 12, -12); f.title:SetText("Sections on a Sheet")
+	f.sheetLabel = text(nil, 40); f.sheetLabel:SetPoint("TOPLEFT", SPAD, -46); f.sheetLabel:SetText("Sheet")
+	f.pick = ns.TextButton(f, "", 180, function(b) S:PickSheetMenu(b) end); f.pick:SetHeight(22); f.pick:SetPoint("TOPLEFT", SPAD + 44, -42)
+	f.pick.tip = "The sheet to set sections for."
+	f.intro = text(nil, nil, true); f.intro:SetPoint("TOPLEFT", SPAD, -72)
+	f.intro:SetText("Tick the sections that should show on this sheet only. A section you leave unticked keeps showing where it does now.")
+	f.scroll = CreateFrame("ScrollFrame", "BagSmithSheetSectionsScroll", f, "UIPanelScrollFrameTemplate")
+	f.scroll:SetPoint("TOPLEFT", SPAD, -112); f.scroll:SetSize(SW - SPAD * 2 - 22, SVIEW * SROW)
+	f.child = CreateFrame("Frame", nil, f.scroll); f.child:SetSize(SW - SPAD * 2 - 22, 1); f.scroll:SetScrollChild(f.child)
+	ns.WheelStep(f.scroll, SROW * ns.WHEEL_ROWS)
+	f.rows = {}
+	f.empty = text(nil, SW - SPAD * 2 - 22, true); f.empty:SetPoint("TOPLEFT", f.scroll, "TOPLEFT", 2, -4)
+	f.empty:SetText("You have no sections of your own yet. Make one in Settings > Custom Sections.")
+	f.err = text(nil, SW - SPAD * 2 - 90, true); f.err:SetPoint("BOTTOMLEFT", SPAD, 14); f.err:SetTextColor(1, 0.4, 0.4)
+	f.done = ns.TextButton(f, "Done", 70, function() f:Hide() end); f.done:SetHeight(24); f.done:SetPoint("BOTTOMRIGHT", -12, 12)
+	f.classicSpec = ns.Classic.DialogSpec(f, { restore = function() Skins:ApplyBackdrop(f); local s = Skins:Current(); f:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1) end })
+	Skins:Register(f, function(fr)
+		Skins:ApplyBackdrop(fr); local s = Skins:Current(); fr:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1)
+		fr.title:SetTextColor(unpack(s.heading)); fr.sheetLabel:SetTextColor(unpack(s.text)); fr.intro:SetTextColor(unpack(s.muted))
+		fr.empty:SetTextColor(unpack(s.muted))
+		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
+		if ns.Classic.DressScrollBar then ns.Classic:DressScrollBar(fr.scroll, ns.Classic.IsOn()) end
+		if fr:IsShown() then S:RefreshSheetSections() end
+	end)
+	f:Hide()
+	ns:CloseOnEscape(f, function() f:Hide() end)
+	ns:CombatWindow(f)
+	self.sheetFrame = f
+	return f
+end
+local function sheetRow(f, i)
+	local r = f.rows[i]
+	if r then return r end
+	r = CreateFrame("Button", nil, f.child); r:SetSize(SW - SPAD * 2 - 22, SROW)
+	r.hl = r:CreateTexture(nil, "HIGHLIGHT"); r.hl:SetAllPoints(); r.hl:SetColorTexture(1, 1, 1, 0.06)
+	r.check = CreateFrame("CheckButton", nil, r, "UICheckButtonTemplate"); r.check:SetSize(22, 22); r.check:SetPoint("LEFT", 0, 0)
+	r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); r.name:SetPoint("LEFT", 26, 0); r.name:SetJustifyH("LEFT"); r.name:SetWordWrap(false)
+	r.note = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); r.note:SetPoint("RIGHT", -4, 0); r.note:SetJustifyH("RIGHT"); r.note:SetWordWrap(false)
+	local function flip() S:TickSheetSection(r.id) end
+	r:SetScript("OnClick", flip)
+	r.check:SetScript("OnClick", flip)
+	f.rows[i] = r
+	return r
+end
+-- The sheet's choices: BagSmith's tabs and your own sheets, the one in use ticked. A long list scrolls (ns.ShowMenu).
+function S:PickSheetMenu(anchor)
+	local f = self.sheetFrame
+	if not f then return end
+	local items = {}
+	for _, t in ipairs(self:TabChoices()) do
+		items[#items + 1] = { text = t.label, radio = true, checked = t.id == f.sheet, onClick = function() f.sheet = t.id; f.err:SetText(""); S:RefreshSheetSections() end }
+	end
+	return ns.ShowMenu(items, anchor)
+end
+function S:TickSheetSection(id)
+	local f = self.sheetFrame
+	if not (f and f.sheet and id) then return end
+	if ns.db ~= self.sheetDB then f:Hide() return end   -- the profile changed: this was for the old one
+	local ok, why = self:SetOnSheet(id, f.sheet, not self:SetToSheet(id, f.sheet))
+	f.err:SetText((not ok and why) or "")
+	self:RefreshSheetSections()
+end
+function S:RefreshSheetSections()
+	local f = self.sheetFrame
+	if not (f and f:IsShown()) then return end
+	local s = Skins:Current()
+	-- the sheet may be gone (one of yours, deleted): back to the first there is
+	local label
+	for _, t in ipairs(self:TabChoices()) do if t.id == f.sheet then label = t.label end end
+	if not label then local first = self:TabChoices()[1]; f.sheet, label = first and first.id, first and first.label end
+	f.pick.label:SetText(label or "")
+	local list = self:Customs()
+	for i, c in ipairs(list) do
+		local r = sheetRow(f, i)
+		r.id = c.id
+		local on = self:SetToSheet(c.id, f.sheet)
+		r.check:SetChecked(on)
+		local note = self:SheetNote(c.id, f.sheet)
+		r.note:SetText(note); r.note:SetTextColor(unpack(s.muted))
+		r.name:SetText(c.name); r.name:SetTextColor(unpack(s.text))
+		r.name:SetWidth(math.max(60, r:GetWidth() - 26 - 8 - math.ceil(r.note:GetStringWidth() or 0)))
+		r:ClearAllPoints(); r:SetPoint("TOPLEFT", f.child, "TOPLEFT", 0, -(i - 1) * SROW); r:Show()
+	end
+	for i = #list + 1, #f.rows do f.rows[i]:Hide() end
+	f.child:SetHeight(math.max(1, #list * SROW))
+	if f.scroll.ScrollBar then f.scroll.ScrollBar:SetShown(#list > SVIEW) end
+	f.empty:SetShown(#list == 0)
+end
+-- Opens it for a sheet: the one asked for, else the tab the bags are on, else the first.
+function S:OpenSheetSections(sheet)
+	local f = self:SheetWindow()
+	self.sheetDB = ns.db
+	local want = sheet or (ns.Window and ns.Window.main and ns.Window.main.st and ns.Window.main.st.sheet)
+	local ok
+	for _, t in ipairs(self:TabChoices()) do if t.id == want then ok = true end end
+	f.sheet = ok and want or (self:TabChoices()[1] and self:TabChoices()[1].id)
+	f.err:SetText("")
+	f.scroll:SetVerticalScroll(0)
+	if ns.Classic then ns.Classic:RefreshTitle(f) end
+	f:Show()
+	if f.Raise then f:Raise() end
+	self:RefreshSheetSections()
+	return f
 end
 
 ------------------------------------------------------------------------
@@ -963,4 +1091,10 @@ ns:OnSignal("ADDON_READY", function()
 	ns:On("GET_ITEM_INFO_RECEIVED", function() if S.movedFrame and S.movedFrame:IsShown() then S:RefreshMovedWindow() end end)
 	-- (1.10.0-beta1) the preview follows your bags while the window is up
 	ns:OnSignal("ITEMS_CHANGED", function() if S.fromFrame and S.fromFrame:IsShown() then S:RefreshFromItem() end end)
+	-- (1.11.0-beta2) Sections on a Sheet follows a section made, renamed, deleted or set elsewhere, and a sheet too
+	ns:OnSignal("SETTINGS_CHANGED", function()
+		local f = S.sheetFrame
+		if not (f and f:IsShown()) then return end
+		if ns.db ~= S.sheetDB then f:Hide() else S:RefreshSheetSections() end
+	end)
 end)

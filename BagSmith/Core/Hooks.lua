@@ -98,6 +98,19 @@ function Hooks:Install()
 		C_Timer.After(0, function() handled = false; frameWasOpen, frameWasAuto = nil, nil end)
 	end
 	ns:OnSignal("MAIN_HIDDEN", function() autoOpened = false end)
+	-- (1.11.0-beta2, Shweep: "auto open with, and then list out all the places that BagSmith auto opens when you go
+	-- to and default them all to true", the lighter form) Each place BagSmith opens the bags at has its own switch
+	-- (Settings > Automations), and the game's window for each is known by name, so that window's OpenAllBags and
+	-- CloseAllBags can be told from another's. A window not listed here is followed as it always was.
+	local PLACE_SETTING = { vendor = "autoOpenVendor", mail = "autoOpenMail", trade = "autoOpenTrade", ah = "autoOpenAH", bank = "autoOpenBank", guildbank = "autoOpenGuildBank" }
+	local WINDOW_PLACE = { MerchantFrame = "vendor", MailFrame = "mail", TradeFrame = "trade", AuctionHouseFrame = "ah", AuctionFrame = "ah", BankFrame = "bank", GuildBankFrame = "guildbank" }
+	local function opensAt(place) return not place or not PLACE_SETTING[place] or ns.db[PLACE_SETTING[place]] ~= false end
+	local function placeOf(frame)
+		if type(frame) ~= "table" or type(frame.GetName) ~= "function" then return nil end
+		local ok, name = pcall(frame.GetName, frame)
+		return ok and type(name) == "string" and WINDOW_PLACE[name] or nil
+	end
+	Hooks.OpensAt, Hooks.PlaceOf = opensAt, placeOf
 	local function stackSummary()
 		local names = {}
 		for name in tostring(debugstack and debugstack() or ""):gmatch("in function [`'<]([^'>]+)") do
@@ -115,23 +128,37 @@ function Hooks:Install()
 	-- A window's CloseAllBags(thatWindow) closes BagSmith whether BagSmith opened for it or the player had the bags
 	-- open already: as it always has, now behind Auto-Close Bags I Opened (on). Off, it only closes bags that opened
 	-- for a window (autoOpened), which is the game's own rule for its bags. The bag key, Escape and the X never ask.
-	local function request(call, kind, bag, opener)
+	-- (1.11.0-beta2) place: which of the listed places the window is, when it is one. With Auto-Open off there, its
+	-- OpenAllBags opens nothing: bags that were shut stay shut (and are shut again if the game's own toggle, inside
+	-- that call, had just opened them), while bags the player had open are put back as they were. And leaving follows
+	-- the "when I leave" choice: Always Close, Close If Auto-Opened (1.10.1's switch, off), or Never Close.
+	local function request(call, kind, bag, opener, place)
 		if not managed(bag or ns.BACKPACK) then return end
 		local before, wasAuto = ns.Window:IsShown(), autoOpened
+		local leaving = ns.db.closeOnLeave
 		local outcome
 		if opener and kind == "open" and not before then
-			ns.Window:Show()
-			-- open for that window, unless this frame's toggle had just shut bags the player had opened: those are
-			-- his again
-			if handled and frameWasOpen then autoOpened = frameWasAuto and true or false else autoOpened = true end
+			local restoring = handled and frameWasOpen   -- this frame's toggle had just shut bags that were open
+			if restoring or opensAt(place) then
+				ns.Window:Show()
+				-- open for that window, unless they were the player's own bags: those are his again
+				if restoring then autoOpened = frameWasAuto and true or false else autoOpened = true end
+				outcome = "opened for the game's window"
+			else
+				outcome = "left shut (Auto-Open is off for this window)"
+			end
 			settle(before, wasAuto)
-			outcome = "opened for the game's window"
-		elseif opener and kind == "close" and before and not autoOpened and ns.db.autoCloseOwnBags == false then
-			outcome = "left open (bags you opened yourself)"
+		elseif opener and kind == "close" and before and (leaving == "never" or (leaving == "auto" and not autoOpened)) then
+			outcome = leaving == "never" and "left open (When I Leave is Never Close)" or "left open (bags you opened yourself)"
+			autoOpened = false   -- (left open: they are the player's from here)
 		elseif handled then
-			-- (the game's toggle inside a window's OpenAllBags opened BagSmith in this frame: open for that window)
-			if opener and kind == "open" and before and frameWasOpen == false then autoOpened = true end
 			outcome = "ignored (this press is already handled)"
+			-- the game's toggle inside a window's OpenAllBags opened BagSmith in this frame: open for that window, or,
+			-- with Auto-Open off there, shut again
+			if opener and kind == "open" and before and frameWasOpen == false then
+				if opensAt(place) then autoOpened = true
+				else ns.Window:Hide(); outcome = "shut again (Auto-Open is off for this window)" end
+			end
 		else
 			if kind == "toggle" then ns.Window:Toggle()
 			elseif kind == "open" and not before then ns.Window:Show()
@@ -173,8 +200,8 @@ function Hooks:Install()
 		request("ToggleBackpack_Combined", "toggle")
 	end)
 	-- Direct calls: cinematics, vehicles, the game menu (CloseAllWindows).
-	hook("OpenAllBags", function(frame) request("OpenAllBags", "open", nil, frame ~= nil) end)
-	hook("CloseAllBags", function(frame) request("CloseAllBags", "close", nil, frame ~= nil) end)
+	hook("OpenAllBags", function(frame) request("OpenAllBags", "open", nil, frame ~= nil, placeOf(frame)) end)
+	hook("CloseAllBags", function(frame) request("CloseAllBags", "close", nil, frame ~= nil, placeOf(frame)) end)
 
 	-- Blizzard opens the bags for you at merchants, mail, trade and the bank.
 	-- Those paths run OpenAllBags inside other calls, so instead of hooking
@@ -185,30 +212,35 @@ function Hooks:Install()
 	-- backpack, and BagSmith took that toggle as a press of the bag key and shut the window it had just opened. So
 	-- the game's bag calls for the rest of this frame are not presses: BagSmith is open for the window, or was
 	-- already. (A window that shows a frame or more later is covered by "opener" in request, above.)
-	local function autoShow()
+	-- (1.11.0-beta2) place: with Auto-Open off for it, nothing opens; the frame is settled all the same, so the game's
+	-- own toggle for that window doesn't open the bags either. And with When I Leave on Never Close, nothing closes.
+	local function autoShow(place)
 		if not managed(ns.BACKPACK) then return end
 		local before, wasAuto = ns.Window:IsShown(), autoOpened
-		if not before then ns.Window:Show(); autoOpened = true end
+		if not before and opensAt(place) then ns.Window:Show(); autoOpened = true end
 		settle(before, wasAuto)
 	end
 	local function autoHide()
-		if autoOpened and ns.Window:IsShown() then ns.Window:Hide() end
+		if ns.db.closeOnLeave ~= "never" and autoOpened and ns.Window:IsShown() then ns.Window:Hide() end
 		autoOpened = false
 	end
 	-- (1.10.1-beta2) The bank opens the bags from Window.lua (BANK_OPENED), and on Forever the game's bank window asks
 	-- for them too: the same care as autoShow. Bags still open a frame after the bank has closed were not closed with
 	-- it, so they are the player's from then on, as they always were.
-	function Hooks.OpenedFor(wasShut)
+	-- (1.11.0-beta2) opened: whether the bank did open them (Auto-Open at the Bank)
+	function Hooks.OpenedFor(wasShut, opened)
 		if not managed(ns.BACKPACK) then return end
 		local wasAuto = autoOpened
-		if wasShut then autoOpened = true end
+		if wasShut and opened ~= false then autoOpened = true end
 		settle(not wasShut, wasAuto)
 	end
 	ns:OnSignal("BANK_CLOSED", function()
 		C_Timer.After(0, function() if not ns.atBank and ns.Window:IsShown() then autoOpened = false end end)
 	end)
 	Hooks.AutoOpened = function() return autoOpened end   -- for the tests
-	for _, ev in ipairs({ "MERCHANT_SHOW", "MAIL_SHOW", "TRADE_SHOW", "AUCTION_HOUSE_SHOW" }) do ns:On(ev, autoShow) end
+	for ev, place in pairs({ MERCHANT_SHOW = "vendor", MAIL_SHOW = "mail", TRADE_SHOW = "trade", AUCTION_HOUSE_SHOW = "ah" }) do
+		ns:On(ev, function() autoShow(place) end)
+	end
 	for _, ev in ipairs({ "MERCHANT_CLOSED", "MAIL_CLOSED", "TRADE_CLOSED", "AUCTION_HOUSE_CLOSED" }) do ns:On(ev, autoHide) end
 
 	-- (1.8.0-beta23, Shweep, after FlareUI's notes) The guild bank: Forever doesn't open the bags with it, as it does at a
@@ -220,7 +252,7 @@ function Hooks:Install()
 		if type(f) ~= "table" or not f.HookScript or Hooks.guildBankFollowed then return end
 		Hooks.guildBankFollowed = true
 		-- Auto Travel Mode first (Window.lua), so the bags open full
-		f:HookScript("OnShow", function() ns:Fire("GUILD_BANK_OPENED"); autoShow() end)
+		f:HookScript("OnShow", function() ns:Fire("GUILD_BANK_OPENED"); autoShow("guildbank") end)
 		f:HookScript("OnHide", function() autoHide(); ns:Fire("GUILD_BANK_CLOSED") end)
 	end
 	Hooks.FollowGuildBank = followGuildBank   -- for the tests

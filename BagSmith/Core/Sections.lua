@@ -225,6 +225,40 @@ function S:AnyScoped()
 	for _, c in ipairs(self:Customs()) do if c.sheets then return true end end
 	return false
 end
+-- (1.11.0-beta2, left out of 1.10 and taken for 1.11 by Shweep: "a way to set several sections to a sheet at once")
+-- The same setting from the sheet's side: is this sheet one of the sheets a section is set to show on, and put it on
+-- that list or take it off. A section that shows on every sheet has no list, so adding a sheet makes it show there
+-- only; taking the last sheet off makes it show on every sheet again. Returns true, or false and why not.
+S.MAX_SHEETS = 24
+function S:SetToSheet(id, sheet)
+	for _, name in ipairs(self:Sheets(id) or {}) do if name == sheet then return true end end
+	return false
+end
+function S:SetOnSheet(id, sheet, on)
+	local c = self:Custom(id)
+	if not c or type(sheet) ~= "string" or sheet == "" then return false end
+	local list, at = {}, nil
+	for i, name in ipairs(c.sheets or {}) do list[i] = name; if name == sheet then at = i end end
+	if on and not at then
+		if #list >= S.MAX_SHEETS then return false, ("A section can be set to %d sheets at most."):format(S.MAX_SHEETS) end
+		list[#list + 1] = sheet
+	elseif not on and at then
+		table.remove(list, at)
+	else
+		return true
+	end
+	return self:SetSheets(id, list)
+end
+-- Where a section shows, said from one sheet: "every sheet", "only here", "here and Gear", "only on Gear and Bank".
+function S:SheetNote(id, sheet)
+	local list = self:Sheets(id)
+	if not list then return "every sheet" end
+	local others, here = {}, false
+	for _, name in ipairs(list) do if name == sheet then here = true else others[#others + 1] = name end end
+	if here and #others == 0 then return "only here" end
+	if here then return "here and " .. self:SheetsText(others) end
+	return "only on " .. self:SheetsText(others)
+end
 -- The section a record is in on one tab. The same as rec.cat unless one of your sections only shows on some sheets.
 function S:CatOn(rec, sheet)
 	local cat = rec.cat

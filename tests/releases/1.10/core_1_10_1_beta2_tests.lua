@@ -136,8 +136,11 @@ end
 ------------------------------------------------------------------------
 do
 	local M, n = boot()
-	check(n.db.autoCloseOwnBags == true, "Auto-Close Bags I Opened is on by default")
-	check(BagSmithDB.profiles.Default.autoCloseOwnBags == true, "and a profile from before it gets it on")
+	-- (by design since 1.11.0-beta2: the switch became the When I Leave choice on Settings > Automations. Ticked is
+	-- Always Close, unticked is Close If Auto-Opened; the profiles below that carry autoCloseOwnBags = false are 1.10.1's
+	-- own saved data, and must go on behaving as they did.)
+	check(n.db.closeOnLeave == "always" and n.db.autoCloseOwnBags == nil, "Auto-Close Bags I Opened is on by default (now: When I Leave is Always Close)")
+	check(BagSmithDB.profiles.Default.closeOnLeave == "always", "and a profile from before it gets it on")
 end
 for _, bags in ipairs(BAGS) do
 	for _, order in ipairs(ORDERS) do
@@ -228,6 +231,10 @@ end
 ------------------------------------------------------------------------
 -- 4. The switch in Settings > General
 ------------------------------------------------------------------------
+-- (by design since 1.11.0-beta2: Shweep moved it. "wouldn't it make more sense for the setting to be something more like
+-- auto open with, and then list out all the places"; the lighter version he chose keeps one choice for leaving, When I
+-- Leave, on Settings > Automations, and this switch's two states are two of its three. Its name, help, place, NEW tag
+-- and greying were checked here; the choice that replaced it is checked in tests/releases/1.11/core_1_11_0_beta2_tests.lua.)
 do
 	local M, n = boot({ db = { newSeen = { ["1.10"] = { general = "1.10.0" } } } })
 	local P = n.SettingsPanel
@@ -235,25 +242,13 @@ do
 	local function row(key) for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == key then return w end end end
 	local function top(w) return select(5, w:GetPoint(1)) or select(3, w:GetPoint(1)) end
 	local r, bagRow, mini = row("autoCloseOwnBags"), row("replaceBlizzardBags"), row("minimap")
-	check(r and r.text.text == "Auto-Close Bags I Opened", "the switch is named Auto-Close Bags I Opened")
-	-- (by design since 1.10.1: Shweep had the help reworded, "a tad confusing as written", and picked this one)
-	check(r and r.help.text == "When you leave a vendor, the mailbox, a trade or the auction house, your bags close, even if you already had them open. Turn off, and bags you already had open stay open.",
-		"its help, word for word: " .. tostring(r and r.help.text))
-	check(r and not r.help.text:find("\226\128\148"), "no dashes")
-	check(r and bagRow and mini and top(bagRow) > top(r) and top(r) > top(mini), "it sits under Open with the Bag Keybind, above Show Minimap Button")
-	check(r.box:GetChecked() == true, "ticked by default")
-	check(P:IsNew("keys", "autoCloseOwnBags") and r.newTag and r.newTag:IsShown(), "NEW beside it for someone who saw the General page in 1.10.0")
-	check(not (bagRow.newTag and bagRow.newTag:IsShown()), "and not beside the settings that were there")
-	r.box:SetChecked(false); r.box:GetScript("OnClick")(r.box)
-	check(n.db.autoCloseOwnBags == false and BagSmithDB.profiles.Default.autoCloseOwnBags == false, "unticking it turns it off, in the profile")
-	r.box:SetChecked(true); r.box:GetScript("OnClick")(row("autoCloseOwnBags").box)
-	check(n.db.autoCloseOwnBags == true, "and ticking it turns it back on")
-	-- with Blizzard's bags on the key BagSmith opens and closes nothing for a window: the switch is greyed, its value kept
-	n:Set("autoCloseOwnBags", false); n:Set("replaceBlizzardBags", false); M.runTimers()
-	r = row("autoCloseOwnBags")
-	check(r and not r.box:IsEnabled() and r.box:GetChecked() == false, "with Open with the Bag Keybind off it is greyed, showing what it is set to")
-	n:Set("replaceBlizzardBags", true); M.runTimers()
-	check(row("autoCloseOwnBags").box:IsEnabled(), "and usable again with it on")
+	check(r == nil, "General no longer has Auto-Close Bags I Opened")
+	check(bagRow and mini and top(bagRow) > top(mini), "Open with the Bag Keybind is still above Show Minimap Button")
+	check(not (bagRow.newTag and bagRow.newTag:IsShown()), "and wears no NEW tag")
+	-- what the switch did is the choice now, with the same two outcomes
+	check(n.db.closeOnLeave == "always", "ticked, as it was by default: Always Close")
+	check(n:Set("closeOnLeave", "auto") and BagSmithDB.profiles.Default.closeOnLeave == "auto", "unticked: Close If Auto-Opened, in the profile")
+	check(n:Set("closeOnLeave", "always") and n.db.closeOnLeave == "always", "and back")
 	check((n.errors or 0) == 0, "no errors")
 end
 

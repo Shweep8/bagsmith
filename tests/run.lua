@@ -4481,7 +4481,10 @@ end)()
 		check(#wrong == 0, page .. ": every setting sits under its own heading" .. (#wrong > 0 and (": " .. table.concat(wrong, ", ")) or ""))
 	end
 	-- (by design since 1.9.1-beta4, Shweep: Bag Cleanup, Vendors and Clear Soul Shards first, then Auto Travel Mode and Prompts)
-	grouped("automation", "Bag Cleanup | Vendors | Clear Soul Shards | Auto Travel Mode | Prompts", {
+	-- (by design since 1.11.0-beta2: Auto-Open and Auto-Close, above Auto Travel Mode, with its six switches and When I Leave)
+	grouped("automation", "Bag Cleanup | Vendors | Clear Soul Shards | Auto-Open and Auto-Close | Auto Travel Mode | Prompts", {
+		autoOpenVendor = "Auto-Open and Auto-Close", autoOpenMail = "Auto-Open and Auto-Close", autoOpenTrade = "Auto-Open and Auto-Close", autoOpenAH = "Auto-Open and Auto-Close",
+		autoOpenBank = "Auto-Open and Auto-Close", autoOpenGuildBank = "Auto-Open and Auto-Close", closeOnLeave = "Auto-Open and Auto-Close",
 		travelLeaveBank = "Auto Travel Mode", travelLeaveAH = "Auto Travel Mode", travelLeaveVendor = "Auto Travel Mode", travelLeaveTaxi = "Auto Travel Mode", travelLeaveTrade = "Auto Travel Mode",
 		cleanOnOpen = "Bag Cleanup", autoSellJunk = "Vendors", ["Soul Shards to Keep"] = "Clear Soul Shards",
 		autoConfirm = "Prompts", autoConfirmEverywhere = "Prompts", autoConfirmEquip = "Prompts", autoConfirmUse = "Prompts", autoConfirmEnchant = "Prompts", autoConfirmRoll = "Prompts",
@@ -6460,7 +6463,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.11%.0%-beta1\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.11.0-beta1, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.11%.0%-beta2\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.11.0-beta2, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end

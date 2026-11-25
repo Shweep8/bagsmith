@@ -18,7 +18,8 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	table.sort(heads, function(a, b) return a.y > b.y end)
 	local order = {}
 	for _, h in ipairs(heads) do order[#order + 1] = h.text end
-	check(table.concat(order, "|") == "Bag Cleanup|Vendors|Clear Soul Shards|Auto Travel Mode|Prompts", S .. "the headings in Shweep's order: " .. table.concat(order, "|"))
+	-- (by design since 1.11.0-beta2: Auto-Open and Auto-Close joins the page, just above Auto Travel Mode, where he placed it)
+	check(table.concat(order, "|") == "Bag Cleanup|Vendors|Clear Soul Shards|Auto-Open and Auto-Close|Auto Travel Mode|Prompts", S .. "the headings in Shweep's order: " .. table.concat(order, "|"))
 	-- each section's settings still under its heading
 	local function rowY(pool, key) for _, w in ipairs(P.pools[pool] or {}) do if w:IsShown() and w.key == key then return w.points[1][5] end end end
 	local function headY(text) for _, h in ipairs(heads) do if h.text == text then return h.y end end end
