@@ -121,14 +121,21 @@ for _, bags in ipairs(BAGS) do
 	end
 end
 do
-	-- a client whose bank doesn't ask the game for the bags: they stay open after it, as before, and are the player's
+	-- a client whose bank doesn't ask the game for the bags
+	-- (by design since 1.11.0-beta3, Shweep's "1": the bank closing follows When I Leave like every other place, whether
+	-- or not the game's bank window closes the bags. On such a client nothing used to close them, and they were the
+	-- player's from the next frame; Never Close is the choice that leaves them now.)
 	local M, n, G = boot({ combined = false })
 	frame(M); M.fire("BANKFRAME_OPENED")
 	check(n.Window:IsShown() and n.Hooks.AutoOpened(), "a bank that doesn't ask the game for the bags: BagSmith still opens them")
 	frame(M); M.fire("BANKFRAME_CLOSED")
-	check(n.Window:IsShown(), "and they stay open when it closes, as before")
+	check(not n.Window:IsShown(), "and they close with it (When I Leave: Always Close)")
+	M, n, G = boot({ combined = false, profile = { closeOnLeave = "never" } })
+	frame(M); M.fire("BANKFRAME_OPENED")
+	frame(M); M.fire("BANKFRAME_CLOSED")
+	check(n.Window:IsShown(), "with Never Close they stay open when it closes")
 	frame(M)
-	check(not n.Hooks.AutoOpened(), "from the next frame they count as bags the player has open")
+	check(not n.Hooks.AutoOpened(), "and count as bags the player has open")
 end
 
 ------------------------------------------------------------------------

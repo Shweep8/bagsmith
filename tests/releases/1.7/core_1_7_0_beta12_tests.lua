@@ -55,6 +55,8 @@
 	b = row()
 	check((D.StandsOnFullest and D:StandsOnFullest()) and at(b) == "0:2", "in a trade: the fullest stack (" .. at(b) .. ")")
 	TradeFrame:Hide(); M.fire("TRADE_CLOSED"); M.runTimers(); M.runTimers()
+	-- (by design since 1.11.0-beta3, Shweep's "1": Always Close closes the bags at every place, whether they opened for it or were open already): opened again after the trade
+	n.Window:Show(); M.runTimers(); M.runTimers()
 	n.atBank = true
 	b = row()
 	check(not (D.StandsOnFullest and D:StandsOnFullest()) and at(b) == "0:1", "at the bank: the first stack, as before (" .. at(b) .. ")")

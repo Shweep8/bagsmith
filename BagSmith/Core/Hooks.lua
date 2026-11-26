@@ -201,7 +201,15 @@ function Hooks:Install()
 	end)
 	-- Direct calls: cinematics, vehicles, the game menu (CloseAllWindows).
 	hook("OpenAllBags", function(frame) request("OpenAllBags", "open", nil, frame ~= nil, placeOf(frame)) end)
-	hook("CloseAllBags", function(frame) request("CloseAllBags", "close", nil, frame ~= nil, placeOf(frame)) end)
+	-- (1.11.0-beta3, Shweep in game: "Never close doesn't seem to work at a mailbox, worked at vendor though") The
+	-- vendor, the bank and the auction house close the bags naming themselves; the mail window's close names no window,
+	-- which is the call Escape and the game menu make, so BagSmith took it for one of those and closed whatever When I
+	-- Leave said. A close with no window that comes as the mail window goes (mailLeaving, below) is the mailbox's.
+	local mailLeaving
+	hook("CloseAllBags", function(frame)
+		if frame == nil and mailLeaving then return request("CloseAllBags (the mail window's)", "close", nil, true, "mail") end
+		request("CloseAllBags", "close", nil, frame ~= nil, placeOf(frame))
+	end)
 
 	-- Blizzard opens the bags for you at merchants, mail, trade and the bank.
 	-- Those paths run OpenAllBags inside other calls, so instead of hooking
@@ -214,14 +222,29 @@ function Hooks:Install()
 	-- already. (A window that shows a frame or more later is covered by "opener" in request, above.)
 	-- (1.11.0-beta2) place: with Auto-Open off for it, nothing opens; the frame is settled all the same, so the game's
 	-- own toggle for that window doesn't open the bags either. And with When I Leave on Never Close, nothing closes.
+	-- (1.11.0-beta3, Shweep: "1", Always Close closes at every place) Leaving follows When I Leave here too: Always
+	-- Close closes the bags whether they opened for the place or were open already, Close If Auto-Opened only the
+	-- first, Never Close neither. Before, bags the player already had open were only closed where the game's own
+	-- window did it (a vendor, the mailbox, the bank, the auction house), so after a trade or the guild bank, which
+	-- BagSmith follows by itself, they stayed open under Always Close. A place is left once for each visit: the game
+	-- sends some of these events twice, and some with no visit before them.
+	local visiting = {}
 	local function autoShow(place)
 		if not managed(ns.BACKPACK) then return end
+		if place then visiting[place] = true end
 		local before, wasAuto = ns.Window:IsShown(), autoOpened
 		if not before and opensAt(place) then ns.Window:Show(); autoOpened = true end
 		settle(before, wasAuto)
 	end
-	local function autoHide()
-		if ns.db.closeOnLeave ~= "never" and autoOpened and ns.Window:IsShown() then ns.Window:Hide() end
+	local function autoHide(place)
+		if place then
+			if not visiting[place] then return end
+			visiting[place] = nil
+		end
+		if managed(ns.BACKPACK) and ns.Window:IsShown() then
+			local leaving = ns.db.closeOnLeave
+			if leaving == "always" or (leaving ~= "never" and autoOpened) then ns.Window:Hide() end
+		end
 		autoOpened = false
 	end
 	-- (1.10.1-beta2) The bank opens the bags from Window.lua (BANK_OPENED), and on Forever the game's bank window asks
@@ -230,18 +253,40 @@ function Hooks:Install()
 	-- (1.11.0-beta2) opened: whether the bank did open them (Auto-Open at the Bank)
 	function Hooks.OpenedFor(wasShut, opened)
 		if not managed(ns.BACKPACK) then return end
+		visiting.bank = true
 		local wasAuto = autoOpened
 		if wasShut and opened ~= false then autoOpened = true end
 		settle(not wasShut, wasAuto)
 	end
-	ns:OnSignal("BANK_CLOSED", function()
-		C_Timer.After(0, function() if not ns.atBank and ns.Window:IsShown() then autoOpened = false end end)
-	end)
+	-- (1.11.0-beta3) the bank closing follows When I Leave like the rest (on Forever the game's bank window had
+	-- already closed them under Always Close; a bank that asks the game for nothing now does the same)
+	ns:OnSignal("BANK_CLOSED", function() autoHide("bank") end)
 	Hooks.AutoOpened = function() return autoOpened end   -- for the tests
 	for ev, place in pairs({ MERCHANT_SHOW = "vendor", MAIL_SHOW = "mail", TRADE_SHOW = "trade", AUCTION_HOUSE_SHOW = "ah" }) do
 		ns:On(ev, function() autoShow(place) end)
 	end
-	for _, ev in ipairs({ "MERCHANT_CLOSED", "MAIL_CLOSED", "TRADE_CLOSED", "AUCTION_HOUSE_CLOSED" }) do ns:On(ev, autoHide) end
+	for ev, place in pairs({ MERCHANT_CLOSED = "vendor", MAIL_CLOSED = "mail", TRADE_CLOSED = "trade", AUCTION_HOUSE_CLOSED = "ah" }) do
+		ns:On(ev, function() autoHide(place) end)
+	end
+	-- (1.11.0-beta3) The mail window going: its own hide (which comes just before its close of the bags, in the same
+	-- call) and the game's MAIL_CLOSED. For a moment after either, a close that names no window is the mailbox's; a new
+	-- visit ends it at once. The window is the game's own and may load after BagSmith: followed when it is first seen.
+	local function mailGoing()
+		local token = {}
+		mailLeaving = token
+		C_Timer.After(0.5, function() if mailLeaving == token then mailLeaving = nil end end)
+	end
+	local function followMail()
+		local f = _G.MailFrame
+		if type(f) ~= "table" or not f.HookScript or Hooks.mailFollowed then return end
+		Hooks.mailFollowed = true
+		f:HookScript("OnHide", function() if managed(ns.BACKPACK) then mailGoing() end end)
+	end
+	Hooks.FollowMail = followMail   -- for the tests
+	followMail()
+	ns:On("MAIL_SHOW", function() mailLeaving = nil; followMail() end)
+	ns:On("MAIL_CLOSED", function() if managed(ns.BACKPACK) then mailGoing() end end)
+	Hooks.MailLeaving = function() return mailLeaving ~= nil end   -- for the tests
 
 	-- (1.8.0-beta23, Shweep, after FlareUI's notes) The guild bank: Forever doesn't open the bags with it, as it does at a
 	-- vendor. BagSmith follows its window (Blizzard's, loaded on demand) the way it follows a vendor: shown, the bags
@@ -253,7 +298,7 @@ function Hooks:Install()
 		Hooks.guildBankFollowed = true
 		-- Auto Travel Mode first (Window.lua), so the bags open full
 		f:HookScript("OnShow", function() ns:Fire("GUILD_BANK_OPENED"); autoShow("guildbank") end)
-		f:HookScript("OnHide", function() autoHide(); ns:Fire("GUILD_BANK_CLOSED") end)
+		f:HookScript("OnHide", function() autoHide("guildbank"); ns:Fire("GUILD_BANK_CLOSED") end)
 	end
 	Hooks.FollowGuildBank = followGuildBank   -- for the tests
 	local loaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded

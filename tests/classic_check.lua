@@ -43,6 +43,6 @@ return function(scenario)
 	M.fire("BANKFRAME_OPENED"); M.runTimers()
 	local bk = ns.Window.bank
 	L.snap(out, { { "bank", bk.frame, skip = { [bk.scroll.child] = true } } }, { layout = true })
-	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 	return table.concat(out, "\n")
 end

@@ -134,7 +134,11 @@ end)()
 	for _, r in ipairs(rows) do shown[#shown + 1] = r.t end
 	check(head, "the heading reads Special Bag Slot Indicators")
 	-- (beta9, by design) "indicator" wording
-	check(shown[1] == "Ammo Pouch Indicator" and shown[12] == "Trinket Bag Indicator", "Settings lists them in that order: " .. table.concat(shown, " | "))
+	-- (by design since 1.11.0-beta3: the kinds are a Special Bag list now, in the same order, with the picked kind's
+	-- switch under it)
+	local listed = {}
+	for _, w in ipairs(P.pools.dropdown or {}) do if w:IsShown() and w.key == "bagKindPick" then for _, c in ipairs(w.choices) do listed[#listed + 1] = (c.label:gsub(" %(On%)$", "")) end end end
+	check(listed[1] == "Ammo Pouch" and listed[12] == "Trinket Bag" and #shown == 1 and shown[1]:find(" Indicator$"), "Settings lists them in that order: " .. table.concat(listed, " | "))
 	P:Hide()
 end)()
 

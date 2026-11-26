@@ -9,17 +9,29 @@ New:
   ItemTree, what it knows about the item.
 - Auto-Open and Auto-Close (Settings > Automations): a switch for each place BagSmith opens your bags at (vendors,
   the mailbox, trades, the auction house, the bank and the guild bank), and a When I Leave choice: Always Close, Close
-  If Auto-Opened or Never Close. Everything starts as it has always worked.
+  If Auto-Opened or Never Close. Every switch starts ticked, and When I Leave starts on Always Close.
 - Sections on a Sheet (Settings > Custom Sections, or a section's menu in your bags): pick a sheet and tick the
   sections of yours that should show there only, several at once.
+- Disenchant Results: the Disenchant Helper has a Results button. It shows what your disenchants gave you, This
+  Session and All Time: how many items by quality, the materials with their auction house value now, what the items
+  would have sold for instead, and the most valuable item you disenchanted. The sold-instead lines count disenchants
+  from this version on.
 
 Changed:
 - Auto-Close Bags I Opened, from 1.10.1, is now the When I Leave choice on Automations. What you had carries over:
   ticked is Always Close, unticked is Close If Auto-Opened.
+- Always Close now also closes bags you already had open when you finish a trade or leave the guild bank, as it
+  always has at vendors, the mailbox, the bank and the auction house.
+- Special Bag Slot Indicators (Settings > Item Icons): pick a kind of bag from a list and set up its indicator,
+  instead of scrolling a column of twelve switches.
 - A menu too long for your screen shows arrows at its top and bottom, so you can see there is more and click to reach
   it. The mouse wheel still scrolls it.
 - The lists for a Type, Slot or Section rule open in a taller window when your screen has room, so more of a long list
   shows at once.
+
+Fixed:
+- Leaving the mailbox closed bags you had opened yourself even with Auto-Close Bags I Opened turned off (1.10.1).
+  When I Leave now holds at the mailbox as it does at a vendor.
 
 ## 1.10.1
 

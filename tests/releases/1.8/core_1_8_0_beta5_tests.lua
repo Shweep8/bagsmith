@@ -130,8 +130,13 @@ end)()
 	n.SettingsPanel:Show(); n.SettingsPanel:ShowPage("icons"); M.runTimers()
 	local seen = 0
 	for _, w in ipairs(n.SettingsPanel.pools.check or {}) do if w:IsShown() and w.key and w.key:find("^glow_") then seen = seen + 1 end end
-	check(seen == 12, "Settings > Item Icons lists a glow switch for each of the twelve kinds: " .. seen)
+	-- (by design since 1.11.0-beta3, Shweep: "select which Special Bag to edit first ... and then the settings show up for
+	-- it": a Special Bag list of the twelve kinds, and under it the picked kind's switch and settings only)
+	local listed = 0
+	for _, w in ipairs(n.SettingsPanel.pools.dropdown or {}) do if w:IsShown() and w.key == "bagKindPick" then listed = #w.choices end end
+	check(listed == 12 and seen == 1, "Settings > Item Icons lists the twelve kinds, and shows the glow switch of the one picked: " .. listed .. ", " .. seen)
 	-- a kind turned on shows its own items switch and color, each naming the kind
+	n.SettingsPanel.bagKind = "herb"
 	n:Set("glow_herb", true); n.SettingsPanel:Show(); n.SettingsPanel:ShowPage("icons"); M.runTimers()
 	local itemsRow, colorRow
 	for _, w in ipairs(n.SettingsPanel.pools.seg or {}) do if w:IsShown() and w.key == "glowFilled_herb" then itemsRow = w end end
@@ -141,7 +146,7 @@ end)()
 	check(colorRow and colorRow.text.text == "Herb Bag Indicator Color", "and so does its color: " .. tostring(colorRow and colorRow.text.text))
 	local others = 0
 	for _, w in ipairs(n.SettingsPanel.pools.seg or {}) do if w:IsShown() and w.key and w.key:find("^glowFilled_") then others = others + 1 end end
-	check(others == 2, "only the kinds turned on (herb, and soul from this profile) show their options: " .. others)
+	check(others == 1, "only the kind picked shows its options (soul is on in this profile too, and has its own turn in the list): " .. others)
 	n.SettingsPanel:Hide()
 	n.SettingsPanel:Hide()
 	check((n.errors or 0) == 0, "no errors")

@@ -386,6 +386,7 @@ _G.ItemLocation = { CreateFromBagAndSlot = function(self, bag, slot) return { it
 -- Addon loading
 function M.loadAddon(root)
 	local ns = {}
+	M.addon = ns   -- (for M.reopenBags)
 	for line in io.lines(root .. "/BagSmith.toc") do
 		if line:match("%.lua%s*$") and not line:match("^#") then
 			local path = root .. "/" .. line:gsub("\\", "/"):gsub("%s+$", "")
@@ -397,10 +398,36 @@ function M.loadAddon(root)
 	return ns
 end
 
+-- (1.11.0-beta3) Leaving a vendor, the bank, the mailbox, a trade or the auction house closes the bags under When I
+-- Leave's default, Always Close, even bags that were open before the visit. The older scenarios were written when, on
+-- these events alone, such bags stayed open, and they go on to use them. M.reopenBags(), called right after the
+-- closing event, is the player opening them again: only bags that were open before the visit and that leaving it
+-- closed (bags that were shut before it stay shut). What leaving does is tested for itself in tests/releases/1.10 and
+-- 1.11; M.fire only keeps note of the visit, and changes nothing unless a scenario calls M.reopenBags().
+local VISIT = { MERCHANT_SHOW = "vendor", MERCHANT_CLOSED = "vendor", BANKFRAME_OPENED = "bank", BANKFRAME_CLOSED = "bank", TRADE_SHOW = "trade", TRADE_CLOSED = "trade",
+	MAIL_SHOW = "mail", MAIL_CLOSED = "mail", AUCTION_HOUSE_SHOW = "ah", AUCTION_HOUSE_CLOSED = "ah" }
+local function bagsOpen()
+	local W = M.addon and M.addon.Window
+	return (W and W.main and W:IsShown()) and true or false
+end
 function M.fire(event, ...)
+	local place = VISIT[event]
+	local arriving = place ~= nil and (event:find("_SHOW$") or event:find("_OPENED$")) ~= nil
+	local was = place ~= nil and bagsOpen()
+	if place and arriving then M.visitOpen = M.visitOpen or {}; M.visitOpen[place] = was end
 	for _, f in ipairs(M.frames) do
 		if f.events[event] and f.scripts.OnEvent then f.scripts.OnEvent(f, event, ...) end
 	end
+	if place and not arriving then
+		M.reopenDue = (M.visitOpen and M.visitOpen[place] and was and not bagsOpen()) and true or nil
+		if M.visitOpen then M.visitOpen[place] = nil end
+	end
+end
+function M.reopenBags()
+	if not M.reopenDue then return false end
+	M.reopenDue = nil
+	M.addon.Window:Show()
+	return true
 end
 
 function M.runTimers()

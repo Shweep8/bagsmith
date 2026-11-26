@@ -139,6 +139,8 @@ end)()
 	check(S:WouldHide(linen, "TradeGoods") and not S:WouldHide(linen, "All") and S:EffectiveSection(linen, "TradeGoods") == cloth and S:EffectiveSection(linen, "All") == "TradeGoods", "Cloth hidden at vendors: the cloth is hidden on the Trade Goods tab, where it's in Cloth, and not on All")
 	check(tab(main, M, "TradeGoods") == "Light Leather, Peacebloom" and tab(main, M, "All"):find("Linen Cloth", 1, true), "and the tabs show it so")
 	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	-- (by design since 1.11.0-beta3, Shweep's "1": Always Close closes the bags at every place, whether they opened for it or were open already): opened again after the vendor
+	n.Window:Show(); M.runTimers()
 	S:SetShown(cloth, "vendor", true)
 	-- an empty section shows only where it's set to
 	local ore = S:Create("Ore")

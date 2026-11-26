@@ -96,7 +96,7 @@ return function(scenario)
 		out[#out + 1] = ("%s | h=%s | %s"):format(pair[1], tostring(f.h), table.concat(pts, " ; "))
 	end
 	L.snap(looks, { { "bank", bk.frame, skip = { [bk.scroll] = true } } })
-	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 	for _, line in ipairs(looks) do out[#out + 1] = line end
 	return table.concat(out, "\n")
 end

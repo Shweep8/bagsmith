@@ -166,10 +166,56 @@ local function shared()
 	if type(s) ~= "table" then s = {}; BagSmithDB.deShared = s end
 	if type(s.results) ~= "table" then s.results = {} end
 	if type(s.materials) ~= "table" then s.materials = {} end
-	if (tonumber(s.version) or 0) ~= DE.LOG_VERSION then s.results = {}; s.version = DE.LOG_VERSION end
+	if (tonumber(s.version) or 0) ~= DE.LOG_VERSION then s.results = {}; s.stats = nil; s.version = DE.LOG_VERSION end
 	return s
 end
 DE.Shared = shared
+-- (1.11.0-beta3, a player's ask: "does bagsmith have something like this?", a results window; Shweep: "In the DE
+-- helper") What was disenchanted and what it was worth: how many, by quality; what the items would have sold for at
+-- the time (to a vendor, at the auction house, the better of the two for each); the materials those disenchants gave;
+-- and the most valuable item. One record since you logged in (DE.play, not saved) and one for all your characters,
+-- beside the log they share (BagSmithDB.deShared.stats, from 1.11 on; Core/Settings.lua checks it when it loads).
+-- Whole copper amounts and counts only: bounded by the kinds of material there are.
+local function newStats() return { n = 0, q = {}, vendor = 0, ah = 0, ahN = 0, alt = 0, mats = {} } end
+DE.NewStats = newStats
+function DE:Stats()
+	local s = shared()
+	if not s then return newStats() end
+	local st = s.stats
+	if type(st) ~= "table" then st = newStats(); s.stats = st end
+	if type(st.q) ~= "table" then st.q = {} end
+	if type(st.mats) ~= "table" then st.mats = {} end
+	for _, k in ipairs({ "n", "vendor", "ah", "ahN", "alt" }) do st[k] = tonumber(st[k]) or 0 end
+	return st
+end
+-- A disenchant that succeeded: its item counted in both records, with what it would have sold for.
+function DE:NoteDisenchanted(e)
+	if type(e) ~= "table" then return end
+	local q = tonumber(e.quality) or 0
+	local vendor = math.floor((tonumber(e.vendor) or 0) + 0.5)
+	local ah = tonumber(e.ah) and math.floor(e.ah + 0.5) or nil
+	local worth = math.max(vendor, ah or 0)
+	local function add(st)
+		st.n = st.n + 1
+		st.q[q] = (st.q[q] or 0) + 1
+		st.vendor = st.vendor + vendor
+		if ah then st.ah = st.ah + ah; st.ahN = st.ahN + 1 end
+		st.alt = st.alt + worth
+		if worth > 0 and e.itemID and (type(st.best) ~= "table" or worth > (tonumber(st.best.worth) or 0)) then
+			st.best = { id = e.itemID, name = type(e.name) == "string" and e.name:sub(1, 120) or nil, q = q, vendor = vendor, ah = ah, worth = worth }
+		end
+	end
+	self.play = self.play or newStats()
+	add(self.play); add(self:Stats())
+end
+-- A material counted for a cast: the same amount in both records.
+function DE:NoteMaterial(id, count)
+	if not (id and (tonumber(count) or 0) > 0) then return end
+	self.play = self.play or newStats()
+	self.play.mats[id] = (self.play.mats[id] or 0) + count
+	local st = self:Stats()
+	st.mats[id] = (st.mats[id] or 0) + count
+end
 function DE:MergeCharacter()
 	local s = shared()
 	if not (s and ns.cdb) then return end
@@ -320,6 +366,7 @@ function DE:Tally(c, id, count, source, learn)
 	end
 	self.session = self.session or { done = 0, mats = {} }
 	self.session.mats[id] = (self.session.mats[id] or 0) + delta
+	self:NoteMaterial(id, delta)   -- (1.11.0-beta3) the Results view's records
 	c.tally[id] = count
 	ns:Debug("Disenchant Helper: %s x%d from the cast under bracket %s", self.MatName(id), delta, c.key)
 	return true
@@ -966,6 +1013,7 @@ function DE:OnSpellSucceeded(unit, spellID)
 	self.done = (self.done or 0) + 1
 	self.session = self.session or { done = 0, mats = {} }
 	self.session.done = self.session.done + 1
+	self:NoteDisenchanted(e)   -- (1.11.0-beta3) the Results view's records
 end
 -- The loot window, for players with auto-loot off: its slots are the same materials, tallied once per cast.
 -- (1.8.0) A window shown to be the cast's own counts whatever it holds, and a material the table doesn't list is learned.
@@ -1048,6 +1096,7 @@ end
 -- The window
 ------------------------------------------------------------------------
 local W, ROW = DE.W, 22
+local RESULT_ROW = 16   -- (1.11.0-beta3) a line of the Results view
 -- Re-anchors a frame to the screen at the spot it occupies now (its corner, in screen coordinates).
 function DE.ToScreen(f)
 	if not (f and f.GetLeft and f.GetTop) then return end
@@ -1200,6 +1249,24 @@ function DE:Frame()
 	-- centered on the window itself, like the title and the card (the line is short enough to clear Close)
 	f.footer = f:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); f.footer:SetPoint("BOTTOMLEFT", 12, 13); f.footer:SetPoint("BOTTOMRIGHT", -12, 13); f.footer:SetJustifyH("CENTER")
 	f.footer:SetText("Mats are DE estimates that improve as you disenchant."); f.footer:SetWordWrap(false)
+	-- (1.11.0-beta3) Results: a button across from Close, and the view it swaps the list for (DE:PaintResults)
+	f.resultsBtn = ns.TextButton(f, "Results", 70, function() DE:ToggleResults() end); f.resultsBtn:SetHeight(22); f.resultsBtn:SetPoint("BOTTOMLEFT", 12, 10)
+	f.resultsBtn.tip = "What your disenchants gave you"
+	f.resultsBtn.tipSub = "This session and all time. Click again for the list."
+	f.results = CreateFrame("Frame", nil, f); f.results:SetPoint("TOPLEFT", 12, -52); f.results:SetPoint("BOTTOMRIGHT", -12, 40); f.results:Hide()
+	do
+		local R = f.results
+		R.tabSession = ns.TextButton(R, "This Session", 100, function() DE:SetResultsTab("session") end); R.tabSession:SetHeight(22); R.tabSession:SetPoint("TOPLEFT", 0, 0)
+		R.tabSession.tip = "Since you logged in"
+		R.tabAll = ns.TextButton(R, "All Time", 80, function() DE:SetResultsTab("all") end); R.tabAll:SetHeight(22); R.tabAll:SetPoint("LEFT", R.tabSession, "RIGHT", 6, 0)
+		R.tabAll.tip = "Every disenchant on record, on all your characters"
+		R.back = ns.TextButton(R, "Back to List", 96, function() DE:ShowResults(false) end); R.back:SetHeight(22); R.back:SetPoint("TOPRIGHT", 0, 0)
+		R.scroll = CreateFrame("ScrollFrame", "BagSmithDisenchantResultsScroll", R, "UIPanelScrollFrameTemplate")
+		R.scroll:SetPoint("TOPLEFT", 0, -32); R.scroll:SetPoint("BOTTOMRIGHT", -26, 0)
+		R.child = CreateFrame("Frame", nil, R.scroll); R.child:SetSize(W - 50, 10); R.scroll:SetScrollChild(R.child)
+		ns.WheelStep(R.scroll, RESULT_ROW * ns.WHEEL_ROWS)
+		R.rows = {}
+	end
 	f.classicSpec = ns.Classic.DialogSpec(f, { hide = { f.closeX }, close = function() DE:Close() end, restore = function() ns.Skins:ApplyBackdrop(f); local s = ns.Skins:Current(); f:SetBackdropColor(s.bg[1], s.bg[2], s.bg[3], 1) end })
 	-- (1.6.0-beta7, the beta6 audit's R2) a skin, accent or profile change in combat: the window is protected (its secure
 	-- button's parent chain), and dressing it (Classic:Dress) resizes it, which is blocked then, open or closed. The whole
@@ -1213,7 +1280,8 @@ function DE:Frame()
 		fr.cur.likelyHead:SetTextColor(unpack(s.heading)); fr.cur.likely:SetTextColor(unpack(s.muted)); fr.cur.basis:SetTextColor(unpack(s.muted))
 		for _, h in ipairs(fr.heads) do h:SetTextColor(unpack(s.heading)) end
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
-		if ns.Classic.DressScrollBar then ns.Classic:DressScrollBar(fr.scroll, ns.Classic.IsOn()) end
+		if ns.Classic.DressScrollBar then ns.Classic:DressScrollBar(fr.scroll, ns.Classic.IsOn()); ns.Classic:DressScrollBar(fr.results.scroll, ns.Classic.IsOn()) end
+		if fr.results:IsShown() then DE:PaintResults() end   -- (1.11.0-beta3) its lines take the skin's colors
 	end
 	DE.skinHelper = skin
 	ns.Skins:Register(f, function(fr)
@@ -1548,12 +1616,214 @@ function DE:EmptyWords()
 	if heldBack > 0 then return "Nothing you can disenchant yet.", ("%d %s need%s more Enchanting skill than %d."):format(heldBack, heldBack == 1 and "item" or "items", heldBack == 1 and "s" or "", skill) end
 	return "Nothing to disenchant.", "Your bags hold no weapons or armor worth considering right now."
 end
+------------------------------------------------------------------------
+-- Results (1.11.0-beta3): what your disenchants gave you, This Session (since you logged in) and All Time (every
+-- character's, from the log they share). A view of the Helper's own window: the Results button swaps the list for
+-- it and back. Out of combat only, like every other change to this window (its item panel is the secure button's
+-- parent); the Disenchant button is disarmed while the view is up.
+------------------------------------------------------------------------
+local QUALITY_NAME = { [2] = "Uncommon", [3] = "Rare", [4] = "Epic", [5] = "Legendary" }
+function DE.QualityName(q) return _G["ITEM_QUALITY" .. tostring(q) .. "_DESC"] or QUALITY_NAME[q] or ("Quality " .. tostring(q)) end
+local function ahPrice(id)
+	if not (ns.AH and ns.AH:Available()) then return nil end
+	return ns.AH:Price({ itemID = id, link = "item:" .. id })
+end
+-- Materials as a list of { id, count, value }, dearest first; their total at the AH's prices now; how many have none.
+local function valued(mats)
+	local list, total, unpriced = {}, 0, 0
+	for id, count in pairs(mats or {}) do
+		if type(id) == "number" and (tonumber(count) or 0) > 0 then
+			local p = ahPrice(id)
+			local v = p and math.floor(p * count + 0.5) or nil
+			if v then total = total + v else unpriced = unpriced + 1 end
+			list[#list + 1] = { id = id, count = count, value = v }
+		end
+	end
+	table.sort(list, function(a, b)
+		if (a.value or -1) ~= (b.value or -1) then return (a.value or -1) > (b.value or -1) end
+		if a.count ~= b.count then return a.count > b.count end
+		return a.id < b.id
+	end)
+	return list, total, unpriced
+end
+-- The numbers behind the view. which: "session" or "all".
+-- n and byQuality: the disenchants; mats, matsValue, matsUnpriced: what they gave. tracked: the disenchants whose worth
+-- was noted (a session's are all noted; all time, those since 1.11): what the items would have sold for, the materials
+-- from those same disenchants, and ahead (their AH value now less the best sale; nil while a price is missing).
+function DE:Results(which)
+	local ahOn = (ns.AH and ns.AH:Available()) and true or false
+	local st = which == "all" and self:Stats() or (self.play or newStats())
+	local out = { which = which, ahOn = ahOn, n = st.n or 0, byQuality = {} }
+	local q, mats = st.q or {}, st.mats
+	if which == "all" then
+		-- every disenchant on record, those from before 1.11 too: the log has their counts and materials
+		local n, all = 0, {}
+		q = {}
+		for key, e in pairs(self:Log()) do
+			if type(key) == "string" and type(e) == "table" then
+				local c = tonumber(e.n) or 0
+				n = n + c
+				local kq = tonumber(key:match("^f:(%d)") or key:match("^(%d)"))
+				if kq and c > 0 then q[kq] = (q[kq] or 0) + c end
+				for id, count in pairs(type(e.mats) == "table" and e.mats or {}) do all[id] = (all[id] or 0) + (tonumber(count) or 0) end
+			end
+		end
+		out.n, mats = math.max(n, st.n or 0), all
+	end
+	for _, k in ipairs({ 2, 3, 4, 5 }) do if (q[k] or 0) > 0 then out.byQuality[#out.byQuality + 1] = { q = k, n = q[k] } end end
+	out.mats, out.matsValue, out.matsUnpriced = valued(mats)
+	if (st.n or 0) > 0 then
+		local _, value, unpriced = valued(st.mats)
+		local t = { n = st.n, vendor = st.vendor or 0, ah = st.ah or 0, ahN = st.ahN or 0, alt = st.alt or 0, matsValue = value, matsUnpriced = unpriced }
+		if ahOn and unpriced == 0 and next(st.mats or {}) then t.ahead = value - t.alt end
+		out.tracked = t
+		out.best = type(st.best) == "table" and st.best or nil
+	end
+	out.partial = which == "all" and (st.n or 0) < out.n
+	return out
+end
+local function hexOf(q)
+	local r, g, b = 1, 1, 1
+	local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+	if c then r, g, b = c.r, c.g, c.b end
+	return ("|cff%02x%02x%02x"):format(math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
+end
+local function coins(v) return (tonumber(v) or 0) > 0 and DE.Money(v) or "-" end
+-- The view's lines, top to bottom: { kind = "head" | "row" | "note" | "gap", left, right, id (an item to show on hover) }.
+function DE:ResultLines(which)
+	local r = self:Results(which)
+	local L = {}
+	local function add(kind, left, right, id) L[#L + 1] = { kind = kind, left = left, right = right, id = id } end
+	if r.n == 0 then
+		add("note", which == "all" and "No disenchants on record yet." or "Nothing disenchanted this session yet.")
+		return L, r
+	end
+	add("head", "Items Disenchanted", tostring(r.n))
+	if #r.byQuality > 0 then
+		local parts = {}
+		for _, b in ipairs(r.byQuality) do parts[#parts + 1] = ("%s%s|r %d"):format(hexOf(b.q), DE.QualityName(b.q), b.n) end
+		add("row", table.concat(parts, ",  "))
+	end
+	add("gap")
+	add("head", "Materials Received", r.ahOn and "AH Value Now" or nil)
+	if #r.mats == 0 then add("note", "None counted yet.") end
+	for _, m in ipairs(r.mats) do
+		local mq = select(3, itemInfo(m.id)) or self.MAT_QUALITY[m.id] or 1
+		add("row", ("%s%s|r x%d"):format(hexOf(mq), self.MatName(m.id), m.count), r.ahOn and (m.value and coins(m.value) or "no price yet") or "-", m.id)
+	end
+	if r.ahOn and #r.mats > 1 then
+		add("row", r.matsUnpriced > 0 and ("Total (%d with no price yet)"):format(r.matsUnpriced) or "Total", coins(r.matsValue))
+	end
+	if not r.ahOn then add("note", "AH values need Auctionator or Blackthornes Tradeskills.") end
+	local t = r.tracked
+	if t then
+		add("gap")
+		add("head", "If You Had Sold Them Instead")
+		if r.partial then add("note", ("Counted since 1.11: %d of your %d disenchants."):format(t.n, r.n)) end
+		add("row", "To a Vendor", coins(t.vendor))
+		if t.ahN > 0 then
+			add("row", t.ahN < t.n and ("At the Auction House (%d of %d had a price)"):format(t.ahN, t.n) or "At the Auction House", coins(t.ah))
+			add("row", "Best of the Two", coins(t.alt))
+		end
+		if t.ahead then
+			add("row", "Their Materials, at AH Value Now", coins(t.matsValue))
+			if t.ahead > 0 then add("row", "Disenchanting Came Out Ahead By", coins(t.ahead))
+			elseif t.ahead < 0 then add("row", "Selling Would Have Paid More By", coins(-t.ahead))
+			else add("row", "Disenchanting and Selling Came Out Even") end
+		end
+	end
+	local b = r.best
+	if b then
+		add("gap")
+		add("head", "Most Valuable Item Disenchanted")
+		local name = b.name or (itemInfo(b.id)) or ("Item " .. tostring(b.id))
+		local worth = (b.ah and b.ah >= (b.vendor or 0)) and ("AH " .. coins(b.ah)) or ("Vendor " .. coins(b.vendor))
+		add("row", ("%s%s|r"):format(hexOf(b.q or 1), name), worth, b.id)
+	end
+	return L, r
+end
+local function resultRow(f, i)
+	local R = f.results
+	local r = R.rows[i]
+	if r then return r end
+	r = CreateFrame("Button", nil, R.child)
+	r.left = r:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); r.left:SetPoint("LEFT", 0, 0); r.left:SetJustifyH("LEFT"); r.left:SetWordWrap(false)
+	r.right = r:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); r.right:SetPoint("RIGHT", 0, 0); r.right:SetJustifyH("RIGHT"); r.right:SetWordWrap(false)
+	r.left:SetPoint("RIGHT", r.right, "LEFT", -8, 0)
+	r:SetScript("OnEnter", function(self)
+		if self.id and ns.TooltipsOK() then GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetHyperlink("item:" .. self.id); GameTooltip:Show() end
+	end)
+	r:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+	R.rows[i] = r
+	return r
+end
+function DE:PaintResults()
+	local f = self.frame
+	local R = f and f.results
+	if not R then return end
+	local which = self.resultsTab == "all" and "all" or "session"
+	R.tabSession:SetActive(which == "session"); R.tabAll:SetActive(which == "all")
+	local lines = self:ResultLines(which)
+	local s = ns.Skins:Current()
+	local rh = ns.Fonts and ns.Fonts:Grow(RESULT_ROW) or RESULT_ROW
+	local width = math.max(100, (f:GetWidth() or W) - 24 - 26)
+	R.child:SetWidth(width)
+	local y, n = 0, 0
+	for _, l in ipairs(lines) do
+		if l.kind == "gap" then
+			y = y + math.floor(rh / 2)
+		else
+			n = n + 1
+			local r = resultRow(f, n)
+			local head, note = l.kind == "head", l.kind == "note"
+			local indent = head and 0 or 10
+			r:ClearAllPoints(); r:SetPoint("TOPLEFT", R.child, "TOPLEFT", indent, -y); r:SetSize(width - indent, rh)
+			r.left:SetText(l.left or ""); r.right:SetText(l.right or "")
+			local c = head and s.heading or note and s.muted or s.text
+			r.left:SetTextColor(unpack(c)); r.right:SetTextColor(unpack(head and s.heading or s.text))
+			r.id, r.kind = l.id, l.kind
+			r:EnableMouse(l.id ~= nil)
+			r:Show()
+			y = y + rh
+		end
+	end
+	for i = n + 1, #R.rows do R.rows[i]:Hide() end
+	R.shown = n
+	R.child:SetHeight(math.max(10, y))
+end
+-- Results on or off (out of combat: the Helper doesn't change in combat), and its two tabs.
+function DE:ShowResults(on)
+	if InCombatLockdown() then return false end
+	self.view = on and "results" or nil
+	if self.frame and self.frame:IsShown() then
+		if self.frame.results and on then self.frame.results.scroll:SetVerticalScroll(0) end
+		self:Refresh()
+	end
+	return true
+end
+function DE:ToggleResults() return self:ShowResults(self.view ~= "results") end
+function DE:SetResultsTab(which)
+	self.resultsTab = which == "all" and "all" or "session"
+	if self.view == "results" and self.frame and self.frame:IsShown() and not InCombatLockdown() then
+		self.frame.results.scroll:SetVerticalScroll(0)
+		self:PaintResults()
+	end
+end
 function DE:Paint()
 	-- (1.6.0-beta6, the beta5 audit's F2) every repaint, from any caller (a row click, materials arriving by chat, a
 	-- resize), waits for combat's end: the item panel is the secure button's parent and showing or hiding it is blocked
 	-- then. What arrived is still counted (DE:Tally); the list repaints from a fresh look when combat ends.
 	if InCombatLockdown() then self.refreshPending = true; return end
 	local f = self:Frame()
+	-- (1.11.0-beta3) the Results view: the list and everything about it put away, the results in their place
+	local results = self.view == "results"
+	f.results:SetShown(results); f.resultsBtn:SetActive(results); f.footer:SetShown(not results)
+	if results then
+		f.empty:Hide(); f.scroll:Hide(); f.cur:Hide(); f.sub:Hide(); f.heldLine:Hide(); f.heldInfo:Hide(); f.refresh:Hide(); f.status:Hide()
+		for _, h in ipairs(f.heads) do h:Hide() end
+		self:PaintResults()
+		return
+	end
 	local entries = self.entries or {}
 	local cur = self.current
 	local ahOn = ns.AH and ns.AH:Available()
@@ -1674,6 +1944,8 @@ function DE:Refresh()
 	-- (1.6.0-beta6, the beta5 audit's F3) armed only while the helper is really open: shown, not closed-in-combat, turned
 	-- on. A refresh queued before a close (combat's end runs both) leaves a closed helper disarmed.
 	if not self:IsOpen() then self:Arm(nil); return end
+	-- (1.11.0-beta3) the Results view is up: the item panel is put away, so nothing is armed behind it
+	if self.view == "results" then self:Arm(nil); self:Paint(); return end
 	self.entries = self:Entries()
 	-- (1.10.0-beta14, the re-audit's R5) pieces waiting for ItemTree: the open Helper looks again by itself in a few
 	-- seconds, and keeps doing so while any wait
@@ -1724,6 +1996,7 @@ function DE:Show()
 		else f:SetPoint("CENTER", UIParent, "CENTER", 0, 60) end
 	end
 	self.skipped = self.skipped or {}
+	self.view = nil   -- (1.11.0-beta3) it opens on the list
 	f:Show()
 	self:Refresh()
 end
@@ -1954,7 +2227,7 @@ function DE:AskAgain() if ns.cdb then ns.cdb.deOfferDeclined = nil end end
 -- typical results.
 function DE:ResetLearned()
 	local sh = shared()
-	if sh then sh.results = {} end
+	if sh then sh.results = {}; sh.stats = nil end   -- (1.11.0-beta3) and the Results view's record of them
 	if ns.cdb then ns.cdb.deResults = {} end
 	if self.frame and self.frame:IsShown() then self:Refresh() end
 end

@@ -154,6 +154,8 @@ end)()
 	local okB, badB = all(B, "none")
 	check(okB, "the bank, off: no values" .. (badB ~= "" and (" (" .. badB .. ")") or ""))
 	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	-- (by design since 1.11.0-beta3, Shweep's "1": Always Close closes the bags at every place, whether they opened for it or were open already): opened again for Global Inventory
+	n.Window:Show(); M.runTimers()
 	V:SetGlobal(true); M.runTimers(); M.runTimers()
 	local ok, bad = all(V, "none")
 	check(ok, "Global Inventory, off: no values" .. (bad ~= "" and (" (" .. bad .. ")") or ""))

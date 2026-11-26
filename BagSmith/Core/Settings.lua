@@ -309,6 +309,33 @@ local function deResultsValidator(v)
 	end
 	return out
 end
+-- (1.11.0-beta3) The Disenchant Helper's Results record (Core/Disenchant.lua, DE:Stats): how many disenchants, by
+-- quality, what the items would have sold for, the materials they gave, and the most valuable item. Whole amounts, none
+-- below zero; a piece that isn't is dropped (or reads as none), and the materials are capped at 200 kinds.
+local function deStatsValidator(v)
+	if type(v) ~= "table" then return nil end
+	local function amount(x) return (finite(x) and x >= 0 and x < 1e15) and math.floor(x) or 0 end
+	local function itemID(id) return type(id) == "number" and id > 0 and id < 10000000 and id == math.floor(id) end
+	local out = { n = amount(v.n), vendor = amount(v.vendor), ah = amount(v.ah), ahN = amount(v.ahN), alt = amount(v.alt), q = {}, mats = {} }
+	if type(v.q) == "table" then
+		for q = 0, 7 do if finite(v.q[q]) and v.q[q] >= 1 then out.q[q] = math.floor(v.q[q]) end end
+	end
+	if type(v.mats) == "table" then
+		local kept = 0
+		for id, c in pairs(v.mats) do
+			if kept < 200 and itemID(id) and finite(c) and c >= 1 then out.mats[id] = math.floor(c); kept = kept + 1 end
+		end
+	end
+	local b = v.best
+	if type(b) == "table" and itemID(b.id) and finite(b.worth) and b.worth >= 1 then
+		out.best = {
+			id = b.id, name = (type(b.name) == "string" and #b.name <= 120) and b.name or nil,
+			q = (finite(b.q) and b.q >= 0 and b.q <= 7) and math.floor(b.q) or 1,
+			vendor = amount(b.vendor), ah = (finite(b.ah) and b.ah >= 0) and math.floor(b.ah) or nil, worth = math.floor(b.worth),
+		}
+	end
+	return out
+end
 -- (1.8.0) The Disenchant Helper's learned materials: whole positive item IDs marked true; anything else is dropped.
 local function deMaterialsValidator(v)
 	if type(v) ~= "table" then return nil end
@@ -933,7 +960,8 @@ local function loadDB(saved)
 	-- per-character ones are.
 	if type(saved) == "table" and type(saved.deShared) == "table" then
 		local d = saved.deShared
-		db.deShared = { version = finite(d.version) and d.version or 0, results = deResultsValidator(d.results) or {}, materials = deMaterialsValidator(d.materials) or {} }
+		db.deShared = { version = finite(d.version) and d.version or 0, results = deResultsValidator(d.results) or {}, materials = deMaterialsValidator(d.materials) or {},
+			stats = deStatsValidator(d.stats) }   -- (1.11.0-beta3) the Results view's record
 	end
 	-- (1.9.0-beta4) Global Inventory's own settings (outside every profile), checked as a profile's are
 	if type(saved) == "table" and type(saved.globalInv) == "table" then

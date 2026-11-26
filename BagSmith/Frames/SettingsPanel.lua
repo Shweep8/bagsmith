@@ -1037,6 +1037,28 @@ function Panel:Dropdown(key, label, choices, help, binding)
 	self.y = self.y + s:GetHeight()
 end
 
+-- (1.11.0-beta3) The kind of special bag Settings > Item Icons is showing: the one picked from its list; before any
+-- pick, the first kind whose indicator is on, else a kind this character has in a bag slot, else the first in the
+-- list. Remembered while the game runs (not saved), so turning a kind's indicator off doesn't move the page to another.
+function Panel:PickedBagKind(kinds, db)
+	for _, k in ipairs(kinds) do if k.key == self.bagKind then return k.key end end
+	local pick
+	for _, k in ipairs(kinds) do if not pick and db["glow_" .. k.key] then pick = k.key end end
+	if not pick then
+		local worn = {}
+		-- (a slot with a bag in it: the reagent slot is always a reagent bag's, filled or not)
+		for _, bag in ipairs(ns.BAGS or {}) do
+			local kind = ns:BagKind(bag)
+			local ok, size = pcall(C_Container.GetContainerNumSlots, bag)
+			if kind and ok and (tonumber(size) or 0) > 0 then worn[kind] = true end
+		end
+		for _, k in ipairs(kinds) do if not pick and worn[k.key] then pick = k.key end end
+	end
+	pick = pick or (kinds[1] and kinds[1].key)
+	self.bagKind = pick
+	return pick
+end
+
 -- (1.7.3-beta6) Shows a number in a shown stepper's box without saving it (the bags window's size while its outline is
 -- dragged). A box being typed in is left alone.
 function Panel:ShowStepValue(key, value)
@@ -1866,7 +1888,8 @@ pages.icons = function(self, db)
 	-- (1.8.0-beta5) Special bags: an inner glow per kind of bag, each off until turned on, in a color of your choice
 	self:Head("Special Bag Slot Indicators")   -- (beta7 feedback, Shweep) was "Special Bags"
 	-- (beta5 feedback, Shweep) each kind's options sit under it and name it: its items too (on by default), its color
-	for _, k in ipairs(ns:BagKindsSorted()) do   -- (beta7 feedback, Shweep) alphabetical
+	local kinds = ns:BagKindsSorted()   -- (beta7 feedback, Shweep) alphabetical
+	local function kindRows(k)
 		local name = ns:BagKindName(k.key)
 		local lower = name:lower()
 		-- (beta9, Shweep) an indicator, as a soft inner glow or as the slot's frame color; "indicator", not "mark" (Marks
@@ -1882,6 +1905,21 @@ pages.icons = function(self, db)
 				self:Step("glowAlpha_" .. k.key, ("%s Indicator Opacity"):format(name), 0.05, "%d%%", ("How strong the indicator is in your %s."):format(lower))
 			end)
 		end
+	end
+	-- (1.11.0-beta3, Shweep: "where you select which Special Bag to edit first (dropdown maybe?) and then the settings
+	-- show up for it") One kind at a time: a Special Bag list, each kind marked when its indicator is on, and under it
+	-- that kind's own settings. Twelve switches in a column became one list. A search still looks through every kind.
+	if self.filter then
+		for _, k in ipairs(kinds) do kindRows(k) end
+	else
+		local picked = self:PickedBagKind(kinds, db)
+		local choices = {}
+		for _, k in ipairs(kinds) do
+			choices[#choices + 1] = { key = k.key, label = ns:BagKindName(k.key) .. (db["glow_" .. k.key] and " (On)" or "") }
+		end
+		self:Dropdown("bagKindPick", "Special Bag", choices, "Choose a kind of bag, then set up its indicator below.",
+			{ get = function() return picked end, set = function(v) self.bagKind = v; self:Refresh() end })
+		for _, k in ipairs(kinds) do if k.key == picked then kindRows(k) end end
 	end
 	self:IconCorners()
 end
