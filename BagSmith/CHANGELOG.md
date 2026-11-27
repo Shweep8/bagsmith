@@ -7,7 +7,7 @@ New:
 - New Section From This Item offers more to tick when it's true of the item: its kind of consumable (Food, Drink,
   Potions and so on), Quest Item, Crafting Material, whether you can use it (for gear and recipes), and, with
   ItemTree, what it knows about the item.
-- Auto-Open and Auto-Close (Settings > Automations): a switch for each place BagSmith opens your bags at (vendors,
+- Auto-Open and Auto-Close (Settings > Automations): a switch for each place your bags open by themselves (vendors,
   the mailbox, trades, the auction house, the bank and the guild bank), and a When I Leave choice: Always Close, Close
   If Auto-Opened or Never Close. Every switch starts ticked, and When I Leave starts on Always Close.
 - Sections on a Sheet (Settings > Custom Sections, or a section's menu in your bags): pick a sheet and tick the
@@ -15,7 +15,14 @@ New:
 - Disenchant Results: the Disenchant Helper has a Results button. It shows what your disenchants gave you, This
   Session and All Time: how many items by quality, the materials with their auction house value now, what the items
   would have sold for instead, and the most valuable item you disenchanted. The sold-instead lines count disenchants
-  from this version on. The Helper's own count now says how many you disenchanted just now and how many this session.
+  from this version on, compare only the ones whose materials BagSmith saw, take the auction house's 5% cut off both
+  sides, and name no winner when an item had no auction price at the time.
+  The Helper's own count now says how many you disenchanted just now and how many this session.
+- See what the Disenchant Helper holds back: a Held Back line at the end of its list shows those items when you click
+  it, each with a lock, its reason and its vendor, auction and materials values. Disenchant Anyway puts one piece in
+  the list when you would rather decide for yourself (asked first for a favorite, a gear set piece, an epic, your
+  Exclusion List, and refundable or tradeable items), and Hold Back takes it out again. An offer is for that one
+  piece and ends when you close the Helper.
 
 Changed:
 - Auto-Close Bags I Opened, from 1.10.1, is now the When I Leave choice on Automations. What you had carries over:
