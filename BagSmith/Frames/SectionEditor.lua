@@ -150,6 +150,24 @@ function E:ToggleSheet(id)
 	if at then table.remove(d.sheets, at) else d.sheets[#d.sheets + 1] = id end
 	self:Changed()
 end
+-- (1.11.0-beta5, with the beta4 audit's B4-1) One of your sheets was renamed or deleted while a section is being
+-- edited: the sheets ticked in the editor follow as the saved sections do, so saving doesn't put the old name back.
+-- (A name your bags and your bank both have is still a sheet after one of them goes: nothing to follow.)
+function E:SheetListChanged(old, new)
+	local d, f = self.draft, self.frame
+	if not (d and type(d.sheets) == "table" and f and f:IsShown()) or S:IsTabChoice(old) then return end
+	local follow = new and S:IsTabChoice(new)
+	local changed = false
+	for i = #d.sheets, 1, -1 do
+		if d.sheets[i] == old then
+			if follow then d.sheets[i] = new else table.remove(d.sheets, i) end
+			changed = true
+		end
+	end
+	if not changed then return end
+	d.sheets = S.CleanSheets(d.sheets) or {}
+	self:Refresh()
+end
 -- The tabs the draft is set to show on, or nil for every sheet.
 function E:Sheets()
 	local d = self.draft

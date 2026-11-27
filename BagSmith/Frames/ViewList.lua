@@ -1867,8 +1867,13 @@ function View:PlaceGearSetsNote(host, y, width, show, lanes)
 		note.btn = ns.TextButton(note, "Create Gear Set", 130, function() if ns.GearSets then ns.GearSets:PromptNew() end end)
 		note.btn:SetHeight(22); note.btn:SetPoint("TOP", note.text, "BOTTOM", 0, -10)
 		note.btn.tip = "Saves what you're wearing now as a gear set (shirt and tabard left out)."
+		-- (1.11.0-beta5) the count, on a line of its own under the note when no set is showing
+		note.count = note:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall"))
+		note.count:SetPoint("TOP", note.text, "BOTTOM", 0, -4); note.count:SetJustifyH("CENTER"); note.count:Hide()
 		self.gsNote = note
 	end
+	note.count:Hide()
+	note.btn:ClearAllPoints(); note.btn:SetPoint("TOP", note.text, "BOTTOM", 0, -10)
 	if under then
 		local most = GSets:MaxSets()
 		local full = have >= most
@@ -1896,14 +1901,28 @@ function View:PlaceGearSetsNote(host, y, width, show, lanes)
 	if not mine then text = "No gear set items saved for this character. Log in as them to see their sets."
 	elseif #ns.GearSets:Sets() == 0 then text = "No gear sets yet."
 	else text = narrowing and "No gear set items match." or "No gear sets yet." end
+	-- (1.11.0-beta5, the beta4 audit's B4-3: "New Gear Set disappears if the current search matches nothing") With sets
+	-- of your own and none of them showing, the count and New Gear Set stay, as they do under the sets, greyed at the
+	-- game's limit. Still nothing for another character's bags.
+	local kept = mine and have > 0
+	local countH = 0
+	if kept then
+		local most = GSets:MaxSets()
+		note.count:SetText(("%d of %d gear sets"):format(have, most)); note.count:SetWidth(math.max(80, width - 24)); note.count:SetTextColor(Skins:Color("muted"))
+		note.count:Show()
+		countH = 4 + math.max(12, math.ceil(note.count:GetStringHeight() or 12))
+		note.btn:ClearAllPoints(); note.btn:SetPoint("TOP", note.count, "BOTTOM", 0, -10)
+		note.btn.label:SetText("New Gear Set")
+		View.GlobalOff(note.btn, have >= most, "New Gear Set", ("You have the most sets the game allows (%d). Delete one to make another."):format(most))
+	end
 	note.text:SetText(text); note.text:SetWidth(math.max(80, width - 24)); note.text:SetTextColor(Skins:Color("muted"))
-	local withButton = mine and #ns.GearSets:Sets() == 0
+	local withButton = mine and (kept or #ns.GearSets:Sets() == 0)
 	note.btn:SetShown(withButton and true or false)
 	if withButton then
 		if note.btn.SetClassic then note.btn:SetClassic(ns.Classic and ns.Classic.IsOn and ns.Classic.IsOn() or false) end
 		note.btn:SetActive(false)
 	end
-	local h = 10 + math.max(14, math.ceil(note.text:GetStringHeight() or 14)) + (withButton and (10 + 22) or 0) + 10
+	local h = 10 + math.max(14, math.ceil(note.text:GetStringHeight() or 14)) + countH + (withButton and (10 + 22) or 0) + 10
 	note:SetHeight(h)
 	note:Show()
 	return y + 8 + h + 8

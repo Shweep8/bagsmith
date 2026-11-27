@@ -176,34 +176,64 @@ DE.Shared = shared
 -- and the most valuable item. One record since you logged in (DE.play, not saved) and one for all your characters,
 -- beside the log they share (BagSmithDB.deShared.stats, from 1.11 on; Core/Settings.lua checks it when it loads).
 -- Whole copper amounts and counts only: bounded by the kinds of material there are.
-local function newStats() return { n = 0, q = {}, vendor = 0, ah = 0, ahN = 0, alt = 0, mats = {} } end
+-- (1.11.0-beta5, the beta4 audit's B4-2: "reports a definitive net on incomplete data") The comparison is a matched
+-- set. Every disenchant is counted (n, q, best), but what its item would have sold for joins the comparison (cn,
+-- vendor, ah, ahN, ahU, alt) only when its first material is counted, so the sale side and the material side are the
+-- same disenchants. ahU counts those whose item could have gone to the auction house and had no price then: with
+-- any, the best sale isn't known and no winner is named. The record carries a version (v); one without it, as the
+-- betas before this wrote, starts over (All Time's counts and materials come from the log and are untouched).
+-- (B4-4) The version, and what a saved amount of copper and a saved count may be at most: Core/Settings.lua's, which
+-- checks the record against them when it loads.
+DE.STATS_VERSION = ns.DE_STATS.VERSION
+DE.MONEY_MAX, DE.COUNT_MAX = ns.DE_STATS.MONEY_MAX, ns.DE_STATS.COUNT_MAX
+-- (B4-4) A name fit to show in a line of text: no | code, no control character, not over-long. Else nil.
+function DE.PlainName(name)
+	if type(name) == "string" and #name >= 1 and #name <= 120 and not name:find("[%c|]") then return name end
+end
+local function newStats() return { v = DE.STATS_VERSION, n = 0, q = {}, cn = 0, vendor = 0, ah = 0, ahN = 0, ahU = 0, alt = 0, mats = {} } end
 DE.NewStats = newStats
 function DE:Stats()
 	local s = shared()
 	if not s then return newStats() end
 	local st = s.stats
-	if type(st) ~= "table" then st = newStats(); s.stats = st end
+	if type(st) ~= "table" or st.v ~= DE.STATS_VERSION then st = newStats(); s.stats = st end
 	if type(st.q) ~= "table" then st.q = {} end
 	if type(st.mats) ~= "table" then st.mats = {} end
-	for _, k in ipairs({ "n", "vendor", "ah", "ahN", "alt" }) do st[k] = tonumber(st[k]) or 0 end
+	for _, k in ipairs({ "n", "cn", "vendor", "ah", "ahN", "ahU", "alt" }) do st[k] = tonumber(st[k]) or 0 end
 	return st
 end
--- A disenchant that succeeded: its item counted in both records, with what it would have sold for.
-function DE:NoteDisenchanted(e)
+-- A disenchant that succeeded: counted in both records, and what its item would have sold for kept with the cast
+-- (c.sale) until its materials show up.
+function DE:NoteDisenchanted(e, c)
 	if type(e) ~= "table" then return end
 	local q = tonumber(e.quality) or 0
-	local vendor = math.floor((tonumber(e.vendor) or 0) + 0.5)
-	local ah = tonumber(e.ah) and math.floor(e.ah + 0.5) or nil
+	local vendor = math.min(math.floor((tonumber(e.vendor) or 0) + 0.5), DE.MONEY_MAX - 1)
+	local ah = tonumber(e.ah) and math.min(math.floor(e.ah + 0.5), DE.MONEY_MAX - 1) or nil
 	local worth = math.max(vendor, ah or 0)
 	local function add(st)
 		st.n = st.n + 1
 		st.q[q] = (st.q[q] or 0) + 1
-		st.vendor = st.vendor + vendor
-		if ah then st.ah = st.ah + ah; st.ahN = st.ahN + 1 end
-		st.alt = st.alt + worth
 		if worth > 0 and e.itemID and (type(st.best) ~= "table" or worth > (tonumber(st.best.worth) or 0)) then
-			st.best = { id = e.itemID, name = type(e.name) == "string" and e.name:sub(1, 120) or nil, q = q, vendor = vendor, ah = ah, worth = worth }
+			st.best = { id = e.itemID, name = DE.PlainName(e.name), q = q, vendor = vendor, ah = ah, worth = worth }
 		end
+	end
+	self.play = self.play or newStats()
+	add(self.play); add(self:Stats())
+	-- no auction price, for an item that could have been auctioned (a soulbound one never could: its vendor price is
+	-- the whole answer)
+	if type(c) == "table" then c.sale = { vendor = vendor, ah = ah, worth = worth, unknown = (ah == nil and not e.bound) or nil } end
+end
+-- The cast's first material was counted: its item's sale values join the comparison, once.
+function DE:NoteMatched(c)
+	if type(c) ~= "table" or c.matched or type(c.sale) ~= "table" then return end
+	c.matched = true
+	local w = c.sale
+	local function add(st)
+		st.cn = (st.cn or 0) + 1
+		st.vendor = (st.vendor or 0) + w.vendor
+		if w.ah then st.ah = (st.ah or 0) + w.ah; st.ahN = (st.ahN or 0) + 1 end
+		if w.unknown then st.ahU = (st.ahU or 0) + 1 end
+		st.alt = (st.alt or 0) + w.worth
 	end
 	self.play = self.play or newStats()
 	add(self.play); add(self:Stats())
@@ -366,6 +396,7 @@ function DE:Tally(c, id, count, source, learn)
 	end
 	self.session = self.session or { done = 0, mats = {} }
 	self.session.mats[id] = (self.session.mats[id] or 0) + delta
+	self:NoteMatched(c)             -- (1.11.0-beta5, B4-2) its item joins the comparison with its first material
 	self:NoteMaterial(id, delta)   -- (1.11.0-beta3) the Results view's records
 	c.tally[id] = count
 	ns:Debug("Disenchant Helper: %s x%d from the cast under bracket %s", self.MatName(id), delta, c.key)
@@ -1013,7 +1044,7 @@ function DE:OnSpellSucceeded(unit, spellID)
 	self.done = (self.done or 0) + 1
 	self.session = self.session or { done = 0, mats = {} }
 	self.session.done = self.session.done + 1
-	self:NoteDisenchanted(e)   -- (1.11.0-beta3) the Results view's records
+	self:NoteDisenchanted(e, self.castOpen)   -- (1.11.0-beta3) the Results view's records
 end
 -- The loot window, for players with auto-loot off: its slots are the same materials, tallied once per cast.
 -- (1.8.0) A window shown to be the cast's own counts whatever it holds, and a material the table doesn't list is learned.
@@ -1658,9 +1689,12 @@ local function valued(mats)
 	local list, total, unpriced = {}, 0, 0
 	for id, count in pairs(mats or {}) do
 		if type(id) == "number" and (tonumber(count) or 0) > 0 then
+			-- (1.11.0-beta5, B4-4) a price or a count that isn't a sane number is no price; a value is capped where it
+			-- is multiplied, so nothing shown can run past what the game can format
 			local p = ahPrice(id)
-			local v = p and math.floor(p * count + 0.5) or nil
-			if v then total = total + v else unpriced = unpriced + 1 end
+			if not (type(p) == "number" and p == p and p >= 0 and p < DE.MONEY_MAX) then p = nil end
+			local v = p and math.min(math.floor(p * math.min(count, DE.COUNT_MAX) + 0.5), DE.MONEY_MAX - 1) or nil
+			if v then total = math.min(total + v, DE.MONEY_MAX - 1) else unpriced = unpriced + 1 end
 			list[#list + 1] = { id = id, count = count, value = v }
 		end
 	end
@@ -1674,8 +1708,9 @@ end
 DE.Valued = valued   -- (1.11.0-beta4: the All done card's session line, written above this, values a haul with it)
 -- The numbers behind the view. which: "session" or "all".
 -- n and byQuality: the disenchants; mats, matsValue, matsUnpriced: what they gave. tracked: the disenchants whose worth
--- was noted (a session's are all noted; all time, those since 1.11): what the items would have sold for, the materials
--- from those same disenchants, and ahead (their AH value now less the best sale; nil while a price is missing).
+-- was noted (a session's are all noted; all time, those since 1.11). Of those n, the cn whose materials were counted
+-- are the comparison: what those items would have sold for, the materials from those same disenchants, and ahead
+-- (their AH value now less the best sale; nil while that isn't known).
 function DE:Results(which)
 	local ahOn = (ns.AH and ns.AH:Available()) and true or false
 	local st = which == "all" and self:Stats() or (self.play or newStats())
@@ -1698,10 +1733,14 @@ function DE:Results(which)
 	end
 	for _, k in ipairs({ 2, 3, 4, 5 }) do if (q[k] or 0) > 0 then out.byQuality[#out.byQuality + 1] = { q = k, n = q[k] } end end
 	out.mats, out.matsValue, out.matsUnpriced = valued(mats)
+	-- (1.11.0-beta5, B4-2) ahead only when it is known: a disenchant in the comparison, every material priced now, and
+	-- no counted item that lacked an auction price it could have had
 	if (st.n or 0) > 0 then
 		local _, value, unpriced = valued(st.mats)
-		local t = { n = st.n, vendor = st.vendor or 0, ah = st.ah or 0, ahN = st.ahN or 0, alt = st.alt or 0, matsValue = value, matsUnpriced = unpriced }
-		if ahOn and unpriced == 0 and next(st.mats or {}) then t.ahead = value - t.alt end
+		local t = { n = st.n, cn = math.min(st.cn or 0, st.n), vendor = st.vendor or 0, ah = st.ah or 0, ahN = st.ahN or 0, ahU = st.ahU or 0, alt = st.alt or 0,
+			matsValue = value, matsUnpriced = unpriced }
+		t.matsKnown = t.cn > 0 and ahOn and unpriced == 0 and next(st.mats or {}) ~= nil
+		if t.matsKnown and t.ahU == 0 then t.ahead = value - t.alt end
 		out.tracked = t
 		out.best = type(st.best) == "table" and st.best or nil
 	end
@@ -1714,7 +1753,11 @@ local function hexOf(q)
 	if c then r, g, b = c.r, c.g, c.b end
 	return ("|cff%02x%02x%02x"):format(math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
 end
-local function coins(v) return (tonumber(v) or 0) > 0 and DE.Money(v) or "-" end
+local function coins(v)
+	v = tonumber(v) or 0
+	if v ~= v or v <= 0 then return "-" end
+	return DE.Money(math.min(v, DE.MONEY_MAX - 1))   -- (1.11.0-beta5, B4-4) never more than the game can format
+end
 -- The view's lines, top to bottom: { kind = "head" | "row" | "note" | "gap", left, right, id (an item to show on hover) }.
 function DE:ResultLines(which)
 	local r = self:Results(which)
@@ -1742,17 +1785,28 @@ function DE:ResultLines(which)
 	end
 	if not r.ahOn then add("note", "AH values need Auctionator or Blackthornes Tradeskills.") end
 	local t = r.tracked
-	if t then
+	if t and t.cn > 0 then
 		add("gap")
 		add("head", "If You Had Sold Them Instead")
-		if r.partial then add("note", ("Counted since 1.11: %d of your %d disenchants."):format(t.n, r.n)) end
+		-- (1.11.0-beta5, B4-2) which disenchants the lines below count, when it isn't all of them
+		if r.partial then add("note", ("Counted since 1.11: %d of your %d disenchants."):format(t.cn, r.n)) end
+		local unseen = t.n - t.cn
+		if unseen > 0 then
+			if r.partial then add("note", unseen == 1 and "1 more since then gave no materials BagSmith saw." or ("%d more since then gave no materials BagSmith saw."):format(unseen))
+			else add("note", ("Counted: %d of %d disenchants. %s gave no materials BagSmith saw."):format(t.cn, t.n, unseen == 1 and "The other" or ("The other %d"):format(unseen))) end
+		end
 		add("row", "To a Vendor", coins(t.vendor))
 		if t.ahN > 0 then
-			add("row", t.ahN < t.n and ("At the Auction House (%d of %d had a price)"):format(t.ahN, t.n) or "At the Auction House", coins(t.ah))
-			add("row", "Best of the Two", coins(t.alt))
+			add("row", t.ahN < t.cn and ("At the Auction House (%d of %d had a price)"):format(t.ahN, t.cn) or "At the Auction House", coins(t.ah))
+			if t.ahU == 0 then add("row", "Best of the Two", coins(t.alt)) end
 		end
-		if t.ahead then
-			add("row", "Their Materials, at AH Value Now", coins(t.matsValue))
+		if t.matsKnown then add("row", "Their Materials, at AH Value Now", coins(t.matsValue)) end
+		if t.ahU > 0 then
+			-- the best sale isn't known for all of them: no Best of the Two, no winner (said where one could have been
+			-- named: with no auction prices at all, the line above about AH values is the whole story)
+			if r.ahOn then add("note", t.ahU == 1 and "No winner named: 1 of these had no auction price when you disenchanted it."
+				or ("No winner named: %d of these had no auction price when you disenchanted them."):format(t.ahU)) end
+		elseif t.ahead then
 			if t.ahead > 0 then add("row", "Disenchanting Came Out Ahead By", coins(t.ahead))
 			elseif t.ahead < 0 then add("row", "Selling Would Have Paid More By", coins(-t.ahead))
 			else add("row", "Disenchanting and Selling Came Out Even") end
@@ -1762,7 +1816,7 @@ function DE:ResultLines(which)
 	if b then
 		add("gap")
 		add("head", "Most Valuable Item Disenchanted")
-		local name = b.name or (itemInfo(b.id)) or ("Item " .. tostring(b.id))
+		local name = DE.PlainName(b.name) or DE.PlainName((itemInfo(b.id))) or ("Item " .. tostring(b.id))
 		local worth = (b.ah and b.ah >= (b.vendor or 0)) and ("AH " .. coins(b.ah)) or ("Vendor " .. coins(b.vendor))
 		add("row", ("%s%s|r"):format(hexOf(b.q or 1), name), worth, b.id)
 	end

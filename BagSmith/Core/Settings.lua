@@ -312,26 +312,40 @@ end
 -- (1.11.0-beta3) The Disenchant Helper's Results record (Core/Disenchant.lua, DE:Stats): how many disenchants, by
 -- quality, what the items would have sold for, the materials they gave, and the most valuable item. Whole amounts, none
 -- below zero; a piece that isn't is dropped (or reads as none), and the materials are capped at 200 kinds.
+-- (1.11.0-beta5, the beta4 audit's B4-4) One bound for every number in it, the nested ones too: a count is below a
+-- billion and an amount of copper below 1e13 (a billion gold), or it is dropped (a nested one) or reads as none (a
+-- total). The materials table is read for its first 2,000 keys at most, however many a damaged file holds. The best
+-- item's name is dropped when it carries a | code or a control character (it is shown in a line of text). And
+-- (B4-2) the record has a version: one without this version's is not read, and the record starts over.
+ns.DE_STATS = { VERSION = 2, COUNT_MAX = 1e9, MONEY_MAX = 1e13, MATS_KEPT = 200, MATS_READ = 2000 }   -- (Core/Disenchant.lua reads these)
+local DE_STATS_VERSION, DE_COUNT_MAX, DE_MONEY_MAX, DE_MATS_KEPT, DE_MATS_READ = ns.DE_STATS.VERSION, ns.DE_STATS.COUNT_MAX, ns.DE_STATS.MONEY_MAX,
+	ns.DE_STATS.MATS_KEPT, ns.DE_STATS.MATS_READ
 local function deStatsValidator(v)
-	if type(v) ~= "table" then return nil end
-	local function amount(x) return (finite(x) and x >= 0 and x < 1e15) and math.floor(x) or 0 end
+	if type(v) ~= "table" or v.v ~= DE_STATS_VERSION then return nil end
+	local function count(x) return (finite(x) and x >= 0 and x < DE_COUNT_MAX) and math.floor(x) or 0 end
+	local function money(x) return (finite(x) and x >= 0 and x < DE_MONEY_MAX) and math.floor(x) or 0 end
 	local function itemID(id) return type(id) == "number" and id > 0 and id < 10000000 and id == math.floor(id) end
-	local out = { n = amount(v.n), vendor = amount(v.vendor), ah = amount(v.ah), ahN = amount(v.ahN), alt = amount(v.alt), q = {}, mats = {} }
+	local out = { v = DE_STATS_VERSION, n = count(v.n), cn = count(v.cn), vendor = money(v.vendor), ah = money(v.ah), ahN = count(v.ahN), ahU = count(v.ahU),
+		alt = money(v.alt), q = {}, mats = {} }
 	if type(v.q) == "table" then
-		for q = 0, 7 do if finite(v.q[q]) and v.q[q] >= 1 then out.q[q] = math.floor(v.q[q]) end end
+		for q = 0, 7 do if finite(v.q[q]) and v.q[q] >= 1 and v.q[q] < DE_COUNT_MAX then out.q[q] = math.floor(v.q[q]) end end
 	end
 	if type(v.mats) == "table" then
-		local kept = 0
+		local kept, read = 0, 0
 		for id, c in pairs(v.mats) do
-			if kept < 200 and itemID(id) and finite(c) and c >= 1 then out.mats[id] = math.floor(c); kept = kept + 1 end
+			read = read + 1
+			if read > DE_MATS_READ or kept >= DE_MATS_KEPT then break end
+			if itemID(id) and finite(c) and c >= 1 and c < DE_COUNT_MAX then out.mats[id] = math.floor(c); kept = kept + 1 end
 		end
 	end
 	local b = v.best
-	if type(b) == "table" and itemID(b.id) and finite(b.worth) and b.worth >= 1 then
+	if type(b) == "table" and itemID(b.id) and finite(b.worth) and b.worth >= 1 and b.worth < DE_MONEY_MAX then
+		local name = b.name
+		if not (type(name) == "string" and #name >= 1 and #name <= 120 and not name:find("[%c|]")) then name = nil end
 		out.best = {
-			id = b.id, name = (type(b.name) == "string" and #b.name <= 120) and b.name or nil,
+			id = b.id, name = name,
 			q = (finite(b.q) and b.q >= 0 and b.q <= 7) and math.floor(b.q) or 1,
-			vendor = amount(b.vendor), ah = (finite(b.ah) and b.ah >= 0) and math.floor(b.ah) or nil, worth = math.floor(b.worth),
+			vendor = money(b.vendor), ah = (finite(b.ah) and b.ah >= 0 and b.ah < DE_MONEY_MAX) and math.floor(b.ah) or nil, worth = math.floor(b.worth),
 		}
 	end
 	return out

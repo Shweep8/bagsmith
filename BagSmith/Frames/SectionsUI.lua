@@ -851,14 +851,26 @@ function S:PickSheetMenu(anchor)
 	if not f then return end
 	local items = {}
 	for _, t in ipairs(self:TabChoices()) do
-		items[#items + 1] = { text = t.label, radio = true, checked = t.id == f.sheet, onClick = function() f.sheet = t.id; f.err:SetText(""); S:RefreshSheetSections() end }
+		-- (1.11.0-beta5, B4-1) the menu may have been left open while its sheet was renamed or deleted
+		items[#items + 1] = { text = t.label, radio = true, checked = t.id == f.sheet, onClick = function()
+			if S:IsTabChoice(t.id) then f.sheet = t.id; f.err:SetText("") else f.err:SetText(S.SHEET_GONE) end
+			S:RefreshSheetSections()
+		end }
 	end
 	return ns.ShowMenu(items, anchor)
 end
+S.SHEET_GONE = "That sheet isn't there any more, so nothing was changed."
 function S:TickSheetSection(id)
 	local f = self.sheetFrame
 	if not (f and f.sheet and id) then return end
 	if ns.db ~= self.sheetDB then f:Hide() return end   -- the profile changed: this was for the old one
+	-- (1.11.0-beta5, the beta4 audit's B4-1) looked at before anything is written: the sheet this window is on must
+	-- still be one. If it isn't, nothing is saved, the window moves to a sheet there is, and it says so.
+	if not self:IsTabChoice(f.sheet) then
+		self:RefreshSheetSections()
+		f.err:SetText(S.SHEET_GONE)
+		return
+	end
 	local ok, why = self:SetOnSheet(id, f.sheet, not self:SetToSheet(id, f.sheet))
 	f.err:SetText((not ok and why) or "")
 	self:RefreshSheetSections()
@@ -888,6 +900,25 @@ function S:RefreshSheetSections()
 	f.child:SetHeight(math.max(1, #list * SROW))
 	if f.scroll.ScrollBar then f.scroll.ScrollBar:SetShown(#list > SVIEW) end
 	f.empty:SetShown(#list == 0)
+end
+-- (1.11.0-beta5, the beta4 audit's B4-1) One of your sheets was renamed or deleted; Core/Sections.lua says so every
+-- time, whether or not a section was set to it. The window follows a rename when the old name is no longer a sheet
+-- and the new one is (your bags and your bank can each have a sheet of the same name: then the old one is still
+-- there, and the window stays on it), and moves off a sheet that is gone, saying so. A section being edited follows
+-- the same way (Frames/SectionEditor.lua).
+function S:SheetListChanged(old, new)
+	local f = self.sheetFrame
+	if f and f:IsShown() then
+		if ns.db ~= self.sheetDB then f:Hide()
+		else
+			local gone = f.sheet == old and not self:IsTabChoice(old)
+			if gone and new and self:IsTabChoice(new) then f.sheet, gone = new, false; f.err:SetText("") end
+			self:RefreshSheetSections()
+			if gone then f.err:SetText(("The sheet \"%s\" is gone. Now on \"%s\"."):format(tostring(old), self:TabLabel(f.sheet))) end
+		end
+	end
+	local E = ns.SectionEditor
+	if E and E.SheetListChanged then E:SheetListChanged(old, new) end
 end
 -- Opens it for a sheet: the one asked for, else the tab the bags are on, else the first.
 function S:OpenSheetSections(sheet)

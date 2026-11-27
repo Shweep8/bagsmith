@@ -348,7 +348,9 @@ do
 	local many = {}
 	for i = 1, 24 do many[i] = "Sheet " .. i end
 	S:SetSheets(herbs, many)
-	local ok, why = S:SetOnSheet(herbs, "One More", true)
+	-- (by design since 1.11.0-beta5, the beta4 audit's B4-1: a section is only put on a sheet there is, so the 25th
+	-- here is one of BagSmith's own tabs; it was "One More", a name that is no sheet)
+	local ok, why = S:SetOnSheet(herbs, "Gear", true)
 	check(ok == false and why == "A section can be set to 24 sheets at most." and #S:Sheets(herbs) == 24, "a 25th sheet is refused, with why: " .. tostring(why))
 	S:SetSheets(herbs, nil)
 	check(S:SetOnSheet("nope", "TradeGoods", true) == false and S:SetOnSheet(cloth, "", true) == false, "no such section, or no sheet: refused")

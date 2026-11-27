@@ -441,7 +441,9 @@ do
 	local keys = {}
 	for k in pairs(st) do keys[#keys + 1] = k end
 	table.sort(keys)
-	check(table.concat(keys, " ") == "ah ahN alt best mats n q vendor", "the record's fields: " .. table.concat(keys, " "))
+	-- (by design since 1.11.0-beta5, the beta4 audit's B4-2 and B4-4: the record has a version, v, and keeps the
+	-- disenchants in the comparison, cn, and those among them with no auction price, ahU)
+	check(table.concat(keys, " ") == "ah ahN ahU alt best cn mats n q v vendor", "the record's fields: " .. table.concat(keys, " "))
 	-- the view
 	DE:ShowResults(true)
 	L = linesOf(DE)
@@ -552,7 +554,8 @@ end
 do
 	-- the saved record is checked piece by piece when it loads
 	local huge = 1 / 0
-	local bad = { n = -3, vendor = "lots", ah = huge, ahN = 2.9, alt = 0 / 0, q = { [2] = 4.7, [3] = -1, [9] = 5, x = 1 }, mats = { [10940] = 12.9, [-5] = 3, [10938] = "many", [0.5] = 2, [11083] = 0, bad = 1 },
+	-- (by design since 1.11.0-beta5: a record is read only with this version's stamp, v = 2; this one and the 400-material one below have it)
+	local bad = { v = 2, n = -3, vendor = "lots", ah = huge, ahN = 2.9, alt = 0 / 0, q = { [2] = 4.7, [3] = -1, [9] = 5, x = 1 }, mats = { [10940] = 12.9, [-5] = 3, [10938] = "many", [0.5] = 2, [11083] = 0, bad = 1 },
 		best = { id = 7001, name = ("x"):rep(500), q = 99, vendor = -1, ah = "no", worth = 1500.6 } }
 	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = bad } })
 	local st = DE:Stats()
@@ -566,7 +569,7 @@ do
 	check((n.errors or 0) == 0, "and the view draws from it without error")
 	local many = {}
 	for i = 1, 400 do many[20000 + i] = 1 end
-	M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { n = 1, mats = many, best = { id = "x", worth = 5 } } } })
+	M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 2, n = 1, mats = many, best = { id = "x", worth = 5 } } } })
 	local count = 0
 	for _ in pairs(DE:Stats().mats) do count = count + 1 end
 	check(count == 200 and DE:Stats().best == nil, "no more than 200 kinds of material are kept, and a most valuable item with no ID is dropped")

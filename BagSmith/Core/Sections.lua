@@ -240,6 +240,9 @@ function S:SetOnSheet(id, sheet, on)
 	local list, at = {}, nil
 	for i, name in ipairs(c.sheets or {}) do list[i] = name; if name == sheet then at = i end end
 	if on and not at then
+		-- (1.11.0-beta5, the beta4 audit's B4-1) only onto a sheet there is: a window left open on one that was since
+		-- renamed or deleted writes nothing (taking a name off a list is always allowed)
+		if not self:IsTabChoice(sheet) then return false, "That sheet isn't there any more, so nothing was changed." end
 		if #list >= S.MAX_SHEETS then return false, ("A section can be set to %d sheets at most."):format(S.MAX_SHEETS) end
 		list[#list + 1] = sheet
 	elseif not on and at then
@@ -293,6 +296,10 @@ function S:TabChoices()
 	end
 	return out
 end
+function S:IsTabChoice(sheet)
+	for _, t in ipairs(self:TabChoices()) do if t.id == sheet then return true end end
+	return false
+end
 function S:TabLabel(id) return ns.TAB_LABEL[id] or tostring(id) end
 -- "Trade Goods", "All and Trade Goods": where a section shows, in words; "" for every sheet.
 function S:SheetsText(sheets)
@@ -332,6 +339,12 @@ local function sheetExists(name)
 	end
 	return false
 end
+-- (1.11.0-beta5, the beta4 audit's B4-1) Whatever the sections did, the windows that name a sheet are told when a
+-- name changes or stops being a sheet: Sections on a Sheet and a section being edited (Frames/SectionsUI.lua,
+-- S:SheetListChanged). Before, they only heard when a section's own list changed, so a window open on a sheet no
+-- section was set to kept its old name and the next tick saved it. Told before the signal below, whose listeners
+-- redraw from the sheet they are on.
+local function tellWindows(old, new) if S.SheetListChanged then S:SheetListChanged(old, new) end end
 function S:SheetRenamed(old, new)
 	if old == new then return end
 	local changed = false
@@ -347,10 +360,11 @@ function S:SheetRenamed(old, new)
 			end
 		end
 	end
+	tellWindows(old, new)
 	if changed then ns:Fire("SETTINGS_CHANGED", "customSections"); self:Reapply(); self:RefreshManager() end
 end
 function S:SheetDeleted(name)
-	if ns.TAB_LABEL[name] or sheetExists(name) then return end
+	if ns.TAB_LABEL[name] or sheetExists(name) then return end   -- (still a sheet, the bank's or the bags': nothing to tell)
 	local changed = false
 	for _, c in ipairs(self:Customs()) do
 		if c.sheets then
@@ -361,6 +375,7 @@ function S:SheetDeleted(name)
 			end
 		end
 	end
+	tellWindows(name)
 	if changed then ns:Fire("SETTINGS_CHANGED", "customSections"); self:Reapply(); self:RefreshManager() end
 end
 -- Re-sort what's already scanned after a move, without a rescan.
