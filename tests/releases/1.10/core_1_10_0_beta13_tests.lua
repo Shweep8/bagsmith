@@ -660,13 +660,13 @@ end)()
 		local S0 = skin .. ": "
 		-- straight from 1.9.7: the 1.10 card opens, with 1.9.8's note as one more bullet
 		local n, M, WN = boot("1.9.7", skin)
-		local e = WN.ENTRIES[2]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+		local e = WN.ENTRIES[3]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 		-- (by design since 1.10.0-beta16, Shweep: the card rewritten as seven bullets; "we lost the reminder": it stays,
 		-- last, for the same accounts. It was nine and ten.)
 		check(e.v == "1.10.0" and #e.items == 7 and e.remind and e.remind.before == "1.9.8" and e.remind.text == REMINDER, S0 .. "the 1.10 card has seven bullets of its own, and a reminder from 1.9.8")
 		local items = WN:Items(e)
 		check(#items == 8 and items[8] == REMINDER and items[7] == e.items[7], S0 .. "coming from 1.9.7: eight bullets, the reminder last")
-		check(WN.ENTRIES[2].items[8] == nil, S0 .. "(the card's own list is untouched)")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+		check(WN.ENTRIES[3].items[8] == nil, S0 .. "(the card's own list is untouched)")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 		-- 1.9.8's own words, under Reminder instead of Important
 		local own
 		for _, en in ipairs(WN.ENTRIES) do if en.v == "1.9.8" then own = en.items[2] end end
@@ -684,7 +684,7 @@ end)()
 
 		-- from 1.9.8: nine bullets, no reminder
 		n, M, WN = boot("1.9.8", skin)
-		check(#WN:Items(WN.ENTRIES[2]) == 7 and next(WN.owed) == nil, S0 .. "coming from 1.9.8, which showed the note itself: seven bullets, no reminder")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+		check(#WN:Items(WN.ENTRIES[3]) == 7 and next(WN.owed) == nil, S0 .. "coming from 1.9.8, which showed the note itself: seven bullets, no reminder")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 		n.Window:Show(); M.runTimers(); M.runTimers()
 		c = WN.Card and WN.Card()
 		check(c and c:IsShown() and reminders(c) == 0, S0 .. "the card shows without it")
@@ -693,24 +693,24 @@ end)()
 
 	-- who is owed it, and who isn't
 	local n, M, WN = boot("1.9.0")
-	check(#WN:Items(WN.ENTRIES[2]) == 8, "from 1.9.0: owed")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	check(#WN:Items(WN.ENTRIES[3]) == 8, "from 1.9.0: owed")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	n, M, WN = boot("0.0.0")
-	check(#WN:Items(WN.ENTRIES[2]) == 8, "saved data from before What's New existed: owed")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	check(#WN:Items(WN.ENTRIES[3]) == 8, "saved data from before What's New existed: owed")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	n, M, WN = boot("1.10.0")
-	check(#WN:Items(WN.ENTRIES[2]) == 7, "already on 1.10 (a beta, or the next login after closing the card): not owed")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	check(#WN:Items(WN.ENTRIES[3]) == 7, "already on 1.10 (a beta, or the next login after closing the card): not owed")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	n, M, WN = boot(nil, "modern", true)
-	check(#WN:Items(WN.ENTRIES[2]) == 7 and BagSmithDB.whatsNewSeen == "1.10.0", "a first install: nothing was skipped, so nothing to remind")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	check(#WN:Items(WN.ENTRIES[3]) == 7 and BagSmithDB.whatsNewSeen == "1.10.0", "a first install: nothing was skipped, so nothing to remind")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	-- other cards have no reminder, and a card without one is returned as it is
 	n, M, WN = boot("1.9.7")
-	for i = 3, #WN.ENTRIES do   -- (by design since 1.10.1: from the third, the 1.10 card being the second now)
+	for i = 4, #WN.ENTRIES do   -- (by design since 1.10.1, and again since 1.11.0-beta4: from the fourth, the 1.10 card being the third now)
 		check(WN.ENTRIES[i].remind == nil and WN:Items(WN.ENTRIES[i]) == WN.ENTRIES[i].items, "BagSmith " .. WN.ENTRIES[i].v .. ": its own bullets only")
 		if i >= 5 then break end
 	end
 	-- the hidden test command sets things as a player updating would have them
 	n, M, WN = boot("1.10.0")
-	check(#WN:Items(WN.ENTRIES[2]) == 7, "(seen 1.10: no reminder)")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	check(#WN:Items(WN.ENTRIES[3]) == 7, "(seen 1.10: no reminder)")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	WN:ResetForTesting()
-	check(BagSmithDB.whatsNewSeen == "1.9.0" and #WN:Items(WN.ENTRIES[2]) == 8, "/bs new reset goes back to before 1.10, and the reminder a player from there would get comes with it")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	check(BagSmithDB.whatsNewSeen == "1.9.0" and #WN:Items(WN.ENTRIES[3]) == 8, "/bs new reset goes back to before 1.10, and the reminder a player from there would get comes with it")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	check((n.errors or 0) == 0, "no errors")
 end)()
 
@@ -722,7 +722,7 @@ end)()
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = "modern" } }, whatsNewSeen = "1.9.8" }
 	local n = M.loadAddon("BagSmith")
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers()
-	local e = n.WhatsNew.ENTRIES[2]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e = n.WhatsNew.ENTRIES[3]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	-- (by design since 1.10.0-beta16: the card's rewrite. The sentence about the Helpers keeps the two exceptions.)
 	check(e.items[6]:find("and the Loot Helper and Disenchant Helper won't offer what it says to keep, apart from your junk and gear it keeps for its dust.", 1, true) ~= nil,
 		"the card's ItemTree bullet says what the Helpers do, with the two exceptions")

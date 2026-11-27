@@ -205,9 +205,25 @@ function Hooks:Install()
 	-- vendor, the bank and the auction house close the bags naming themselves; the mail window's close names no window,
 	-- which is the call Escape and the game menu make, so BagSmith took it for one of those and closed whatever When I
 	-- Leave said. A close with no window that comes as the mail window goes (mailLeaving, below) is the mailbox's.
-	local mailLeaving
+	-- (1.11.0-beta4, Shweep's /bs debug and call stack on Forever: "CloseAllBags acted; window open -> closed", then
+	-- "CloseAllBags (the mail window's) ignored") The game's hide function for the mailbox runs twice, one inside the
+	-- other: hiding the mail window ends the visit from the window's own OnHide, which runs the hide function again,
+	-- and that inner run closes the bags before anything BagSmith hooked onto the window's hide has been told. So the
+	-- mark is the visit itself, from MAIL_SHOW on: a close that names no window is the mailbox's when it comes during
+	-- the visit with the mail window no longer showing, or just after the visit ends. While the window still shows,
+	-- such a close is Escape, the game menu or the bag key, as anywhere; and with no mail window to ask (a client
+	-- that has none by that name), only the moment after the visit counts, as in beta3.
+	local mailLeaving, mailOpen
+	local function mailShowing()
+		local f = _G.MailFrame
+		if type(f) ~= "table" or type(f.IsShown) ~= "function" then return nil end
+		local ok, shown = pcall(f.IsShown, f)
+		return (ok and shown) and true or false
+	end
 	hook("CloseAllBags", function(frame)
-		if frame == nil and mailLeaving then return request("CloseAllBags (the mail window's)", "close", nil, true, "mail") end
+		if frame == nil and (mailLeaving or (mailOpen and mailShowing() == false)) then
+			return request("CloseAllBags (the mail window's)", "close", nil, true, "mail")
+		end
 		request("CloseAllBags", "close", nil, frame ~= nil, placeOf(frame))
 	end)
 
@@ -280,13 +296,14 @@ function Hooks:Install()
 		local f = _G.MailFrame
 		if type(f) ~= "table" or not f.HookScript or Hooks.mailFollowed then return end
 		Hooks.mailFollowed = true
-		f:HookScript("OnHide", function() if managed(ns.BACKPACK) then mailGoing() end end)
+		f:HookScript("OnHide", function() mailOpen = false; if managed(ns.BACKPACK) then mailGoing() end end)
 	end
 	Hooks.FollowMail = followMail   -- for the tests
 	followMail()
-	ns:On("MAIL_SHOW", function() mailLeaving = nil; followMail() end)
-	ns:On("MAIL_CLOSED", function() if managed(ns.BACKPACK) then mailGoing() end end)
+	ns:On("MAIL_SHOW", function() mailLeaving = nil; mailOpen = managed(ns.BACKPACK) and true or false; followMail() end)
+	ns:On("MAIL_CLOSED", function() mailOpen = false; if managed(ns.BACKPACK) then mailGoing() end end)
 	Hooks.MailLeaving = function() return mailLeaving ~= nil end   -- for the tests
+	Hooks.MailOpen = function() return mailOpen == true end
 
 	-- (1.8.0-beta23, Shweep, after FlareUI's notes) The guild bank: Forever doesn't open the bags with it, as it does at a
 	-- vendor. BagSmith follows its window (Blizzard's, loaded on demand) the way it follows a vendor: shown, the bags

@@ -350,9 +350,9 @@ do
 	local M, n = boot()
 	local WN = n.WhatsNew
 	check(BagSmithDB.whatsNewSeen == "1.10.0", "(set up: this player has seen the 1.10 card)")
-	local e = WN.ENTRIES[1]
+	local e = WN.ENTRIES[2]
 	-- (by design since 1.10.1-beta2: three bullets, the new setting's between the two)
-	check(e.v == "1.10.1" and e.heading == "BagSmith 1.10.1" and #e.items == 3 and not e.opens and WN.ENTRIES[2].v == "1.10.0", "What's New: 1.10.1's entry is first, three bullets, and is an ordinary update")
+	check(e.v == "1.10.1" and e.heading == "BagSmith 1.10.1" and #e.items == 3 and not e.opens and WN.ENTRIES[3].v == "1.10.0", "What's New: 1.10.1's entry is first, three bullets, and is an ordinary update")
 	check(plain(e.items[1]):find("^Bags at Vendors: ") and plain(e.items[3]):find("^Your Bag Key in Settings: "), "its bullets: Bags at Vendors first, Your Bag Key in Settings last")
 	check(not table.concat(e.items, " "):find("\226\128\148"), "no dashes in them")
 	check(#WN:UnseenReleases() == 0 and not WN:UnseenOpener() and not WN:Pending(), "coming from 1.10.0: the card does not open by itself for this update")

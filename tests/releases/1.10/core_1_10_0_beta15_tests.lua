@@ -1,3 +1,13 @@
+-- (by design since 1.11.0-beta4: 1.11's NEW list replaced 1.10's in the addon, as each release's does. This set puts
+-- 1.10's back, as it stood in 1.10.1, to go on checking what it checked; tests/releases/1.9 does the same with NEW19.)
+local function NEW110()
+	return { release = "1.10",
+		pages = { addons = true, sections = true, custom = true },
+		heads = { ["How an Item Finds Its Section"] = "custom" },
+		keys = { useItemTree = "addons", makeRoomHoldItemTree = "addons", deHoldItemTree = "addons", makeRoomHoldPawn = "addons", deHoldPawn = "addons" },
+		buttons = { ["New Section..."] = "custom" },
+		added = { ["1.10.1"] = { keys = { autoCloseOwnBags = "general" } } } }
+end
 -- ======== 1.10.0-beta15 (Shweep, 23 Nov: "1. yes gold in classic style 2. agreed / build") ========
 -- The answer to the beta14 audit, and Shweep's feedback on beta14:
 -- B14-1  A slot that gains its item link after the scan (or whose link changes) no longer brings back an offer the
@@ -81,7 +91,7 @@ end
 		_G.GetSpellInfo = function(id) if id == DEID then return "Disenchant" end end
 		_G.RegisterStateDriver = function() end
 		_G.UnregisterStateDriver = function() end
-		local n = M.loadAddon("BagSmith")
+		local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW110()
 		n.version = "1.10.0-beta15"
 		M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 		return n, M, n.Disenchant
@@ -222,7 +232,7 @@ do
 		_G.PawnShouldItemLinkHaveUpgradeArrow, _G.PawnCommon = nil, nil
 		_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 		_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = skin or "modern", makeRoom = true, makeRoomValue = "vendor", makeRoomAsk = false } } }
-		local n = M.loadAddon("BagSmith")
+		local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW110()
 		n.version = "1.10.0-beta15"
 		M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 		local realInfo = C_Item.GetItemInfo
@@ -304,7 +314,7 @@ end
 	_G.ItemTreeAPI = nil
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = "modern", view = "list" } } }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW110()
 	n.version = "1.10.0-beta15"
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	local Inv, R = n.Inventory, n.Rules
@@ -402,7 +412,7 @@ end)()
 	_G.ItemTreeAPI = nil
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = "modern", view = "list" } } }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW110()
 	n.version = "1.10.0-beta15"
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	n.Window:Show(); pump(M)
@@ -457,7 +467,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	_G.ItemTreeAPI = nil
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = skin, view = "list", grp = "type" } }, whatsNewSeen = "1.9.8" }
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW110()
 	n.version = "1.10.0-beta15"
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	n.Window:Show(); pump(M)
@@ -541,7 +551,7 @@ end
 	M.removeEquipmentSets()
 	_G.ItemTreeAPI = nil
 	_G.BagSmithCharDB, _G.BagSmithDB = nil, nil
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW110()
 	n.version = "1.10.0-beta15"
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	local SP = n.SettingsPanel

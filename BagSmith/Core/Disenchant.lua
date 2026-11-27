@@ -1097,6 +1097,7 @@ end
 ------------------------------------------------------------------------
 local W, ROW = DE.W, 22
 local RESULT_ROW = 16   -- (1.11.0-beta3) a line of the Results view
+local RESULT_STRIPE = 0.035   -- (1.11.0-beta4) its banding, the strength the Settings lists use
 -- Re-anchors a frame to the screen at the spot it occupies now (its corner, in screen coordinates).
 function DE.ToScreen(f)
 	if not (f and f.GetLeft and f.GetTop) then return end
@@ -1240,6 +1241,9 @@ function DE:Frame()
 	f.empty.count = f.empty:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlight")); f.empty.count:SetPoint("TOP", f.empty.head, "BOTTOM", 0, -8); f.empty.count:SetWidth(400); f.empty.count:SetJustifyH("CENTER"); f.empty.count:SetWordWrap(true)
 	f.empty.haul = f.empty:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); f.empty.haul:SetPoint("TOP", f.empty.count, "BOTTOM", 0, -6); f.empty.haul:SetWidth(400); f.empty.haul:SetJustifyH("CENTER"); f.empty.haul:SetWordWrap(true)
 	f.empty.value = f.empty:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontNormal")); f.empty.value:SetPoint("TOP", f.empty.haul, "BOTTOM", 0, -8); f.empty.value:SetWidth(400); f.empty.value:SetJustifyH("CENTER")
+	-- (1.11.0-beta4) what the session comes to, when this sitting isn't all of it, and a way into Results
+	f.empty.session = f.empty:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); f.empty.session:SetWidth(400); f.empty.session:SetJustifyH("CENTER"); f.empty.session:SetWordWrap(true); f.empty.session:Hide()
+	f.empty.results = ns.TextButton(f.empty, "See Results", 100, function() DE:ShowResults(true) end); f.empty.results:SetHeight(22); f.empty.results:Hide()
 	f.empty.line = f.empty:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); f.empty.line:SetPoint("TOP", f.empty.value, "BOTTOM", 0, -16); f.empty.line:SetWidth(360); f.empty.line:SetJustifyH("CENTER"); f.empty.line:SetWordWrap(true)
 	f.empty.skipped = ns.TextButton(f.empty, "Consider skipped again", 160, function() DE:ClearSkipped() end); f.empty.skipped:SetHeight(22); f.empty.skipped:SetPoint("TOP", f.empty.line, "BOTTOM", 0, -10); f.empty.skipped:Hide()
 	f.empty.held = f.empty:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); f.empty.held:Hide()
@@ -1277,6 +1281,7 @@ function DE:Frame()
 		fr.empty.head:SetTextColor(unpack(s.heading)); fr.empty.line:SetTextColor(unpack(s.muted))
 		do local ar, ag, ab = ns.Skins:Accent(); fr.empty.icon:SetVertexColor(ar, ag, ab) end   -- the art, tinted with the accent
 		fr.empty.count:SetTextColor(unpack(s.text)); fr.empty.haul:SetTextColor(unpack(s.muted)); fr.empty.value:SetTextColor(unpack(s.heading))
+		fr.empty.session:SetTextColor(unpack(s.text))
 		fr.cur.likelyHead:SetTextColor(unpack(s.heading)); fr.cur.likely:SetTextColor(unpack(s.muted)); fr.cur.basis:SetTextColor(unpack(s.muted))
 		for _, h in ipairs(fr.heads) do h:SetTextColor(unpack(s.heading)) end
 		ns.Classic:Dress(fr, fr.classicSpec, ns.Classic.IsOn())
@@ -1568,16 +1573,34 @@ function DE:SessionPieces()
 		local p = ns.AH and ns.AH:Available() and ns.AH:Price({ itemID = m.id, link = "item:" .. m.id })
 		if p then value = value + p * m.count else priced = false end
 	end
+	-- (1.11.0-beta4) with more from earlier in the session, this haul is "just now" and a line under it says what the
+	-- session comes to
+	local just, sess = self:JustNow()
+	local more
+	if sess > just then
+		local _, total, unpriced = DE.Valued(self.play and self.play.mats)
+		more = ("This session: %d %s disenchanted"):format(sess, sess == 1 and "item" or "items")
+		if ns.AH and ns.AH:Available() and unpriced == 0 and total > 0 then more = more .. (", worth about %s"):format(self.Money(total)) end
+		more = more .. "."
+	end
 	return {
-		count = ("%d %s disenchanted"):format(s.done or 0, (s.done or 0) == 1 and "item" or "items"),
+		count = ("%s%d %s disenchanted"):format(more and "Just now: " or "", s.done or 0, (s.done or 0) == 1 and "item" or "items"),
 		haul = table.concat(names, "\n"),
 		value = (#names > 0 and priced and value > 0) and ("Worth about %s at current AH prices"):format(self.Money(value)) or "",
+		session = more,
 	}
+end
+-- How many were disenchanted just now (since the Helper was opened) and this session (since login: never fewer).
+function DE:JustNow()
+	local just = (self.session and self.session.done) or self.done or 0
+	local sess = math.max(just, self.play and self.play.n or 0)
+	return just, sess
 end
 -- What this sitting produced in one line: items, each material with its count, and their AH value when known.
 function DE:SessionSummary()
 	local s = self.session or { done = self.done or 0, mats = {} }
-	local parts = { ("%d %s disenchanted"):format(s.done or 0, (s.done or 0) == 1 and "item" or "items") }
+	local just, sess = self:JustNow()   -- (1.11.0-beta4) "just now", and the session's count after it when there is more
+	local parts = { ("%d %s disenchanted%s"):format(s.done or 0, (s.done or 0) == 1 and "item" or "items", sess > just and " just now" or "") }
 	local list = {}
 	for id, count in pairs(s.mats or {}) do list[#list + 1] = { id = id, count = count } end
 	table.sort(list, function(a, b) return a.count > b.count end)
@@ -1592,7 +1615,9 @@ function DE:SessionSummary()
 	local text = parts[1]
 	if #names > 0 then text = text .. ": " .. table.concat(names, ", ") end
 	if #names > 0 and priced and value > 0 then text = text .. (", worth about %s at current AH prices"):format(self.Money(value)) end
-	return text .. "."
+	text = text .. "."
+	if sess > just then text = text .. (" This session: %d %s."):format(sess, sess == 1 and "item" or "items") end
+	return text
 end
 -- The empty state's words: why there is nothing, and what can bring something back.
 function DE:EmptyWords()
@@ -1646,6 +1671,7 @@ local function valued(mats)
 	end)
 	return list, total, unpriced
 end
+DE.Valued = valued   -- (1.11.0-beta4: the All done card's session line, written above this, values a haul with it)
 -- The numbers behind the view. which: "session" or "all".
 -- n and byQuality: the disenchants; mats, matsValue, matsUnpriced: what they gave. tracked: the disenchants whose worth
 -- was noted (a session's are all noted; all time, those since 1.11): what the items would have sold for, the materials
@@ -1750,6 +1776,11 @@ local function resultRow(f, i)
 	r.left = r:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); r.left:SetPoint("LEFT", 0, 0); r.left:SetJustifyH("LEFT"); r.left:SetWordWrap(false)
 	r.right = r:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); r.right:SetPoint("RIGHT", 0, 0); r.right:SetJustifyH("RIGHT"); r.right:SetWordWrap(false)
 	r.left:SetPoint("RIGHT", r.right, "LEFT", -8, 0)
+	-- (1.11.0-beta4, Shweep: "DE results page needs zebra lines or something") a faint band on every other line, as
+	-- List view's rows and the Settings lists have: a label and its value sit a window's width apart
+	r.stripe = r:CreateTexture(nil, "BACKGROUND")
+	r.stripe:SetPoint("TOPLEFT", -4, 0); r.stripe:SetPoint("BOTTOMRIGHT", 4, 0)
+	r.stripe:SetTexture("Interface\\Buttons\\WHITE8X8"); r.stripe:SetVertexColor(1, 1, 1, RESULT_STRIPE); r.stripe:Hide()
 	r:SetScript("OnEnter", function(self)
 		if self.id and ns.TooltipsOK() then GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetHyperlink("item:" .. self.id); GameTooltip:Show() end
 	end)
@@ -1769,6 +1800,7 @@ function DE:PaintResults()
 	local width = math.max(100, (f:GetWidth() or W) - 24 - 26)
 	R.child:SetWidth(width)
 	local y, n = 0, 0
+	local band = false   -- the banding starts over under each heading: its first line is plain
 	for _, l in ipairs(lines) do
 		if l.kind == "gap" then
 			y = y + math.floor(rh / 2)
@@ -1776,6 +1808,8 @@ function DE:PaintResults()
 			n = n + 1
 			local r = resultRow(f, n)
 			local head, note = l.kind == "head", l.kind == "note"
+			if l.kind == "row" then band = not band else band = false end
+			r.stripe:SetShown(l.kind == "row" and not band)
 			local indent = head and 0 or 10
 			r:ClearAllPoints(); r:SetPoint("TOPLEFT", R.child, "TOPLEFT", indent, -y); r:SetSize(width - indent, rh)
 			r.left:SetText(l.left or ""); r.right:SetText(l.right or "")
@@ -1840,7 +1874,18 @@ function DE:Paint()
 		f.empty.count:SetText(pieces and pieces.count or ""); f.empty.haul:SetText(pieces and pieces.haul or ""); f.empty.value:SetText(pieces and pieces.value or "")
 		-- without a haul the set-aside line sits right under the headline
 		f.empty.line:ClearAllPoints()
-		if pieces then f.empty.line:SetPoint("TOP", (pieces.value ~= "" and f.empty.value) or (pieces.haul ~= "" and f.empty.haul) or f.empty.count, "BOTTOM", 0, -16)
+		-- (1.11.0-beta4) the session's line and See Results come between the haul and what was set aside
+		local more = pieces and pieces.session
+		f.empty.session:SetShown(more ~= nil); f.empty.results:SetShown(more ~= nil)
+		if pieces then
+			local under = (pieces.value ~= "" and f.empty.value) or (pieces.haul ~= "" and f.empty.haul) or f.empty.count
+			if more then
+				f.empty.session:SetText(more)
+				f.empty.session:ClearAllPoints(); f.empty.session:SetPoint("TOP", under, "BOTTOM", 0, -12)
+				f.empty.results:ClearAllPoints(); f.empty.results:SetPoint("TOP", f.empty.session, "BOTTOM", 0, -6)
+				under = f.empty.results
+			end
+			f.empty.line:SetPoint("TOP", under, "BOTTOM", 0, -16)
 		else f.empty.line:SetPoint("TOP", f.empty.head, "BOTTOM", 0, -6) end
 		f.sub:Hide()
 		local heldN = self.held and self.held.total or 0
@@ -1921,7 +1966,13 @@ function DE:Paint()
 	if empty then f.status:SetText(""); f.status:Hide(); return end
 	if not ahOn then notes[#notes + 1] = "AH prices need Auctionator or Blackthornes Tradeskills; without one the helper compares against vendor prices only and makes no recommendation." end
 	if GetCVar and (GetCVar("autoLootDefault") == "0" or GetCVar("autoLootDefault") == nil) then notes[#notes + 1] = "Auto Loot is off: after each cast, take the materials from the loot window before the next item is ready." end
-	if self.done and self.done > 0 then notes[#notes + 1] = ("%d disenchanted this session."):format(self.done) end
+	-- (1.11.0-beta4, Shweep: "can we somehow explain both") this sitting is "just now", since login is "this
+	-- session"; the second is only said when it is more than the first
+	do
+		local just, sess = self:JustNow()
+		if just > 0 and sess > just then notes[#notes + 1] = ("%d disenchanted just now, %d this session."):format(just, sess)
+		elseif sess > 0 then notes[#notes + 1] = ("%d disenchanted this session."):format(sess) end
+	end
 	-- (1.6.0-beta8) while leveling: how far to the next rank, and what that changes
 	do
 		local leveling, rank, cap = self:Leveling()

@@ -15,7 +15,7 @@ New:
 - Disenchant Results: the Disenchant Helper has a Results button. It shows what your disenchants gave you, This
   Session and All Time: how many items by quality, the materials with their auction house value now, what the items
   would have sold for instead, and the most valuable item you disenchanted. The sold-instead lines count disenchants
-  from this version on.
+  from this version on. The Helper's own count now says how many you disenchanted just now and how many this session.
 
 Changed:
 - Auto-Close Bags I Opened, from 1.10.1, is now the When I Leave choice on Automations. What you had carries over:
@@ -24,6 +24,7 @@ Changed:
   always has at vendors, the mailbox, the bank and the auction house.
 - Special Bag Slot Indicators (Settings > Item Icons): pick a kind of bag from a list and set up its indicator,
   instead of scrolling a column of twelve switches.
+- Settings shows BagSmith's version number beside its title.
 - A menu too long for your screen shows arrows at its top and bottom, so you can see there is more and click to reach
   it. The mouse wheel still scrolls it.
 - The lists for a Type, Slot or Section rule open in a taller window when your screen has room, so more of a long list

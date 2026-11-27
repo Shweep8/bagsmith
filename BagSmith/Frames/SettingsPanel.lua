@@ -91,17 +91,17 @@ end
 -- Someone coming straight from an older release sees all of them.
 -- (1.10.0-beta12) 1.10's list, with its What's New card. Other Addons' page (Addon Sources) and each of its switches;
 -- Custom Sections (the rule editor, the examples) and its last card; Sections, for All Items in its list.
+-- (1.11.0-beta4) 1.11's list, with its What's New card (1.10's: Addon Sources and its switches, Custom Sections' rule
+-- editor and New Section..., Sections for All Items; 1.10.1's Auto-Close Bags I Opened, which 1.11 moved). The
+-- Auto-Open and Auto-Close card and its When I Leave choice on Automations; the Special Bag list on Item Icons;
+-- Sections on a Sheet... on Custom Sections. No page is new.
 Panel.NEW = {
-	release = "1.10",
-	pages = { addons = true, sections = true, custom = true },
-	heads = { ["How an Item Finds Its Section"] = "custom" },
-	keys = { useItemTree = "addons", makeRoomHoldItemTree = "addons", deHoldItemTree = "addons", makeRoomHoldPawn = "addons", deHoldPawn = "addons" },
-	-- (1.10.0-beta15, Shweep: "why no New tag beside New Section button", "yes just add to that one button please") a
-	-- button, by its label: New Section... was there in 1.9, and what it opens is 1.10's main feature
-	buttons = { ["New Section..."] = "custom" },
-	added = {
-		["1.10.1"] = { keys = { autoCloseOwnBags = "general" } },   -- (1.10.1-beta2) Auto-Close Bags I Opened
-	},
+	release = "1.11",
+	pages = {},
+	heads = { ["Auto-Open and Auto-Close"] = "automation" },
+	keys = { closeOnLeave = "automation", bagKindPick = "icons" },
+	buttons = { ["Sections on a Sheet..."] = "custom" },
+	added = {},
 }
 local NEW_KINDS = { "heads", "keys", "buttons" }   -- what a page holds besides itself
 Panel.NEW_COLOR = { 0.55, 0.78, 1 }   -- the soft blue of What's New's links
@@ -2861,7 +2861,10 @@ function Panel:Refresh()
 	self.counts, self.y = {}, 4
 	self.card, rowX, rowW = nil, 0, ROW_W
 	for _, pool in pairs(self.pools) do for _, w in ipairs(pool) do w:Hide() end end
-	self.frame.sub:SetText("Profile: " .. ns.profileName)
+	-- (1.11.0-beta4, Shweep: "should we always show the full version number in top left?", "Header is fine for 1.11")
+	-- the version as the TOC has it, a beta's suffix included, in the muted line beside the title, before the profile:
+	-- a screenshot of Settings then says which build it is. (In the Classic look that line sits under the title strip.)
+	self.frame.sub:SetText(("%s   Profile: %s"):format(tostring(ns.version or "?"), ns.profileName))
 	local fn = pages[self.page] or pages.profile
 	if self.query then self:RefreshSearch(ns.db) else self:MainPageTitle(self.page); fn(self, ns.db) end
 	self:CloseCard()
