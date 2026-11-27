@@ -6,6 +6,10 @@ local function boot(skin)
  _G.BagSmithCharDB={version=1,firstSeen={}}
  _G.BagSmithDB={version=2,chars={},cache={},profiles={Default={skin=skin,view='list',grp='type'}}}
  _G.Auctionator={API={v1={GetAuctionPriceByItemID=function()return 1 end,GetAuctionPriceByItemLink=function()return 1 end}}}; _G.BlackthornesTS_API=nil
+ -- (by design since 1.12.0-beta1) The column order has the Pawn column now, and like AH Price it only shows with its
+ -- addon installed: a Pawn is supplied as a price addon is above, so "every column kept" still means every column,
+ -- the new one included, and the same promises are checked with one column more.
+ _G.PawnShouldItemLinkHaveUpgradeArrow=function()return false end; _G.PawnCommon={ShowBagUpgradeAdvisor=true}
  local n=M.loadAddon(AUDIT_CORE or 'BagSmith');M.fire('ADDON_LOADED','BagSmith');M.fire('PLAYER_ENTERING_WORLD');M.runTimers();M.runTimers();n.Window:Show();M.runTimers();M.runTimers()
  return n,M
 end

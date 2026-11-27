@@ -421,7 +421,7 @@ function View.MinWidthFor(bank)
 	local kept = 0
 	for _, key in ipairs(type(cols) == "table" and cols or {}) do
 		local canGo = key ~= "c" and type(aside) == "table" and ns.IndexOf(aside, key) ~= nil   -- (Qty never goes)
-		if not canGo and (key ~= "ah" or (ns.AH and ns.AH:Available())) then kept = kept + 1 end
+		if not canGo and ns.Columns:Usable(key) then kept = kept + 1 end   -- (1.12.0-beta1: AH Price, and a registered column, only while it can show)
 	end
 	local need = PAD * 2 + BAR_ROOM + (View.ITEM_MIN or 90) + kept * (View.COL_MIN or 30)
 	return math.max(base, need), base
@@ -863,6 +863,9 @@ function View:Build()
 			GameTooltip:SetOwner(btn, "ANCHOR_TOP")
 			ns.TipText(GameTooltip, "Click to sort by " .. text)
 			if key == "age" then ns.TipLine(GameTooltip, "Time since BagSmith first saw the item in your bags", 0.6, 0.6, 0.6) end
+			-- (1.12.0-beta1) a registered column says what it shows (Pawn's: how much of an upgrade)
+			local reg = ns.Columns:Get(key)
+			if reg and reg.tip then ns.TipLine(GameTooltip, reg.tip, 0.6, 0.6, 0.6) end
 			ns.TipLine(GameTooltip, "Drag the gold line on either side to resize", 0.6, 0.6, 0.6)
 			-- (1.6.0-beta6) what a narrow window has set aside, and where to choose
 			local aside = self:AsideText()
@@ -881,6 +884,10 @@ function View:Build()
 	headerLabel("n", "Item")
 	for _, c in ipairs(ns.COLS) do headerLabel(c[1], c[2]) end
 	headerLabel("who", "Who")   -- (1.9.0-beta2) Global Inventory's own column
+	-- (1.12.0-beta1) the registered columns there are now (Pawn's); one registered later gets its heading when it is
+	-- first laid out (View:LayoutHeader)
+	for _, key in ipairs(ns.Columns.keys) do headerLabel(key, ns.COL_LABEL[key] or key) end
+	self.MakeHeaderLabel = headerLabel
 
 	-- Sheet tabs (main and bank)
 	if self.big then

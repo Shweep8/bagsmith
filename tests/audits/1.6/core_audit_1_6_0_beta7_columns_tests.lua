@@ -9,7 +9,10 @@ local function boot(skin, provider)
  local n=M.loadAddon(AUDIT_CORE or 'BagSmith');M.fire('ADDON_LOADED','BagSmith');M.fire('PLAYER_ENTERING_WORLD');M.runTimers();M.runTimers();n.Window:Show();M.runTimers();M.runTimers()
  return n,M
 end
-local function allCols(n) local a={};for _,k in ipairs(n.db.colOrder)do if k~='n' then a[#a+1]=k end end;return a end
+-- (by design since 1.12.0-beta1) The column order has the Pawn column now. This probe's widths (526, 496) and its
+-- matrix are for the thirteen columns it was written for, so that one is left out here; the same promises with
+-- Pawn's column, shown and not, are checked in tests/releases/1.12/core_1_12_0_beta1_tests.lua.
+local function allCols(n) local a={};for _,k in ipairs(n.db.colOrder)do if k~='n' and k~='pawn' then a[#a+1]=k end end;return a end
 local function fit(n,V,label)
  V.scroll.w=V.frame:GetWidth()-46; V.trustedRowWidth=nil
  local plan,width=V:ColumnPlan(); local endcol=plan[#plan]; local edge=endcol.colX+endcol.colW

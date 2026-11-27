@@ -395,9 +395,9 @@ end
 ------------------------------------------------------------------------
 do
 	local function slurp(p) local f = assert(io.open(p, "r")); local s = f:read("*a"); f:close(); return s end
-	local top = slurp("BagSmith/CHANGELOG.md"):match("^## 1%.11%.0\n(.-)\n## 1%.10%.1\n")
+	local top = ("\n" .. slurp("BagSmith/CHANGELOG.md")):match("\n## 1%.11%.0\n(.-)\n## 1%.10%.1\n")   -- (by design since 1.12.0-beta1: 1.12.0's section now leads the file, so 1.11.0's is found wherever it stands)
 	check(top and top:find("The Helper's own count now says how many you disenchanted just now and how many this session%.") and top:find("\n%- Settings shows BagSmith's version number beside its title%."), "the changelog's 1.11.0 has the Helper's two counts and the version in Settings")
 	check(top and top:find("\nFixed:\n%- Leaving the mailbox closed bags you had opened yourself") and not top:find("\226\128\148"), "its mailbox fix stands, and no dashes")
 	check(slurp("README.md"):find("a Disenchant Helper for enchanters with Results for what your disenchants\n  gave you", 1, true), "the README's Helpers line names Results")
-	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.11%.0"), "the TOC version is 1.11.0's (the exact one is pinned in tests/run.lua)")
+	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.1[1-9]%.%d"), "the TOC version is 1.11.0's or later (by design since 1.12.0-beta1; the exact one is pinned in tests/run.lua)")
 end

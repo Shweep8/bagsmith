@@ -398,11 +398,11 @@ end
 ------------------------------------------------------------------------
 do
 	local function slurp(p) local f = assert(io.open(p, "r")); local s = f:read("*a"); f:close(); return s end
-	local top = slurp("BagSmith/CHANGELOG.md"):match("^## 1%.11%.0\n(.-)\n## 1%.10%.1\n")
+	local top = ("\n" .. slurp("BagSmith/CHANGELOG.md")):match("\n## 1%.11%.0\n(.-)\n## 1%.10%.1\n")   -- (by design since 1.12.0-beta1: 1.12.0's section now leads the file, so 1.11.0's is found wherever it stands)
 	check(top ~= nil, "the changelog opens with 1.11.0, above 1.10.1")
 	check(top and top:find("New:\n%- Gear sets can be made from your bags any time%.") and top:find("\n%- New Section From This Item offers more to tick"), "its New lines: gear sets, New Section From This Item")
 	-- (by design since 1.11.0-beta2: Changed now opens with where 1.10.1's Auto-Close switch went)
 	check(top and top:find("\nChanged:\n") and top:find("\n%- A menu too long for your screen shows arrows") and top:find("\n%- The lists for a Type, Slot or Section rule open in a taller window"), "its Changed lines: the arrows, the taller list window")
 	check(top and not top:find("\226\128\148"), "no dashes")
-	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.11%.0"), "the TOC version is 1.11.0's (the exact one is pinned in tests/run.lua)")
+	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.1[1-9]%.%d"), "the TOC version is 1.11.0's or later (by design since 1.12.0-beta1; the exact one is pinned in tests/run.lua)")
 end

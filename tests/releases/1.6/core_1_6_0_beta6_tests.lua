@@ -281,7 +281,7 @@
 	end
 	local n, M, V = colBoot()
 	-- (1.6.0-beta8, by design: Shweep) every column but Item and Qty ticked by default, wide text columns first
-	check(table.concat(n.db.colAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,fv,cc,jk" and table.concat(n.db.bankColAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,fv,cc,jk", "by default: every column but Item and Qty, Type, Age, Vendor and AH Price first, in both windows")
+	check(table.concat(n.db.colAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,pawn,fv,cc,jk" and table.concat(n.db.bankColAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,pawn,fv,cc,jk", "by default: every column but Item and Qty, Type, Age, Vendor and AH Price first, in both windows")   -- (by design since 1.12.0-beta1: the Pawn column joined the default, after Bind)
 	local plan, keys, dropped = planAt(V, 394)
 	check(dropped == "t", "at 440 with the defaults: Type, as in beta4 (" .. dropped .. ")")
 	-- a player's own order
@@ -320,7 +320,7 @@
 	n, M, V = colBoot({ colAside = { "jk", "n", "nope", "jk", 7, "t" } })
 	check(table.concat(n.db.colAside, ",") == "jk,t", "a saved list keeps known columns once each, never Item (" .. table.concat(n.db.colAside, ",") .. ")")
 	n, M, V = colBoot({ colAside = "junk" })
-	check(table.concat(n.db.colAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,fv,cc,jk", "an unreadable list is the default again")
+	check(table.concat(n.db.colAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,pawn,fv,cc,jk", "an unreadable list is the default again")   -- (by design since 1.12.0-beta1: the default has the Pawn column)
 
 	-- the Settings card: Settings > Bag Columns > Narrow Windows ((1.6.0-beta8) from beta6's default list, so the steps
 	-- below keep their meaning; the new default's rows are checked in core_1_6_0_beta8_tests.lua)
@@ -355,6 +355,6 @@
 	P:ShowPage("bankcols"); M.runTimers()
 	heads = {}
 	for _, w in ipairs(P.pools.head or {}) do if w:IsShown() then heads[#heads + 1] = w.text and w.text.text or w.label end end
-	check(table.concat(heads, "|"):find("Narrow Windows", 1, true) ~= nil and table.concat(n.db.bankColAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,fv,cc,jk", "Bank Columns has its own card, its own list untouched")
+	check(table.concat(heads, "|"):find("Narrow Windows", 1, true) ~= nil and table.concat(n.db.bankColAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,pawn,fv,cc,jk", "Bank Columns has its own card, its own list untouched")   -- (by design since 1.12.0-beta1: the default has the Pawn column)
 	P:Hide()
 end)()

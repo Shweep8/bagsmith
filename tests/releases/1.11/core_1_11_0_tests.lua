@@ -8,8 +8,8 @@ local function slurp(p) local f = assert(io.open(p, "r")); local s = f:read("*a"
 
 do
 	local log = slurp("BagSmith/CHANGELOG.md")
-	local top = log:match("^## 1%.11%.0\n(.-)\n## 1%.10%.1\n")
-	check(top ~= nil, "the changelog opens with 1.11.0, above 1.10.1")
+	local top = ("\n" .. log):match("\n## 1%.11%.0\n(.-)\n## 1%.10%.1\n")   -- (by design since 1.12.0-beta1: 1.12.0's section now leads the file)
+	check(top ~= nil, "the changelog has 1.11.0, above 1.10.1")
 	top = top or ""
 	local flat = top:gsub("\n  ", " ")
 	check(flat:find("\n- See what the Disenchant Helper holds back: a Held Back line at the end of its list shows those items when you click it, each with a lock, its reason and its vendor, auction and materials values.", 1, true),
@@ -45,7 +45,11 @@ do
 end
 
 do
+	-- (by design since 1.12.0-beta1) This block was the production gate's own check, on 1.11.0's source: the TOC said
+	-- 1.11.0 with no beta mark. The next release's betas carry one, so that half can only hold on a production
+	-- build; what still holds on every build is that the TOC is at 1.11.0 or later and has no development marker.
+	-- The exact version is pinned in tests/run.lua.
 	local toc = slurp("BagSmith/BagSmith.toc")
-	check(toc:find("\n## Version: 1%.11%.0\n") and not toc:find("## Version: [^\n]*beta") and not toc:find("## Version: [^\n]*rc"), "the TOC's version is 1.11.0, with no beta mark")
+	check(toc:find("\n## Version: 1%.1[1-9]%.%d"), "the TOC's version is 1.11.0 or later")
 	check(not toc:find("X%-BagSmith%-Dev"), "and no development marker")
 end

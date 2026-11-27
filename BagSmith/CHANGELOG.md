@@ -1,3 +1,11 @@
+## 1.12.0
+
+New:
+- A Pawn column for List view (Settings > Bag Columns or Bank Columns, with Pawn installed). It shows how much of an
+  upgrade Pawn says each item is for you, such as +15%, or Upgrade when Pawn gives no number. Click its heading to
+  sort by it. It starts unticked, so your columns stay as they are until you tick it.
+- With Sections: By Bag, each bag's section shows that bag's icon beside its name.
+
 ## 1.11.0
 
 New:

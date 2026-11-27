@@ -180,6 +180,14 @@ function J:Decorate(b, rec)
 			if c then fs:SetTextColor(c[1], c[2], c[3]) end
 		end
 	end
+	-- (1.12.0-beta1) a registered column's text dims with the rest of the row, and gets its own color back after
+	for field in pairs(b.xfields or {}) do
+		local fs = b[field]
+		if fs then
+			local c = dim and DIM_TEXT or fs.baseColor
+			if c then fs:SetTextColor(c[1], c[2], c[3]) end
+		end
+	end
 end
 -- (1.9.7-beta1, Shweep: with Clean Up Bags When Opened, the junk "color ... don't show up at first") A dimmed junk
 -- icon stays greyed whatever its lock says. The game locks and unlocks an item as it moves, every item a Clean Up

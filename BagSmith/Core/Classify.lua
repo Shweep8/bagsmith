@@ -555,8 +555,14 @@ local colValue = {
 function ns:CurrentSorter(st, sortMode)
 	st = st or ns.ui
 	local cs = st.colSort
-	if not cs or not colValue[cs.key] then return ns:Sorter(sortMode or ns.db.sort) end
-	local get, asc = colValue[cs.key], cs.dir == "asc"
+	-- (1.12.0-beta1) a registered column (Core/Columns.lua) sorts by the number it gives for an item
+	local get = cs and colValue[cs.key]
+	if cs and not get and ns.Columns and ns.Columns:Get(cs.key) then
+		local key = cs.key
+		get = function(r) return ns.Columns:SortValue(key, r) end
+	end
+	if not get then return ns:Sorter(sortMode or ns.db.sort) end
+	local asc = cs.dir == "asc"
 	return function(a, b)
 		local x, y = get(a), get(b)
 		if x == y then return a.name < b.name end

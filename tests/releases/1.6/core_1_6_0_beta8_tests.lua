@@ -78,7 +78,7 @@
 		n.Window:Show(); M.runTimers(); M.runTimers()
 		return n, M, n.Window.main
 	end
-	local ALL = "t,age,v,ah,w,sl,rq,il,bd,fv,cc,jk"
+	local ALL = "t,age,v,ah,w,sl,rq,il,bd,pawn,fv,cc,jk"   -- (by design since 1.12.0-beta1: the Pawn column joined the default, after Bind)
 	local n, M, V = colBoot()
 	check(table.concat(n.db.colAside, ",") == ALL and table.concat(n.db.bankColAside, ",") == ALL, "every column but Item and Qty ticked by default, both windows: " .. table.concat(n.db.colAside, ","))
 	check(not n.IndexOf(n.db.colAside, "c") and not n.IndexOf(n.db.colAside, "n"), "neither Qty nor Item is in the list")
