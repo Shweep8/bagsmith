@@ -28,6 +28,9 @@ return function(check)
 	end
 	local function settle() M.runTimers(); M.runTimers(); M.elapse(); M.runTimers() end
 	local function bagsChanged() M.fire("BAG_UPDATE_DELAYED"); settle() end
+	-- (by design since 1.11.0-beta3, Shweep's "1": Always Close closes the bags at every place, whether they opened for it or were open already). The session's bags used to stay open through a bank or vendor visit, on the events alone; the player opens
+	-- them again, as in game.
+	local function reopen() if not ns.Window:IsShown() then ns.Window:Show(); settle() end end
 	local steps, failures = 0, 0
 	local function step(label)
 		steps = steps + 1
@@ -72,7 +75,7 @@ return function(check)
 	-- Moved and closed within the 1.5 s save delay (no time passes between).
 	M.put(-1, 3, M.bags[0][6]); M.bags[0][6] = nil
 	M.fire("BAG_UPDATE_DELAYED"); M.runTimers(); M.runTimers()
-	M.fire("BANKFRAME_CLOSED"); settle()
+	M.fire("BANKFRAME_CLOSED"); settle(); reopen()
 	step("an item moved into the bank and the bank closed right away")
 	M.fire("PLAYER_MONEY"); settle()
 	step("money changed")
@@ -119,11 +122,11 @@ return function(check)
 	step("a vendor opened in Travel Mode (Auto Travel Mode turns it off)")
 	M.bags[0][10] = nil; bagsChanged()
 	step("an item sold at the vendor")
-	M.fire("MERCHANT_CLOSED"); settle()
+	M.fire("MERCHANT_CLOSED"); settle(); reopen()
 	step("the vendor closed (Travel Mode back on)")
 	M.fire("BANKFRAME_OPENED"); settle()
 	step("the bank opened in Travel Mode")
-	M.fire("BANKFRAME_CLOSED"); settle()
+	M.fire("BANKFRAME_CLOSED"); settle(); reopen()
 	step("the bank closed (Travel Mode back on)")
 	local flying = false
 	_G.UnitOnTaxi = function() return flying end
@@ -243,7 +246,7 @@ return function(check)
 	local kept = next(bankAges) ~= nil
 	for guid, t in pairs(bankAges) do if ns.cdb.firstSeen[guid] ~= t then kept = false end end
 	check(kept, "lifecycle: bank items keep their ages across a logout, a bag change away from the bank, and the next bank visit")
-	M.fire("BANKFRAME_CLOSED"); settle()
+	M.fire("BANKFRAME_CLOSED"); settle(); reopen()
 
 	check(failures == 0, ("lifecycle: %d steps, every rule held after each"):format(steps))
 end

@@ -121,14 +121,21 @@ for _, bags in ipairs(BAGS) do
 	end
 end
 do
-	-- a client whose bank doesn't ask the game for the bags: they stay open after it, as before, and are the player's
+	-- a client whose bank doesn't ask the game for the bags
+	-- (by design since 1.11.0-beta3, Shweep's "1": the bank closing follows When I Leave like every other place, whether
+	-- or not the game's bank window closes the bags. On such a client nothing used to close them, and they were the
+	-- player's from the next frame; Never Close is the choice that leaves them now.)
 	local M, n, G = boot({ combined = false })
 	frame(M); M.fire("BANKFRAME_OPENED")
 	check(n.Window:IsShown() and n.Hooks.AutoOpened(), "a bank that doesn't ask the game for the bags: BagSmith still opens them")
 	frame(M); M.fire("BANKFRAME_CLOSED")
-	check(n.Window:IsShown(), "and they stay open when it closes, as before")
+	check(not n.Window:IsShown(), "and they close with it (When I Leave: Always Close)")
+	M, n, G = boot({ combined = false, profile = { closeOnLeave = "never" } })
+	frame(M); M.fire("BANKFRAME_OPENED")
+	frame(M); M.fire("BANKFRAME_CLOSED")
+	check(n.Window:IsShown(), "with Never Close they stay open when it closes")
 	frame(M)
-	check(not n.Hooks.AutoOpened(), "from the next frame they count as bags the player has open")
+	check(not n.Hooks.AutoOpened(), "and count as bags the player has open")
 end
 
 ------------------------------------------------------------------------
@@ -136,8 +143,11 @@ end
 ------------------------------------------------------------------------
 do
 	local M, n = boot()
-	check(n.db.autoCloseOwnBags == true, "Auto-Close Bags I Opened is on by default")
-	check(BagSmithDB.profiles.Default.autoCloseOwnBags == true, "and a profile from before it gets it on")
+	-- (by design since 1.11.0-beta2: the switch became the When I Leave choice on Settings > Automations. Ticked is
+	-- Always Close, unticked is Close If Auto-Opened; the profiles below that carry autoCloseOwnBags = false are 1.10.1's
+	-- own saved data, and must go on behaving as they did.)
+	check(n.db.closeOnLeave == "always" and n.db.autoCloseOwnBags == nil, "Auto-Close Bags I Opened is on by default (now: When I Leave is Always Close)")
+	check(BagSmithDB.profiles.Default.closeOnLeave == "always", "and a profile from before it gets it on")
 end
 for _, bags in ipairs(BAGS) do
 	for _, order in ipairs(ORDERS) do
@@ -228,6 +238,10 @@ end
 ------------------------------------------------------------------------
 -- 4. The switch in Settings > General
 ------------------------------------------------------------------------
+-- (by design since 1.11.0-beta2: Shweep moved it. "wouldn't it make more sense for the setting to be something more like
+-- auto open with, and then list out all the places"; the lighter version he chose keeps one choice for leaving, When I
+-- Leave, on Settings > Automations, and this switch's two states are two of its three. Its name, help, place, NEW tag
+-- and greying were checked here; the choice that replaced it is checked in tests/releases/1.11/core_1_11_0_beta2_tests.lua.)
 do
 	local M, n = boot({ db = { newSeen = { ["1.10"] = { general = "1.10.0" } } } })
 	local P = n.SettingsPanel
@@ -235,25 +249,13 @@ do
 	local function row(key) for _, w in ipairs(P.pools.check or {}) do if w:IsShown() and w.key == key then return w end end end
 	local function top(w) return select(5, w:GetPoint(1)) or select(3, w:GetPoint(1)) end
 	local r, bagRow, mini = row("autoCloseOwnBags"), row("replaceBlizzardBags"), row("minimap")
-	check(r and r.text.text == "Auto-Close Bags I Opened", "the switch is named Auto-Close Bags I Opened")
-	-- (by design since 1.10.1: Shweep had the help reworded, "a tad confusing as written", and picked this one)
-	check(r and r.help.text == "When you leave a vendor, the mailbox, a trade or the auction house, your bags close, even if you already had them open. Turn off, and bags you already had open stay open.",
-		"its help, word for word: " .. tostring(r and r.help.text))
-	check(r and not r.help.text:find("\226\128\148"), "no dashes")
-	check(r and bagRow and mini and top(bagRow) > top(r) and top(r) > top(mini), "it sits under Open with the Bag Keybind, above Show Minimap Button")
-	check(r.box:GetChecked() == true, "ticked by default")
-	check(P:IsNew("keys", "autoCloseOwnBags") and r.newTag and r.newTag:IsShown(), "NEW beside it for someone who saw the General page in 1.10.0")
-	check(not (bagRow.newTag and bagRow.newTag:IsShown()), "and not beside the settings that were there")
-	r.box:SetChecked(false); r.box:GetScript("OnClick")(r.box)
-	check(n.db.autoCloseOwnBags == false and BagSmithDB.profiles.Default.autoCloseOwnBags == false, "unticking it turns it off, in the profile")
-	r.box:SetChecked(true); r.box:GetScript("OnClick")(row("autoCloseOwnBags").box)
-	check(n.db.autoCloseOwnBags == true, "and ticking it turns it back on")
-	-- with Blizzard's bags on the key BagSmith opens and closes nothing for a window: the switch is greyed, its value kept
-	n:Set("autoCloseOwnBags", false); n:Set("replaceBlizzardBags", false); M.runTimers()
-	r = row("autoCloseOwnBags")
-	check(r and not r.box:IsEnabled() and r.box:GetChecked() == false, "with Open with the Bag Keybind off it is greyed, showing what it is set to")
-	n:Set("replaceBlizzardBags", true); M.runTimers()
-	check(row("autoCloseOwnBags").box:IsEnabled(), "and usable again with it on")
+	check(r == nil, "General no longer has Auto-Close Bags I Opened")
+	check(bagRow and mini and top(bagRow) > top(mini), "Open with the Bag Keybind is still above Show Minimap Button")
+	check(not (bagRow.newTag and bagRow.newTag:IsShown()), "and wears no NEW tag")
+	-- what the switch did is the choice now, with the same two outcomes
+	check(n.db.closeOnLeave == "always", "ticked, as it was by default: Always Close")
+	check(n:Set("closeOnLeave", "auto") and BagSmithDB.profiles.Default.closeOnLeave == "auto", "unticked: Close If Auto-Opened, in the profile")
+	check(n:Set("closeOnLeave", "always") and n.db.closeOnLeave == "always", "and back")
 	check((n.errors or 0) == 0, "no errors")
 end
 
@@ -312,7 +314,7 @@ end
 do
 	local M, n = boot()
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[1]
+	local e = WN.ENTRIES[2]
 	check(e.v == "1.10.1" and #e.items == 3 and not e.opens, "What's New: 1.10.1's update has three bullets and doesn't open the card")
 	check(plain(e.items[1]) == "Bags at Vendors: with the game's Use Combined Bags turned off, your bags could stay shut at vendors, the mailbox, trades and the auction house, though the bag key opened them fine. They open there now.",
 		"Bags at Vendors, word for word: " .. plain(e.items[1]))
@@ -323,9 +325,9 @@ do
 	check(not table.concat(e.items, " "):find("\226\128\148"), "no dashes")
 	check(#WN:UnseenReleases() == 0 and not WN:Pending(), "coming from 1.10.0 the card still doesn't open by itself")
 	local function slurp(p) local f = assert(io.open(p, "r")); local s = f:read("*a"); f:close(); return s end
-	local top = slurp("BagSmith/CHANGELOG.md"):match("^## 1%.10%.1\n(.-)\n## 1%.10%.0\n")
+	local top = slurp("BagSmith/CHANGELOG.md"):match("\n## 1%.10%.1\n(.-)\n## 1%.10%.0\n")   -- (by design since 1.11.0-beta1: 1.11.0's section is first)
 	check(top and top:find("New:\n%- Auto%-Close Bags I Opened %(Settings > General%), on as it has always worked%.") and top:find("\nFixed:\n%- Bags that stayed shut at vendors") and top:find("With the game's Use Combined Bags\n  turned off", 1, true) and top:find("\nChanged:\n%- Settings > General: Open with the Bag Keybind names the key"),
 		"the changelog's 1.10.1: the new switch, the fix and who had it, and the Settings line")
 	check(top and not top:find("\226\128\148"), "no dashes")
-	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.10%.1"), "the TOC version is 1.10.1's (the exact one is pinned in tests/run.lua)")
+	check(slurp("BagSmith/BagSmith.toc"):find("## Version: %d+%.%d+%.%d+"), "the TOC has a version (by design since 1.11.0: the exact one is pinned in tests/run.lua)")
 end

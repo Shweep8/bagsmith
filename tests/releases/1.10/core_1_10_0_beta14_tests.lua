@@ -644,5 +644,5 @@ end
 	local shard = src:match("function MR:DestroyNextShard%(btn%)(.-)\n%-%- Loot what now fits") or ""
 	check(#shard > 200 and not shard:find("ItemTree", 1, true), "Clear Soul Shards has no ItemTree call (by Shweep's decision; the help line and the changelog say so)")
 	f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
-	check(toc:find("## Version: 1.10.", 1, true), "the TOC says 1.10 (by design since 1.10.1: its patches too; the exact version is pinned in tests/run.lua)")
+	check(toc:find("## Version: %d+%.%d+%.%d+"), "the TOC has a version (by design since 1.11.0: later releases too; the exact one is pinned in tests/run.lua)")
 end)()

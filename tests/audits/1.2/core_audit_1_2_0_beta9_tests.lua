@@ -105,7 +105,13 @@
 	M.bags[0][2] = nil; M.fire("BAG_UPDATE_DELAYED")
 	check(DE.castOpen ~= nil, "right after the item leaves, loot lines are still the cast's")
 	M.runTimers(); M.runTimers(); M.runTimers()
-	check(DE.castOpen == nil, "a moment later the attribution closes")
+	-- (by design since 1.11.0-beta7, the 1.11.0-beta6 re-audit's B6-3: "Bag eviction can finalize a partial loot
+	-- comparison early". The item leaving its slot closed attribution a second later, which this check pinned; a loot
+	-- line arriving after that second, still inside the cast's five, was dropped. A cast now stays open for its loot
+	-- until the loot window closes or its five seconds pass. What may be counted for it is as it was.)
+	check(DE.castOpen ~= nil, "a moment later the cast is still open for its loot")
+	M.fire("LOOT_CLOSED")
+	check(DE.castOpen == nil, "and its attribution closes when the loot does")
 	-- forgetting learned results
 	check(DE:LearnedCount() == 2, "(two disenchants on record)")
 	DE:ResetLearned()

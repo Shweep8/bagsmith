@@ -199,6 +199,8 @@ for _, skin in ipairs({ "classic", "modern" }) do
 	local bank = n.Window.bank
 	check(bank and bank.compactCategories and #headers(bank) >= 2, skin .. ": live bank uses compact categories")
 	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	-- (by design since 1.11.0-beta3, Shweep's "1": Always Close closes the bags at every place, whether they opened for it or were open already): opened again to look at the saved bank
+	n.Window:Show(); M.runTimers()
 	V.st.sheet = "Bank"; n:RefreshViews(true); M.runTimers()
 	local cachedItems = 0
 	for _, b in ipairs(V.used or {}) do if b.rec and b.rec.itemID then cachedItems = cachedItems + 1 end end

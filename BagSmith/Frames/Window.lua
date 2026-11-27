@@ -679,9 +679,11 @@ ns:OnSignal("PRICE_SOURCE_CHANGED", minWidths)
 ns:OnSignal("BANK_OPENED", function()
 	if ns.Bank and ns.Bank:Replacing() then Window.bank:Show() end
 	local wasShut = not Window.main:IsShown()
-	Window.main:Show()
+	-- (1.11.0-beta2) Auto-Open at the Bank: off, the bank's own window opens and the bags stay as they are
+	local opens = ns.db.autoOpenBank ~= false
+	if opens then Window.main:Show() end
 	-- (1.10.1-beta2) open for the bank: the game's own bag calls in this frame are not presses of the bag key
-	if ns.Hooks and ns.Hooks.OpenedFor then ns.Hooks.OpenedFor(wasShut) end
+	if ns.Hooks and ns.Hooks.OpenedFor then ns.Hooks.OpenedFor(wasShut, opens) end
 end)
 ns:OnSignal("BANK_CLOSED", function()
 	Window.bank:Hide()

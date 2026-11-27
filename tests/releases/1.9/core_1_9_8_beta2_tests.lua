@@ -27,7 +27,7 @@ local NOTE = "I don't usually open What's New by itself for a patch, since patch
 	-- The words
 	local n = boot(seen())
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[3]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e = WN.ENTRIES[4]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	check(e.v == "1.9.8" and #e.items == 2 and e.opens == true, "the 1.9.8 entry: two bullets, and it opens the card by itself")
 	check(e.items[2] == "|cfff09595Important:|r if two of your characters share a first name, Global Inventory and tooltips won't be 100% accurate until you've logged in to each of them and visited the bank on each. Apologies, I wish this had been caught sooner.", "Important, word for word, in soft red (as 1.8's Important is)")
 	local red = false
@@ -36,15 +36,15 @@ local NOTE = "I don't usually open What's New by itself for a patch, since patch
 	check(e.note == NOTE, "the note, word for word")
 	local text = table.concat(e.items, " ") .. e.note
 	check(not text:find("\226\128\148") and not text:find("\226\128\147"), "no em or en dashes")
-	for i = 1, #WN.ENTRIES do if i ~= 3 and (WN.ENTRIES[i].opens or WN.ENTRIES[i].note) then check(false, "no other entry opens by itself or carries a note: " .. WN.ENTRIES[i].v) end end
-	check(WN.ENTRIES[4].v == "1.9.7" and not WN.ENTRIES[4].opens, "1.9.7's entry is an ordinary update")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	for i = 1, #WN.ENTRIES do if WN.ENTRIES[i].v ~= "1.9.8" and (WN.ENTRIES[i].opens or WN.ENTRIES[i].note) then check(false, "no other entry opens by itself or carries a note: " .. WN.ENTRIES[i].v) end end
+	check(WN.ENTRIES[5].v == "1.9.7" and not WN.ENTRIES[5].opens, "1.9.7's entry is an ordinary update")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 end)()
 
 for _, skin in ipairs({ "modern", "classic" }) do
 	-- It opens by itself, once, on its own notes
 	local n, M = boot(seen(), nil, { skin = skin })
 	local WN, S = n.WhatsNew, skin .. ": "
-	check(#WN:UnseenReleases() == 0 and WN:UnseenOpener() == WN.ENTRIES[3] and WN:Pending(), S .. "from 1.9.7, no main release unseen: the 1.9.8 update is waiting to open")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	check(#WN:UnseenReleases() == 0 and WN:UnseenOpener() == WN.ENTRIES[4] and WN:Pending(), S .. "from 1.9.7, no main release unseen: the 1.9.8 update is waiting to open")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	check(not (BagSmithWhatsNew and BagSmithWhatsNew:IsShown()), S .. "(nothing at login)")
 	ToggleAllBags(); M.runTimers(); M.runTimers()
 	local f = BagSmithWhatsNew

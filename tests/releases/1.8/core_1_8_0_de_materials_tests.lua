@@ -119,14 +119,19 @@
 	M.fire("LOOT_CLOSED")
 
 	-- ---- a window the game says can't be the disenchant's: nothing new is learned from it
-	local function windowCase(label, setup)
+	-- (by design since 1.11.0-beta8, the 1.11.0-beta7 re-audit's B7-1: "reject a window whose source is known to be
+	-- foreign, rather than treating it the same as an unreadable source". foreign: the case's window names a source
+	-- that can be read and is not the disenchanted item. Such a window gave the cast a shipped material until now;
+	-- nothing in it is counted any more. A source that can't be read keeps the rule these cases pinned.)
+	local function windowCase(label, setup, foreign)
 		c = cast(M, DE, 7001)
 		local before = DE:Log()["2:3:a"].mats[10940] or 0
 		lootNow = { { 10940, 2 }, { NEW2, 1 } }
 		setup()
 		M.fire("LOOT_OPENED")
 		check(DE:Log()["2:3:a"].mats[NEW2] == nil and not DE:LearnedMaterials()[NEW2], label .. ": the unknown item is not recorded or learned")
-		check(DE:Log()["2:3:a"].mats[10940] == before + 2, label .. ": a shipped material the bracket gives still counts, as before")
+		if foreign then check((DE:Log()["2:3:a"].mats[10940] or 0) == before, label .. ": its source is known and is not the item, so nothing in it is counted")
+		else check(DE:Log()["2:3:a"].mats[10940] == before + 2, label .. ": a shipped material the bracket gives still counts, as before") end
 		M.fire("LOOT_CLOSED")
 		_G.GetLootSlotType, _G.IsFishingLoot, _G.LOOT_SLOT_MONEY = nil, nil, nil
 		_G.GetLootSourceInfo = itemSource   -- (1.8.0-beta1) as on Forever: a disenchant's window says its source is the item; (1.8.0-beta17, by design) its own GUID, as Shweep's /bs debug showed
@@ -139,14 +144,14 @@
 		_G.GetLootSlotType = function(i) return i == 3 and 2 or 1 end
 		_G.GetLootSourceInfo = function() return "Creature-0-7074-0-3-504-6F30326B88" end
 		_G.GetLootSlotLink = function(i) return i < 3 and lootNow[i] and ("|Hitem:" .. lootNow[i][1] .. ":0|h[m]|h") or nil end
-	end)
+	end, true)
 	_G.GetLootSlotLink = function(i) return lootNow[i] and ("|Hitem:" .. lootNow[i][1] .. ":0|h[m]|h") end
-	windowCase("loot from a creature", function() _G.GetLootSourceInfo = function() return "Creature-0-1-2-3-4-5" end end)
+	windowCase("loot from a creature", function() _G.GetLootSourceInfo = function() return "Creature-0-1-2-3-4-5" end end, true)
 	-- (1.8.0-beta1) shown, not assumed: a source that can't be read isn't the item's
 	windowCase("a source that can't be read", function() _G.GetLootSourceInfo = function() return nil end end)
 	windowCase("a source that errors", function() _G.GetLootSourceInfo = function() error("no source") end end)
 	windowCase("a client without GetLootSourceInfo", function() _G.GetLootSourceInfo = nil end)
-	windowCase("one slot from the item, one from a creature", function() _G.GetLootSourceInfo = function(i) return i == 1 and itemSource() or "Creature-0-1-2-3-4-5" end end)
+	windowCase("one slot from the item, one from a creature", function() _G.GetLootSourceInfo = function(i) return i == 1 and itemSource() or "Creature-0-1-2-3-4-5" end end, true)
 	windowCase("a window holding armor", function()
 		lootNow[3] = { 7777, 1 }
 		C_Item.GetItemInfoInstant = function(id) if id == 7777 then return id, "Armor", "Cloth", "INVTYPE_CHEST", 1, 4, 1 end return M.realInstant(id) end

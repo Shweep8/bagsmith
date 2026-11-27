@@ -132,9 +132,13 @@ local DEFAULTS = {
 	fadeMoving = false, movingAlpha = 0.5,   -- (1.6.0) the bag windows fade while the character moves (back on hover)
 	helpTips = true,                         -- (1.6.0) tooltips on BagSmith's own controls (item tooltips always show)
 	replaceBlizzardBags = true,   -- open with the bag keybind and stand in for Blizzard's bags
-	-- (1.10.1-beta2, Shweep) Auto-Close Bags I Opened: leaving a vendor, the mail, a trade or the auction house closes
-	-- the bags even when the player had opened them himself, as it always has. Off: only bags that opened for it.
-	autoCloseOwnBags = true,
+	-- (1.11.0-beta2, Shweep: "something more like auto open with, and then list out all the places", then "The lighter
+	-- version is good") Auto-Open and Auto-Close (Settings > Automations): a switch for each place BagSmith opens the
+	-- bags at, all on, and one choice for what leaving does to them: "always" closes them (as ever), "auto" only closes
+	-- bags that opened by themselves, "never" leaves them. The choice takes over from 1.10.1's Auto-Close Bags I Opened
+	-- (autoCloseOwnBags: on is "always", off is "auto"; validateProfile carries a saved one across).
+	autoOpenVendor = true, autoOpenMail = true, autoOpenTrade = true, autoOpenAH = true, autoOpenBank = true, autoOpenGuildBank = true,
+	closeOnLeave = "always",
 	-- Plugin preferences: one bounded plain-data namespace per plugin ID ({ schemaVersion, data }), owned by
 	-- the plugin through BagSmith.API; core only persists and validates the shape.
 	plugins = {},
@@ -305,6 +309,77 @@ local function deResultsValidator(v)
 	end
 	return out
 end
+-- (1.11.0-beta3) The Disenchant Helper's Results record (Core/Disenchant.lua, DE:Stats): how many disenchants, by
+-- quality, what the items would have sold for, the materials they gave, and the most valuable item. Whole amounts, none
+-- below zero; a piece that isn't is dropped (or reads as none), and the materials are capped at 200 kinds.
+-- (1.11.0-beta5, the beta4 audit's B4-4) One bound for every number in it, the nested ones too: a count is below a
+-- billion and an amount of copper below 1e13 (a billion gold), or it is dropped (a nested one) or reads as none (a
+-- total). The materials table is read for its first 2,000 keys at most, however many a damaged file holds. The best
+-- item's name is dropped when it carries a | code or a control character (it is shown in a line of text). And
+-- (B4-2) the record has a version: one without this version's is not read, and the record starts over.
+-- (1.11.0-beta6, the beta5 re-audit's B5-2) Version 3: its auction house amounts are after the cut, item by item,
+-- which version 2's can't be turned into. (B5-4) And when anything the comparison is made of had to be dropped or
+-- changed here (a total, a count, a material, or materials past the cap), the record says so (gap): the totals are
+-- still shown, and no winner is named from them.
+ns.DE_STATS = { VERSION = 3, COUNT_MAX = 1e9, MONEY_MAX = 1e13, MATS_KEPT = 200, MATS_READ = 2000 }   -- (Core/Disenchant.lua reads these)
+local DE_STATS_VERSION, DE_COUNT_MAX, DE_MONEY_MAX, DE_MATS_KEPT, DE_MATS_READ = ns.DE_STATS.VERSION, ns.DE_STATS.COUNT_MAX, ns.DE_STATS.MONEY_MAX,
+	ns.DE_STATS.MATS_KEPT, ns.DE_STATS.MATS_READ
+local function deStatsValidator(v)
+	if type(v) ~= "table" or v.v ~= DE_STATS_VERSION then return nil end
+	local gap = v.gap == true
+	local function whole(x, max)
+		if x == nil then return 0 end
+		if not (finite(x) and x >= 0 and x < max) then gap = true; return 0 end
+		if x ~= math.floor(x) then gap = true end
+		return math.floor(x)
+	end
+	local function count(x) return whole(x, DE_COUNT_MAX) end
+	local function money(x) return whole(x, DE_MONEY_MAX) end
+	local function itemID(id) return type(id) == "number" and id > 0 and id < 10000000 and id == math.floor(id) end
+	local out = { v = DE_STATS_VERSION, n = count(v.n), cn = count(v.cn), vendor = money(v.vendor), ah = money(v.ah), ahN = count(v.ahN), ahU = count(v.ahU),
+		alt = money(v.alt), q = {}, mats = {} }
+	if type(v.q) == "table" then
+		for q = 0, 7 do if finite(v.q[q]) and v.q[q] >= 1 and v.q[q] < DE_COUNT_MAX then out.q[q] = math.floor(v.q[q]) end end
+	end
+	if type(v.mats) == "table" then
+		local kept, read = 0, 0
+		for id, c in pairs(v.mats) do
+			read = read + 1
+			if read > DE_MATS_READ or kept >= DE_MATS_KEPT then gap = true; break end   -- (B5-4) more than is kept or read
+			if itemID(id) and finite(c) and c >= 1 and c < DE_COUNT_MAX then
+				out.mats[id] = math.floor(c); kept = kept + 1
+				if c ~= math.floor(c) then gap = true end
+			else gap = true end   -- (B5-4) a material that couldn't be kept
+		end
+	elseif v.mats ~= nil then gap = true
+	end
+	-- (1.11.0-beta7, the beta6 re-audit's B6-4) A comparison with anything in it must have every total it is made of,
+	-- and counts that agree with each other. A total that is simply missing read as zero until now, without a word.
+	-- (For any record BagSmith wrote: cn <= n; the priced and the unpriced among the counted are at most cn; and the
+	-- best-sale total is at least the vendor total and the auction total, and at most their sum.)
+	if out.cn > 0 then
+		for _, k in ipairs({ "n", "cn", "vendor", "ah", "ahN", "ahU", "alt" }) do if v[k] == nil then gap = true end end
+		if type(v.mats) ~= "table" then gap = true end
+		if out.cn > out.n or out.ahN + out.ahU > out.cn or out.alt < out.vendor or out.alt < out.ah or out.alt > out.vendor + out.ah then gap = true end
+	end
+	-- (1.11.0-beta8, the beta7 re-audit's B7-2) And the other way about: materials, sale amounts or priced counts
+	-- with NO matched count (it is missing, or zero) are a comparison that lost its count. Read as "nothing compared",
+	-- the next disenchant mixed its own numbers into them. A record that truly compared nothing has none of these.
+	if out.cn == 0 and (next(out.mats) ~= nil or out.vendor > 0 or out.ah > 0 or out.alt > 0 or out.ahN > 0 or out.ahU > 0) then gap = true end
+	out.gap = gap or nil   -- (settled here: the most valuable item below is not part of the comparison)
+	local b = v.best
+	if type(b) == "table" and itemID(b.id) and finite(b.worth) and b.worth >= 1 and b.worth < DE_MONEY_MAX then
+		local name = b.name
+		if not (type(name) == "string" and #name >= 1 and #name <= 120 and not name:find("[%c|]")) then name = nil end
+		out.best = {
+			id = b.id, name = name,
+			q = (finite(b.q) and b.q >= 0 and b.q <= 7) and math.floor(b.q) or 1,
+			vendor = (finite(b.vendor) and b.vendor >= 0 and b.vendor < DE_MONEY_MAX) and math.floor(b.vendor) or 0,
+			ah = (finite(b.ah) and b.ah >= 0 and b.ah < DE_MONEY_MAX) and math.floor(b.ah) or nil, worth = math.floor(b.worth),
+		}
+	end
+	return out
+end
 -- (1.8.0) The Disenchant Helper's learned materials: whole positive item IDs marked true; anything else is dropped.
 local function deMaterialsValidator(v)
 	if type(v) ~= "table" then return nil end
@@ -347,6 +422,7 @@ local validators = {
 	end,
 	reagent = oneOf("inline", "lane"), makeRoomValue = oneOf("ah", "vendor"), priceSource = oneOf("auto", "auctionator", "blackthornes"), deMargin = num(0, 2), deAhMargin = num(0, 2), deLeveling = oneOf("auto", "always", "never"), autoConfirmKey = oneOf("always", "shift", "ctrl", "custom"), grp = oneOf("none", "type", "bag"),
 	recentWindow = oneOf("session", "1h", "15m"), recentMax = num(0, 200, true),
+	closeOnLeave = oneOf("always", "auto", "never"),   -- (1.11.0-beta2)
 	sheetPrefs = function(v)
 		if type(v) ~= "table" then return nil end
 		local out = {}
@@ -697,6 +773,12 @@ end
 
 local function validateProfile(saved)
 	renameClashingSheets(saved)
+	-- (1.11.0-beta2) 1.10.1's Auto-Close Bags I Opened is the "when I leave" choice now: off becomes Close If
+	-- Auto-Opened, on is Always Close, the default.
+	if type(saved) == "table" and saved.autoCloseOwnBags ~= nil then
+		if saved.autoCloseOwnBags == false and saved.closeOnLeave == nil then saved.closeOnLeave = "auto" end
+		saved.autoCloseOwnBags = nil
+	end
 	-- (1.10.0-beta9) Hold Back What ItemTree Says to Keep (beta7 and beta8 only) became one switch per Helper. A
 	-- profile that had it off, or had Use ItemTree off (which switched the hold off too), keeps both off.
 	if type(saved) == "table" and saved.itemTreeHold ~= nil then
@@ -922,7 +1004,8 @@ local function loadDB(saved)
 	-- per-character ones are.
 	if type(saved) == "table" and type(saved.deShared) == "table" then
 		local d = saved.deShared
-		db.deShared = { version = finite(d.version) and d.version or 0, results = deResultsValidator(d.results) or {}, materials = deMaterialsValidator(d.materials) or {} }
+		db.deShared = { version = finite(d.version) and d.version or 0, results = deResultsValidator(d.results) or {}, materials = deMaterialsValidator(d.materials) or {},
+			stats = deStatsValidator(d.stats) }   -- (1.11.0-beta3) the Results view's record
 	end
 	-- (1.9.0-beta4) Global Inventory's own settings (outside every profile), checked as a profile's are
 	if type(saved) == "table" and type(saved.globalInv) == "table" then

@@ -150,6 +150,31 @@ function E:ToggleSheet(id)
 	if at then table.remove(d.sheets, at) else d.sheets[#d.sheets + 1] = id end
 	self:Changed()
 end
+-- (1.11.0-beta5, with the beta4 audit's B4-1) One of your sheets was renamed or deleted while a section is being
+-- edited: the sheets ticked in the editor follow as the saved sections do, so saving doesn't put the old name back.
+-- (1.11.0-beta6, the beta5 re-audit's B5-1) Exactly as they do (S:SheetRenamed), a name your bags and your bank both
+-- have included: when one of the two is renamed the other still has the old name, and a ticked old name gains the
+-- new one beside it. beta5 returned early there ("still a sheet: nothing to follow"), so Save put the section back
+-- on the old name alone. Only a name ticked in the editor is touched, so what the player unticked stays unticked.
+function E:SheetListChanged(old, new)
+	local d, f = self.draft, self.frame
+	if not (d and type(d.sheets) == "table" and f and f:IsShown()) then return end
+	local still = S:IsTabChoice(old)             -- the other of a pair still has the name
+	local follow = new and S:IsTabChoice(new)    -- a rename (a deletion gives no new name)
+	if still and not follow then return end      -- one of a pair deleted: the name is still a sheet, nothing changes
+	local changed = false
+	for i = #d.sheets, 1, -1 do
+		if d.sheets[i] == old then
+			if still then table.insert(d.sheets, i + 1, new)
+			elseif follow then d.sheets[i] = new
+			else table.remove(d.sheets, i) end
+			changed = true
+		end
+	end
+	if not changed then return end
+	d.sheets = S.CleanSheets(d.sheets) or {}
+	self:Refresh()
+end
 -- The tabs the draft is set to show on, or nil for every sheet.
 function E:Sheets()
 	local d = self.draft

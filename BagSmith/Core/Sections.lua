@@ -225,6 +225,43 @@ function S:AnyScoped()
 	for _, c in ipairs(self:Customs()) do if c.sheets then return true end end
 	return false
 end
+-- (1.11.0-beta2, left out of 1.10 and taken for 1.11 by Shweep: "a way to set several sections to a sheet at once")
+-- The same setting from the sheet's side: is this sheet one of the sheets a section is set to show on, and put it on
+-- that list or take it off. A section that shows on every sheet has no list, so adding a sheet makes it show there
+-- only; taking the last sheet off makes it show on every sheet again. Returns true, or false and why not.
+S.MAX_SHEETS = 24
+function S:SetToSheet(id, sheet)
+	for _, name in ipairs(self:Sheets(id) or {}) do if name == sheet then return true end end
+	return false
+end
+function S:SetOnSheet(id, sheet, on)
+	local c = self:Custom(id)
+	if not c or type(sheet) ~= "string" or sheet == "" then return false end
+	local list, at = {}, nil
+	for i, name in ipairs(c.sheets or {}) do list[i] = name; if name == sheet then at = i end end
+	if on and not at then
+		-- (1.11.0-beta5, the beta4 audit's B4-1) only onto a sheet there is: a window left open on one that was since
+		-- renamed or deleted writes nothing (taking a name off a list is always allowed)
+		if not self:IsTabChoice(sheet) then return false, "That sheet isn't there any more, so nothing was changed." end
+		if #list >= S.MAX_SHEETS then return false, ("A section can be set to %d sheets at most."):format(S.MAX_SHEETS) end
+		list[#list + 1] = sheet
+	elseif not on and at then
+		table.remove(list, at)
+	else
+		return true
+	end
+	return self:SetSheets(id, list)
+end
+-- Where a section shows, said from one sheet: "every sheet", "only here", "here and Gear", "only on Gear and Bank".
+function S:SheetNote(id, sheet)
+	local list = self:Sheets(id)
+	if not list then return "every sheet" end
+	local others, here = {}, false
+	for _, name in ipairs(list) do if name == sheet then here = true else others[#others + 1] = name end end
+	if here and #others == 0 then return "only here" end
+	if here then return "here and " .. self:SheetsText(others) end
+	return "only on " .. self:SheetsText(others)
+end
 -- The section a record is in on one tab. The same as rec.cat unless one of your sections only shows on some sheets.
 function S:CatOn(rec, sheet)
 	local cat = rec.cat
@@ -258,6 +295,10 @@ function S:TabChoices()
 		for _, sh in ipairs(ns.db[key] or {}) do if type(sh) == "table" and type(sh.n) == "string" then add(sh.n, sh.n) end end
 	end
 	return out
+end
+function S:IsTabChoice(sheet)
+	for _, t in ipairs(self:TabChoices()) do if t.id == sheet then return true end end
+	return false
 end
 function S:TabLabel(id) return ns.TAB_LABEL[id] or tostring(id) end
 -- "Trade Goods", "All and Trade Goods": where a section shows, in words; "" for every sheet.
@@ -298,6 +339,12 @@ local function sheetExists(name)
 	end
 	return false
 end
+-- (1.11.0-beta5, the beta4 audit's B4-1) Whatever the sections did, the windows that name a sheet are told when a
+-- name changes or stops being a sheet: Sections on a Sheet and a section being edited (Frames/SectionsUI.lua,
+-- S:SheetListChanged). Before, they only heard when a section's own list changed, so a window open on a sheet no
+-- section was set to kept its old name and the next tick saved it. Told before the signal below, whose listeners
+-- redraw from the sheet they are on.
+local function tellWindows(old, new) if S.SheetListChanged then S:SheetListChanged(old, new) end end
 function S:SheetRenamed(old, new)
 	if old == new then return end
 	local changed = false
@@ -313,10 +360,11 @@ function S:SheetRenamed(old, new)
 			end
 		end
 	end
+	tellWindows(old, new)
 	if changed then ns:Fire("SETTINGS_CHANGED", "customSections"); self:Reapply(); self:RefreshManager() end
 end
 function S:SheetDeleted(name)
-	if ns.TAB_LABEL[name] or sheetExists(name) then return end
+	if ns.TAB_LABEL[name] or sheetExists(name) then return end   -- (still a sheet, the bank's or the bags': nothing to tell)
 	local changed = false
 	for _, c in ipairs(self:Customs()) do
 		if c.sheets then
@@ -327,6 +375,7 @@ function S:SheetDeleted(name)
 			end
 		end
 	end
+	tellWindows(name)
 	if changed then ns:Fire("SETTINGS_CHANGED", "customSections"); self:Reapply(); self:RefreshManager() end
 end
 -- Re-sort what's already scanned after a move, without a rescan.

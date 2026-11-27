@@ -1,3 +1,13 @@
+-- (by design since 1.11.0-beta4: 1.11's NEW list replaced 1.10's in the addon, as each release's does. This set puts
+-- 1.10's back, as it stood in 1.10.1, to go on checking what it checked; tests/releases/1.9 does the same with NEW19.)
+local function NEW110()
+	return { release = "1.10",
+		pages = { addons = true, sections = true, custom = true },
+		heads = { ["How an Item Finds Its Section"] = "custom" },
+		keys = { useItemTree = "addons", makeRoomHoldItemTree = "addons", deHoldItemTree = "addons", makeRoomHoldPawn = "addons", deHoldPawn = "addons" },
+		buttons = { ["New Section..."] = "custom" },
+		added = { ["1.10.1"] = { keys = { autoCloseOwnBags = "general" } } } }
+end
 -- ======== 1.10.0-beta12 (Shweep, 22 Nov: "ready for audit version and please inlcude what's new in it") ========
 -- The candidate sent for audit. Nothing in how the addon behaves changes from beta11; it gains what a release carries:
 -- (1) the 1.10 What's New card, as Shweep reviewed it ("no need for bullet 5 crediting Ohnoto", "length is fine");
@@ -18,7 +28,7 @@ local function boot(opts)
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }
 	_G.BagSmithDB = { version = 2, chars = {}, cache = {}, profiles = { Default = { skin = opts.skin or "modern", view = "list" } }, whatsNewSeen = opts.seen }
 	if opts.fresh then _G.BagSmithDB = nil end
-	local n = M.loadAddon("BagSmith")
+	local n = M.loadAddon("BagSmith"); n.SettingsPanel.NEW = NEW110()
 	n.version = "1.10.0-beta12"
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	return n, M
@@ -29,7 +39,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local S0 = skin .. ": "
 	local n, M = boot({ skin = skin, seen = "1.9.8" })
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[2]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e = WN.ENTRIES[3]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	-- (by design since 1.10.0-beta16, Shweep, 23 Nov: "our what's new card is not player friendly, it's more technical
 	-- than sells the new features"; on the rewrite: "rest looks better tho, ty". Seven bullets that lead with what the
 	-- player gets, where there were nine that read like a list of features. The checks below follow the new text.)
@@ -161,7 +171,7 @@ end)()
 	check(top:find("sections of your own that you fill by hand or\n  with rules", 1, true) and top:find("**Works with other addons, none required:**", 1, true), "the repository's README: sections with rules, and the addons BagSmith works with")
 	check(not readme:find("\226\128\148") and not top:find("\226\128\148"), "with no dashes")
 	f = io.open("BagSmith/BagSmith.toc"); local toc = f:read("*a"); f:close()
-	check(toc:find("## Version: 1.10.", 1, true) and not toc:find("X-BagSmith-Dev", 1, true), "the TOC says 1.10 (by design since 1.10.1: its patches too; the exact version is pinned in tests/run.lua) and carries no development marker")
+	check(toc:find("## Version: %d+%.%d+%.%d+") and not toc:find("X-BagSmith-Dev", 1, true), "the TOC has a version (by design since 1.11.0: later releases too; the exact one is pinned in tests/run.lua) and carries no development marker")
 	f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	-- (by design since 1.10.1: its patch's section comes first)
 	check(log:find("\n## 1.10.0\n", 1, true) and log:find("\n## 1.9.8\n", 1, true) and log:find("\n## 1.10.0\n", 1, true) < log:find("\n## 1.9.8\n", 1, true), "the changelog has 1.10.0, then 1.9.8")

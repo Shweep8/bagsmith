@@ -55,6 +55,8 @@
 	b = row()
 	check((D.StandsOnFullest and D:StandsOnFullest()) and at(b) == "0:2", "in a trade: the fullest stack (" .. at(b) .. ")")
 	TradeFrame:Hide(); M.fire("TRADE_CLOSED"); M.runTimers(); M.runTimers()
+	-- (by design since 1.11.0-beta3, Shweep's "1": Always Close closes the bags at every place, whether they opened for it or were open already): opened again after the trade
+	n.Window:Show(); M.runTimers(); M.runTimers()
 	n.atBank = true
 	b = row()
 	check(not (D.StandsOnFullest and D:StandsOnFullest()) and at(b) == "0:1", "at the bank: the first stack, as before (" .. at(b) .. ")")
@@ -263,7 +265,7 @@ end)()
 		local WN = n.WhatsNew
 		-- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 		-- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
-		local e = WN.ENTRIES[13]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+		local e = WN.ENTRIES[14]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 		local heads = {}
 		for _, it in ipairs(e.items) do heads[#heads + 1] = it:match("^|cfffac775(.-):|r") end
 		if skin == "modern" then

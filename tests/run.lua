@@ -61,7 +61,13 @@ check(not main:IsShown(), "backpack toggle alone still works")
 M.fire("MERCHANT_SHOW"); check(main:IsShown(), "merchant auto-opens")
 M.fire("MERCHANT_CLOSED"); check(not main:IsShown(), "merchant close auto-closes")
 ToggleAllBags(); check(main:IsShown(), "reopen for the rest of the tests")
-M.fire("MERCHANT_SHOW"); M.fire("MERCHANT_CLOSED"); check(main:IsShown(), "a window the player opened stays open after a merchant")
+-- (by design since 1.11.0-beta3, Shweep's "1": Always Close closes the bags at every place. On the event alone a window
+-- the player opened used to stay open here; in game the vendor's own window closed it all the same. Close If
+-- Auto-Opened is the choice that leaves it open.)
+M.fire("MERCHANT_SHOW"); M.fire("MERCHANT_CLOSED"); check(not main:IsShown(), "a window the player opened closes after a merchant (When I Leave: Always Close)")
+ns:Set("closeOnLeave", "auto"); ToggleAllBags()
+M.fire("MERCHANT_SHOW"); M.fire("MERCHANT_CLOSED"); check(main:IsShown(), "and stays open with Close If Auto-Opened")
+ns:Set("closeOnLeave", "always")
 check(by["Hearthstone"] == nil or by["Hearthstone"].cat ~= "Junk", "placeholder")
 local laneCount = 0
 for _, h in pairs(ns.Buttons.lanes[main.child] or {}) do if h:IsShown() then laneCount = laneCount + 1 end end
@@ -168,7 +174,10 @@ check(ns.atBank and bankWin:IsShown() and main:IsShown() and #ns.bankItems == 1,
 check(ns.Buttons:Get(-1, 1):IsShown() and ns.Buttons:Get(-1, 1):GetParent():GetParent() == bankWin.child, "bank item row shown in the bank window")
 check(ns.ui.sheet ~= "Bank", "main window keeps its own sheet")
 M.fire("BANKFRAME_CLOSED"); M.runTimers()
-check(not ns.atBank and not bankWin:IsShown() and main:IsShown(), "bank closed hides the bank window, main stays")
+-- (by design since 1.11.0-beta3, Shweep's "1": Always Close closes the bags at every place, whether they opened for it or were open already). The bags used to stay here, on the event alone; in game the bank's own window closed them all the same.
+check(not ns.atBank and not bankWin:IsShown() and not main:IsShown(), "bank closed hides the bank window, and the bags with it (When I Leave: Always Close)")
+ToggleAllBags(); M.runTimers()
+check(main:IsShown(), "(opened again for what follows)")
 
 -- Cache and alt viewing
 M.elapse()
@@ -529,12 +538,12 @@ main:Hide()
 check(not M.bankClosed, "closing the main window does not end the bank session")
 bankWin:Hide()
 check(M.bankClosed == 1, "closing the bank window ends the bank session")
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 check(BankFrame.alpha == 1 and not ns.Bank.concealed, "Blizzard's bank window restored after leaving")
 ns:Set("replaceBank", false)
 M.fire("BANKFRAME_OPENED"); M.runTimers()
 check(BankFrame.alpha == 1 and not bankWin:IsShown(), "with replacement off, Blizzard's bank stays and the bank window does not open")
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 ns:Set("replaceBank", true)
 -- modern icon frames (new players start in Classic; this checks Modern)
 if ns.db.skin ~= "modern" then ns:Set("skin", "modern"); M.runTimers() end
@@ -652,7 +661,7 @@ check(ns.Popups.view == bankWin, "filter panel opened from the bank edits the ba
 ns.Popups:ToggleFilters(bankWin)
 ns.uiBank.filters = ns.EmptyFilters(); bankWin:SetSheet("All")
 bankWin:SetPref("grp", "type"); bankWin:SetPref("sort", "quality"); bankWin:SetPref("view", "list"); bankWin:SetPref("mergeStacks", false)
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 
 -- Round 16
 check(rawequal(_G.StaticPopupDialogs, M.spdTable) and _G.StaticPopupDialogs.BAGSMITH_BUY_BANK_SLOT == nil, "StaticPopupDialogs global never reassigned, and no dialog added on the modern path")
@@ -679,7 +688,7 @@ ns.Window.bank:SetSheet("All"); ns.Window.bank:SetSheet("Bank food")
 check(ns.uiBank.filters.cat.Consumables, "selecting the bank sheet restores its filters")
 ns:DeleteSheet("Bank food", ns.Window.bank)
 check(#ns.db.bankSheets == 0 and ns.uiBank.sheet == "All", "bank sheet deleted")
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 
 -- Round 17: sheet workflow, filter search mirroring, bank hidden tabs, profiles list, timings
 if not main:IsShown() then ToggleAllBags() end
@@ -719,7 +728,7 @@ local mt = {}
 for _, b in ipairs(main.tabButtons) do if b:IsShown() then mt[#mt + 1] = b.sheet end end
 check(not ns.IndexOf(bt, "Quest") and ns.IndexOf(mt, "Quest"), "hiding a bank tab does not hide the bag tab")
 ns.db.bankHiddenTabs = {}
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 -- profiles list can delete from Default
 ns.Profiles:Use("Alt profile"); ns.Profiles:Use("Default")
 ns.SettingsPanel:Show(); ns.SettingsPanel:ShowPage("profile")
@@ -911,7 +920,7 @@ for i = 1, 60 do
   M.fire("PLAYER_MONEY"); M.fire("CURRENCY_DISPLAY_UPDATE"); M.runTimers()
   if i % 5 == 0 then
     ns.Popups:ToggleFilters(main); ns.Popups:ToggleFilters(main)
-    M.fire("BANKFRAME_OPENED"); M.runTimers(); ns.Popups:ToggleFilters(ns.Window.bank); ns.Popups:ToggleFilters(ns.Window.bank); M.fire("BANKFRAME_CLOSED"); M.runTimers()
+    M.fire("BANKFRAME_OPENED"); M.runTimers(); ns.Popups:ToggleFilters(ns.Window.bank); ns.Popups:ToggleFilters(ns.Window.bank); M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
     ns:Set("view", i % 10 == 0 and "icons" or "list"); ns.SettingsPanel:Show(); ns.SettingsPanel:ShowPage("bagcols"); ns.SettingsPanel:Hide()
     ns.ui.bagWindows = true; ns:RefreshViews(true); ns.ui.bagWindows = false; ns:RefreshViews(true)
   end
@@ -1076,7 +1085,7 @@ check(not ns.Window.bagViews[1]:IsShown(), "bank bag windows do not open the reg
 local cellShown = 0
 for _, cc in pairs(ns.Buttons.mirrors[bb.child] or {}) do if cc:IsShown() then cellShown = cellShown + 1 end end
 check(cellShown == 8, "bank bag window shows every slot: " .. cellShown)
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 check(not bb:IsShown() and not ns.ui.bankBagWindows, "leaving the bank closes them")
 M.bags[6][1] = nil; M.sizes[6] = 0; M.sizes[7] = 0; M.bagNames[6] = nil; M.bagNames[7] = nil
 
@@ -1129,7 +1138,7 @@ local sheetKeys = {}
 for _, c in ipairs(main:ColumnPlan()) do sheetKeys[#sheetKeys + 1] = c.key end
 check(table.concat(sheetKeys, ",") == "c,n,t,w", "the Bank tab in the bags window keeps the bags layout")
 main:SetSheet("All")
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 -- settings: target switch edits the right layout
 ns.SettingsPanel:Show(); ns.SettingsPanel:ShowPage("bankcols")
 local rowAge
@@ -1152,7 +1161,7 @@ M.sizes[7] = 8; M.bagNames[7] = "Linen Bag"
 M.fire("BANKFRAME_OPENED"); M.runTimers()
 check(ns.bagInfo[6].name == "Default", "the (DNT) placeholder tab reads as Default: " .. tostring(ns.bagInfo[6].name))
 check(ns.bagInfo[7].name == "Linen Bag", "a real bank bag keeps its name")
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 M.sizes[6] = 0; M.sizes[7] = 0; M.bagNames[6] = nil; M.bagNames[7] = nil
 
 -- Empty legacy bank container is ignored when the real Default tab exists
@@ -1168,12 +1177,12 @@ local defaults = 0
 for bag, v in pairs(ns.Window.bankBagViews) do if v:IsShown() and v.titleText.text == "Bank: Default" then defaults = defaults + 1 end end
 check(defaults == 1, "only one Bank: Default window: " .. defaults)
 check(bw.freeText.text:find("/ 54"), "free count leaves out the legacy slots: " .. tostring(bw.freeText.text))
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 -- if the legacy container holds items it is kept
 M.bags[-1] = { [1] = { id = 6201, name = "Old Thing", q = 1, class = 15, subclass = 4, type = "Miscellaneous", sub = "Other", guid = "g-old" } }
 M.fire("BANKFRAME_OPENED"); M.runTimers()
 check(ns.bagInfo[ns.BANK].size > 0, "a legacy container with items is still shown")
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 M.bags[-1] = savedBank; M.bags[6][1] = nil; M.sizes[6] = 0; M.sizes[7] = 0; M.bagNames[6] = nil; M.bagNames[7] = nil
 
 -- Picking yourself shows live bags, never read-only
@@ -1675,7 +1684,7 @@ local fb = #M.frames
 for i = 1, 20 do M.cursorItem = 7301; M.fire("ITEM_LOCK_CHANGED", 0, 1); M.tick(); M.cursorItem = nil; M.tick(); M.tick() end
 check(#M.frames - fb <= 1, "carrying items repeatedly creates no new frames")
 main.scroll.IsMouseOver = nil; bankWin.scroll.IsMouseOver = nil
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 end)()
 
 ;(function()
@@ -1756,7 +1765,7 @@ check(ns.Window.bank.classicApplied and ns.Window.bank.classicTitle.text == "Ban
 check(ns.Window.bank.title.h == 1, "the bank's empty title row collapses")
 ns.ui.bagWindows = true; ns:RefreshViews(true)
 check(ns.Window.bagViews[0].frame.classicState and ns.Window.bagViews[0].frame.classicState.on, "small bag windows use Blizzard's bag frame too")
-ns.ui.bagWindows = false; M.fire("BANKFRAME_CLOSED"); M.runTimers()
+ns.ui.bagWindows = false; M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 -- skincheck reports each piece
 local lb = #M.log
 SlashCmdList.BAGSMITH("skincheck")
@@ -1878,7 +1887,7 @@ check(ns.db.bankCollapsed["Consumables"] == nil and not ns.IndexOf(ns.db.bankCol
 ns:Set("remember", false); ns.ui.collapsed = {}; ns.db.collapsed = {}; ns.db.bankCollapsed = {}
 -- the bank strip sits a little lower under the toolbar
 check(bankWin.bankBar.points[1][5] == -10, "Bank Bags has a little more room under the toolbar")
-M.fire("BANKFRAME_CLOSED"); M.runTimers()
+M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 ns:RefreshViews(true)
 -- Forever's empty-slot art, read from Blizzard's own bag button template
 local probe = ns.Buttons.all[1]
@@ -1995,7 +2004,7 @@ end)()
 	fakeView.frame.classicState.chrome.NineSlice.TopLeftCorner = tex("TOPLEFT", 16, 74)
 	check(n3.Classic.BagMinHeight(fakeView) == 160, "proven two-row height used when the art needs less")
 	check(n3.Classic.BagMinHeight({ frame = {} }) == nil, "no minimum outside Classic")
-	M3.fire("BANKFRAME_CLOSED"); M3.runTimers()
+	M3.fire("BANKFRAME_CLOSED"); M3.reopenBags(); M3.runTimers()
 end)()
 
 ;(function()
@@ -2034,7 +2043,7 @@ end)()
 	P:OpenFilters(bank, "edit", "Ore")
 	check(bf:IsShown() and bf:GetNumPoints() > 0 and P.editing == "Ore", "editing a bank sheet opens a placed panel")
 	bf:Hide()
-	M4.fire("BANKFRAME_CLOSED"); M4.runTimers()
+	M4.fire("BANKFRAME_CLOSED"); M4.reopenBags(); M4.runTimers()
 end)()
 
 ;(function()
@@ -2062,7 +2071,7 @@ end)()
 	n5:Set("skin", "classic"); n5:RefreshViews(true)
 	n5:Set("skin", "modern"); n5:RefreshViews(true)
 	check((n5.errors or 0) == 0, "upgrade from 0.9.19: switching to Classic and back raises no errors")
-	M5.fire("BANKFRAME_CLOSED"); M5.runTimers()
+	M5.fire("BANKFRAME_CLOSED"); M5.reopenBags(); M5.runTimers()
 end)()
 
 ;(function()
@@ -2222,7 +2231,7 @@ end)()
 	enter(main.btnSort); n6:Set("skin", "classic"); n6:RefreshViews(true); leave(main.btnSort)
 	n6:Set("skin", "modern"); n6:RefreshViews(true)
 	check(main.btnSort.label.textColor[1] == n6.Skins:Current().muted[1] and not main.btnLanes.hoverWash:IsShown(), "skin switch while hovering: nothing left lit")
-	M6.fire("BANKFRAME_CLOSED"); M6.runTimers()
+	M6.fire("BANKFRAME_CLOSED"); M6.reopenBags(); M6.runTimers()
 end)()
 
 ;(function()
@@ -2250,7 +2259,7 @@ end)()
 	n7.version = "0.12.0"   -- the mock reports 0.1.0 for every build; this is the release being tested
 	check(BagSmithDB.whatsNewSeen == "0.1.0" and n7.WhatsNew:Pending(), "upgrade from 0.11.2: their What's New record is kept and the 0.12 card is waiting")
 	check(n7.db.travelMode == false and n7.db.travelLeaveTaxi == true, "upgrade from 0.11.2: Travel Mode off, Auto Travel Mode settings at their defaults")
-	M7.fire("BANKFRAME_CLOSED"); M7.runTimers()
+	M7.fire("BANKFRAME_CLOSED"); M7.reopenBags(); M7.runTimers()
 end)()
 
 ;(function()
@@ -2320,7 +2329,7 @@ end)()
 	check(n8.IndexOf(n8.db.bankHiddenTabs, "Quest") and not n8.IndexOf(n8.db.hiddenTabs, "Quest") and n8.uiBank.sheet == "All",
 		"hiding a bank sheet affects only the bank, and the bank view falls back to All")
 	P:Hide()
-	M8.fire("BANKFRAME_CLOSED"); M8.runTimers()
+	M8.fire("BANKFRAME_CLOSED"); M8.reopenBags(); M8.runTimers()
 end)()
 
 ;(function()
@@ -2391,7 +2400,7 @@ end)()
 	check(bank.planWidth and bank.planWidth >= 200, "bank window opens with a usable column plan")
 	M9.runTimers(); M9.runTimers()
 	check(bank.planWidth == math.max(200, math.floor(bank.scroll:GetWidth())), "bank window settles on its real width")
-	M9.fire("BANKFRAME_CLOSED"); M9.runTimers()
+	M9.fire("BANKFRAME_CLOSED"); M9.reopenBags(); M9.runTimers()
 end)()
 
 ;(function()
@@ -2478,7 +2487,7 @@ end)()
 		end
 	end
 	_G.GetCursorPosition = savedCursor
-	MA.fire("BANKFRAME_CLOSED"); MA.runTimers()
+	MA.fire("BANKFRAME_CLOSED"); MA.reopenBags(); MA.runTimers()
 end)()
 
 ;(function()
@@ -2544,7 +2553,7 @@ end)()
 			v.scroll.w = nil; nB:RefreshViews(true)
 		end
 	end
-	MB.fire("BANKFRAME_CLOSED"); MB.runTimers()
+	MB.fire("BANKFRAME_CLOSED"); MB.reopenBags(); MB.runTimers()
 end)()
 
 ;(function()
@@ -2730,7 +2739,7 @@ end)()
 	MC.fire("UI_ERROR_MESSAGE", 1, "x")
 	check(H.shown == before, "a bag picked up long ago doesn't trigger the hint")
 	_G.GetTime = realTime; _G.GetMouseFoci = nil; _G.UIErrorsFrame = nil
-	MC.fire("BANKFRAME_CLOSED"); MC.runTimers()
+	MC.fire("BANKFRAME_CLOSED"); MC.reopenBags(); MC.runTimers()
 	-- (1.7.1-beta2, by design) the mock's game bag buttons are cleared once used: BagSmith now hooks the game's bag
 	-- buttons when it loads, and every later boot in this file would hook these again (each hook keeping that whole
 	-- boot alive; the game loads BagSmith once)
@@ -3001,7 +3010,7 @@ end)()
 	MF.fire("BANKFRAME_OPENED"); MF.runTimers()
 	local bankHs = headers(nF.Window.bank)
 	check(not (bankHs[1] and bankHs[1].laneId == "~recent"), "the bank window has no Recent section")
-	MF.fire("BANKFRAME_CLOSED"); MF.runTimers()
+	MF.fire("BANKFRAME_CLOSED"); MF.reopenBags(); MF.runTimers()
 	hs = headers(main)
 	hs[1]:GetScript("OnDragStart")(hs[1])
 	check(nF.dragLane == "~recent", "Recent's header can be dragged like any section")
@@ -3582,7 +3591,7 @@ end)()
 	check(bankOneLine, "the bank window, without the AH column, keeps its own one-line format")
 	for _, h in pairs(nQ.Buttons.lanes[main.child] or {}) do h.text.GetStringWidth = nil end
 	_G.Auctionator = nil
-	MQ.fire("BANKFRAME_CLOSED"); MQ.runTimers()
+	MQ.fire("BANKFRAME_CLOSED"); MQ.reopenBags(); MQ.runTimers()
 end)()
 
 ;(function()
@@ -3845,7 +3854,7 @@ end)()
 	MV.fire("BANKFRAME_OPENED"); MV.runTimers()
 	MV.put(-1, 2, { id = 9911, name = "Moved In", q = 1, class = 7, subclass = 0, price = 5 })
 	nV:Scan()   -- schedules the delayed save
-	MV.fire("BANKFRAME_CLOSED")   -- closed before the delay runs out
+	MV.fire("BANKFRAME_CLOSED"); MV.reopenBags()   -- closed before the delay runs out
 	local entry = BagSmithDB.cache[nV:CharKey()]
 	local saw = false
 	for _, it in ipairs(entry and entry.bank or {}) do if (it.id or it.itemID) == 9911 or (it.name == "Moved In") then saw = true end end
@@ -3870,7 +3879,7 @@ end)()
 	nV:SaveSheet("Mats", bank); table.insert(nV.db.bankHiddenTabs, "Mats"); table.insert(nV.db.hiddenTabs, "Mats")
 	nV:DeleteSheet("Mats", bank)
 	check(not nV.IndexOf(nV.db.bankHiddenTabs, "Mats") and nV.IndexOf(nV.db.hiddenTabs, "Mats"), "deleting a bank sheet clears the bank's hidden list only")
-	MV.fire("BANKFRAME_CLOSED")
+	MV.fire("BANKFRAME_CLOSED"); MV.reopenBags()
 end)()
 
 ;(function()
@@ -4041,31 +4050,31 @@ end)()
 	for _, c in ipairs({ { "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "bank" }, { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "auction house" }, { "MERCHANT_SHOW", "MERCHANT_CLOSED", "vendor" } }) do
 		M.fire(c[1]); M.runTimers()
 		check(n.db.travelMode and normalState(), "Auto Travel Mode: off while the " .. c[3] .. " is open, and the setting stays on")
-		M.fire(c[2]); M.runTimers()
+		M.fire(c[2]); M.reopenBags(); M.runTimers()
 		check(travelState(), "Auto Travel Mode: back on when the " .. c[3] .. " closes")
 	end
 	-- Each setting off: Travel Mode stays on at that place.
 	n:Set("travelLeaveVendor", false)
 	M.fire("MERCHANT_SHOW"); M.runTimers()
 	check(travelState(), "with Leave Travel Mode at Vendors off, it stays on at a vendor")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	n:Set("travelLeaveVendor", true)
 	-- Turning a setting off while it's holding lets go.
 	M.fire("AUCTION_HOUSE_SHOW"); M.runTimers()
 	n:Set("travelLeaveAH", false); M.runTimers()
 	check(travelState(), "turning the setting off at the auction house brings Travel Mode back")
-	M.fire("AUCTION_HOUSE_CLOSED"); M.runTimers(); n:Set("travelLeaveAH", true)
+	M.fire("AUCTION_HOUSE_CLOSED"); M.reopenBags(); M.runTimers(); n:Set("travelLeaveAH", true)
 	-- Clicking the signpost while held turns it on.
 	M.fire("MERCHANT_SHOW"); M.runTimers()
 	check(normalState(), "at a vendor: off")
 	main.btnTravel:GetScript("OnClick")(main.btnTravel); M.runTimers()
 	check(travelState(), "clicking the signpost at the vendor turns Travel Mode on right away")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	check(travelState(), "and it stays on after the vendor closes")
 	-- The bank window never changes.
 	M.fire("BANKFRAME_OPENED"); M.runTimers()
 	check(bank.tools:IsShown() and bank.btnFilter:IsShown() and bank.titleText.text == "Bank", "the bank window is never in Travel Mode")
-	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 	-- Entering Travel Mode while browsing another character goes back to your own bags.
 	main.btnTravel:GetScript("OnClick")(main.btnTravel); M.runTimers()   -- off
 	BagSmithDB.cache.Elsewhere = { name = "Other", realm = "R", items = {}, bags = {} }
@@ -4234,7 +4243,7 @@ end)()
 	flying = true; M.fire("PLAYER_CONTROL_LOST"); M.runTimers()
 	M.fire("MERCHANT_SHOW"); flying = false; M.fire("PLAYER_CONTROL_GAINED"); M.runTimers()
 	check(not travelOn(), "landing with a vendor open: still off for the vendor")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	check(travelOn(), "and back on when the vendor closes")
 	-- Travel Mode off: flights change nothing.
 	main.btnTravel:GetScript("OnClick")(main.btnTravel); M.runTimers()
@@ -4393,7 +4402,7 @@ end)()
 	M.fire("BANKFRAME_OPENED"); M.runTimers(); M.elapse(); M.runTimers()
 	M.put(-1, 2, { id = 9841, name = "Moved In", q = 1, class = 7, subclass = 0, price = 5 })
 	M.fire("BAG_UPDATE_DELAYED")   -- the rescan waits for the next frame
-	M.fire("BANKFRAME_CLOSED")
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags()
 	local saw = false
 	for _, it in ipairs(BagSmithDB.cache[n:CharKey()].bank or {}) do if it.itemID == 9841 then saw = true end end
 	check(saw, "closing the bank with a rescan still waiting saves the bank with the latest change")
@@ -4438,7 +4447,7 @@ end)()
 		check(face() == "down", label .. ": after a click it settles into its state (still pushed in while on)")
 		M.fire("MERCHANT_SHOW"); M.runTimers()
 		check(face() == "up" and not white(), label .. ": Auto Travel Mode switching it off shows it off")
-		M.fire("MERCHANT_CLOSED"); M.runTimers()
+		M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 		check(face() == "down", label .. ": back on after the vendor, pushed in again")
 		n:Set("skin", "modern"); M.runTimers()
 		check(not art.pieces[1]:IsShown() and b.active, label .. ": Modern unchanged (no red art; active as before)")
@@ -4481,7 +4490,10 @@ end)()
 		check(#wrong == 0, page .. ": every setting sits under its own heading" .. (#wrong > 0 and (": " .. table.concat(wrong, ", ")) or ""))
 	end
 	-- (by design since 1.9.1-beta4, Shweep: Bag Cleanup, Vendors and Clear Soul Shards first, then Auto Travel Mode and Prompts)
-	grouped("automation", "Bag Cleanup | Vendors | Clear Soul Shards | Auto Travel Mode | Prompts", {
+	-- (by design since 1.11.0-beta2: Auto-Open and Auto-Close, above Auto Travel Mode, with its six switches and When I Leave)
+	grouped("automation", "Bag Cleanup | Vendors | Clear Soul Shards | Auto-Open and Auto-Close | Auto Travel Mode | Prompts", {
+		autoOpenVendor = "Auto-Open and Auto-Close", autoOpenMail = "Auto-Open and Auto-Close", autoOpenTrade = "Auto-Open and Auto-Close", autoOpenAH = "Auto-Open and Auto-Close",
+		autoOpenBank = "Auto-Open and Auto-Close", autoOpenGuildBank = "Auto-Open and Auto-Close", closeOnLeave = "Auto-Open and Auto-Close",
 		travelLeaveBank = "Auto Travel Mode", travelLeaveAH = "Auto Travel Mode", travelLeaveVendor = "Auto Travel Mode", travelLeaveTaxi = "Auto Travel Mode", travelLeaveTrade = "Auto Travel Mode",
 		cleanOnOpen = "Bag Cleanup", autoSellJunk = "Vendors", ["Soul Shards to Keep"] = "Clear Soul Shards",
 		autoConfirm = "Prompts", autoConfirmEverywhere = "Prompts", autoConfirmEquip = "Prompts", autoConfirmUse = "Prompts", autoConfirmEnchant = "Prompts", autoConfirmRoll = "Prompts",
@@ -4651,7 +4663,7 @@ end)()
 	C_Container.UseContainerItem = function() M.fire("ADDON_ACTION_BLOCKED", "BagSmith", "UseContainerItem") end
 	C_MerchantFrame.SellAllJunkItems(); M.runTimers(); M.elapse(); M.runTimers()
 	check(n.Junk.needsClick and sb:IsShown() and sb.points[1][2] == MerchantSellAllJunkButton, "if the game blocks it, the Sell Marked button appears beside Blizzard's")
-	M.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); MerchantFrame:Hide()
 	check(not sb:IsShown() and not n.Junk.needsClick, "closing the vendor hides it and resets")
 	C_Container.UseContainerItem = realUse
 	-- Marks are per character and kept across sessions.
@@ -4682,11 +4694,11 @@ end)()
 	main.btnTravel:GetScript("OnEnter")(main.btnTravel)
 	check(table.concat(GameTooltip.lines or {}, " "):find("Off while you're trading"), "the signpost's tooltip says why")
 	main.btnTravel:GetScript("OnLeave")(main.btnTravel)
-	MK.fire("TRADE_CLOSED"); MK.runTimers()
+	MK.fire("TRADE_CLOSED"); MK.reopenBags(); MK.runTimers()
 	check(travelOn(), "and back on when the trade closes")
 	n:Set("travelLeaveTrade", false); MK.fire("TRADE_SHOW"); MK.runTimers()
 	check(travelOn(), "with the setting off, trading leaves Travel Mode on")
-	MK.fire("TRADE_CLOSED"); n:Set("travelLeaveTrade", true)
+	MK.fire("TRADE_CLOSED"); MK.reopenBags(); n:Set("travelLeaveTrade", true)
 	local P = n.SettingsPanel; P:Show(); P:ShowPage("automation")
 	local helps = {}
 	for _, w in ipairs(P.pools.check) do if w:IsShown() and w.key then helps[w.key] = w.help and w.help.text end end
@@ -5222,14 +5234,14 @@ end)()
 	C_Container.UseContainerItem = function(bag, slot) used[#used + 1] = bag .. ":" .. slot; local m = package.loaded.mock; if m and m.bags[bag] then m.bags[bag][slot] = nil end end
 	MerchantFrame:Show(); MA.fire("MERCHANT_SHOW"); MA.runTimers(); MA.elapse(); MA.runTimers()
 	check(#used == 0, "Sell Junk Automatically is off by default: opening a vendor sells nothing")
-	MA.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	MA.fire("MERCHANT_CLOSED"); MA.reopenBags(); MerchantFrame:Hide()
 	n:Set("autoSellJunk", true)
 	local before = #MA.log
 	MerchantFrame:Show(); MA.fire("MERCHANT_SHOW"); MA.runTimers(); MA.elapse(); MA.runTimers()
 	table.sort(used)
 	check(#used == 2 and used[1] == "0:1" and used[2] == "0:2", "on: opening a vendor sells the grey and the marked item, nothing else")
 	check(table.concat(MA.log, " ", before + 1):find("Sold 2 junk items for"), "with a chat summary")
-	MA.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	MA.fire("MERCHANT_CLOSED"); MA.reopenBags(); MerchantFrame:Hide()
 	-- Blocked by the game: says so once and stops for that visit.
 	MA.put(0, 1, { id = 9601, name = "Broken Fang", q = 0, class = 15, subclass = 0, price = 3 })
 	MA.put(0, 2, { id = 9602, name = "Linen Belt", q = 1, class = 4, subclass = 1, price = 22, equip = "INVTYPE_WAIST" }); n:Scan()
@@ -5238,14 +5250,14 @@ end)()
 	before = #MA.log
 	MerchantFrame:Show(); MA.fire("MERCHANT_SHOW"); MA.runTimers(); MA.elapse(); MA.runTimers()
 	check(n.Junk.autoBlocked and table.concat(MA.log, " ", before + 1):find("needs a click to sell"), "if the game blocks it: one message, and no more tries this visit")
-	MA.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	MA.fire("MERCHANT_CLOSED"); MA.reopenBags(); MerchantFrame:Hide()
 	check(not n.Junk.autoBlocked, "the next visit tries again")
 	-- Never in combat.
 	C_Container.UseContainerItem = function(bag, slot) used[#used + 1] = bag .. ":" .. slot; local m = package.loaded.mock; if m and m.bags[bag] then m.bags[bag][slot] = nil end end
 	used = {}
 	MA.combat = true; MerchantFrame:Show(); MA.fire("MERCHANT_SHOW"); MA.runTimers(); MA.elapse(); MA.runTimers(); MA.combat = false
 	check(#used == 0, "never during combat")
-	MA.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	MA.fire("MERCHANT_CLOSED"); MA.reopenBags(); MerchantFrame:Hide()
 	C_Container.UseContainerItem = realUse
 	-- Settings wording.
 	local P = n.SettingsPanel; P:Show(); P:ShowPage("loothelper")
@@ -5348,7 +5360,7 @@ end)()
 	check(#used == 1 and used[1] == "0:1" and said:find("Sold 1 junk item for"), "an item whose details load late still sells on the same visit")
 	check(said:find("Junk sale %(auto%): selling 0, waiting for item details 1") and said:find("Junk sale check %(auto, look %d+%): 1 left the bags, 0 still there"),
 		"with /bs debug on, each attempt is logged: what's waiting, what sold")
-	MS.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	MS.fire("MERCHANT_CLOSED"); MS.reopenBags(); MerchantFrame:Hide()
 	-- The game quietly ignores the sale: BagSmith notices and offers the button.
 	MS.put(0, 1, { id = 9801, name = "Linen Belt", q = 1, class = 4, subclass = 1, price = 22, equip = "INVTYPE_WAIST" }); n:Scan()
 	sells = false; used = {}
@@ -5363,7 +5375,7 @@ end)()
 	sells = true; used = {}
 	sb:GetScript("OnClick")(sb); MS.runTimers(); MS.elapse(); MS.runTimers()
 	check(#used == 1 and not MS.bags[0][1], "one click on Sell Marked sells it")
-	MS.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	MS.fire("MERCHANT_CLOSED"); MS.reopenBags(); MerchantFrame:Hide()
 	check(not n.Junk.retry, "closing the vendor resets it")
 	C_Container.UseContainerItem, C_Item.GetItemInfo, C_Item.RequestLoadItemDataByID = realUse, realInfo, realReq
 	_G.MerchantSellAllJunkButton = nil
@@ -6121,7 +6133,7 @@ end)()
 	_G.BagSmithCharDB = { version = 1, firstSeen = {} }; _G.BagSmithDB = nil
 	local n = M.loadAddon("BagSmith")
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
-	M.fire("BANKFRAME_OPENED"); M.runTimers(); M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	M.fire("BANKFRAME_OPENED"); M.runTimers(); M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 	ToggleAllBags(); M.runTimers()
 	local main = n.Window.main
 	main:SetSheet("Bank"); M.runTimers()
@@ -6460,7 +6472,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.10%.1\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.10.1, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.11%.0\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.11.0, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end
@@ -7200,9 +7212,9 @@ end)()
 	check(not shownIDs()[7001], "hidden in every view (Sections: None too)")
 	main.hiddenNote.btn:GetScript("OnClick")(main.hiddenNote.btn); M.runTimers()
 	check(shownIDs()[7001] and main.hiddenNote.text.text:find("^Showing 2 items from sections hidden at this vendor") and main.hiddenNote.btn.label.text == "Hide Again", "Show Them brings them back for this visit, and offers Hide Again")
-	M.fire("MERCHANT_CLOSED"); M.fire("MERCHANT_SHOW"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.fire("MERCHANT_SHOW"); M.runTimers()
 	check(not shownIDs()[7001], "the next visit hides them again")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	check(shownIDs()[7001], "and closing the vendor brings everything back")
 	n:Set("grp", "type"); M.runTimers()
 	-- Settings > Sections: the custom section, the moved items, the vendor/AH toggles, the rule.
@@ -7330,7 +7342,9 @@ end)()
 	for _, r in ipairs(m.rows) do if r:IsShown() then shown = shown + 1 end end
 	check(shown < 80 and m:GetHeight() <= UIParent:GetHeight(), "a long menu fits the screen (" .. shown .. " rows shown)")
 	m:GetScript("OnMouseWheel")(m, -1)
-	check(m.rows[1].text.text == "Row 4", "the mouse wheel scrolls it")
+	-- (by design since 1.11.0-beta1: a menu that scrolls has an arrow in its first row and its last, so the rows
+	-- themselves start at the second)
+	check(m.rows[1].arrowWhole and m.rows[2].text.text == "Row 4", "the mouse wheel scrolls it")
 	m:Hide()
 	-- Bag windows at a vendor: hidden items are locked cells, not buttons.
 	S:SetShown("Gear", "vendor", false)
@@ -7341,7 +7355,7 @@ end)()
 	local lc = bv.lockCells and bv.lockCells[1]
 	check(lc and lc:IsShown() and lc.rec and lc.rec.itemID == 7004 and lc.lock.texture:find("ui%-lock") and lc.icon.desaturated, "a bag window shows a hidden item as a locked cell (greyed, padlock)")
 	check(not lc:GetScript("OnReceiveDrag") and not lc:GetScript("OnClick"), "the locked cell takes no clicks or drops")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	check(not lc:IsShown(), "closing the vendor unlocks it")
 	S:SetShown("Gear", "vendor", true)
 	-- Keybinding conflicts ask first and name what changes.
@@ -7846,7 +7860,7 @@ end)()
 	check(not heading("Vendor Hidden"), "at a vendor, a hidden section doesn't come back as a (0) heading")
 	main.hiddenNote.btn:GetScript("OnClick")(main.hiddenNote.btn); M.runTimers()
 	check(heading("Vendor Hidden"), "Show Hidden brings it back")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	main:SetSheet("Gear"); M.runTimers()
 	check(not heading("Healing"), "the Gear sheet doesn't show an unrelated empty custom section")
 	main:SetSheet("All"); M.runTimers()
@@ -7968,7 +7982,7 @@ end)()
 	note.btn:GetScript("OnClick")(note.btn); M.runTimers()
 	check(note.btn.label.text == "Show Them" and not laneOfItem(7003), "Hide Again hides them again")
 	check(not main.btnHidden, "the footer button is gone")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	check(not note:IsShown(), "closing the vendor removes the note")
 	S:SetShown("Gear", "vendor", true)
 end)()
@@ -8218,7 +8232,7 @@ end)()
 	for i = #M.log, 1, -1 do M.log[i] = nil end
 	D:MoveRest({ itemID = 2592, members = { { bag = 0, slot = 1 }, { bag = 0, slot = 2 }, { bag = 0, slot = 3 } }, fromBank = false, name = "Wool Cloth", first = { bag = 0, slot = 1 }, token = D:NewGesture() })
 	M.runTimers(); M.runTimers()
-	M.fire("BANKFRAME_CLOSED"); n.atBank = false
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags(); n.atBank = false
 	locked["0:2"] = nil
 	for _ = 1, 20 do M.runTimers() end
 	check(#calls == 0 and table.concat(M.log, " "):find("Stopped moving Wool Cloth: the bank closed"), "the bank closing while a stack is locked cancels the job: no action goes out afterwards")
@@ -8394,7 +8408,7 @@ end)()
 	locked[wb .. ":" .. ws] = true; M.cursorItem = 2592
 	calls = {}
 	D:Place(bankView)
-	M.fire("BANKFRAME_CLOSED"); n.atBank = false
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags(); n.atBank = false
 	M.fire("BANKFRAME_OPENED"); n.atBank = true
 	carried = M.bags[wb][ws]; M.bags[wb][ws] = nil; M.bags[-1][1] = carried; M.cursorItem = nil; locked[wb .. ":" .. ws] = nil
 	for _ = 1, 20 do M.runTimers() end
@@ -8570,7 +8584,7 @@ end)()
 	M.uncached[7401] = nil
 	for _ = 1, 5 do M.runTimers() end
 	check(#used == 0, "turning automatic selling off before the retry: the retry sells nothing")
-	M.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); MerchantFrame:Hide()
 	-- control: left on, the retry sells.
 	n:Set("autoSellJunk", true)
 	M.uncached[7401] = true
@@ -8578,7 +8592,7 @@ end)()
 	M.uncached[7401] = nil
 	for _ = 1, 5 do M.runTimers() end
 	check(#used == 1 and used[1] == "0:2", "left on, the retry sells the dagger once its details load")
-	M.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); MerchantFrame:Hide()
 	-- a profile switch before the retry stops it too.
 	used = {}
 	M.uncached[7401] = true
@@ -8587,7 +8601,7 @@ end)()
 	M.uncached[7401] = nil
 	for _ = 1, 5 do M.runTimers() end
 	check(#used == 0, "a profile switch before the retry stops it")
-	M.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); MerchantFrame:Hide()
 	n.Profiles:Use("Default"); n:Set("autoSellJunk", false)
 	C_Container.UseContainerItem = realUse
 	-- F4: a section name shaped like the panel's bookkeeping can't fool its refresh.
@@ -8626,12 +8640,12 @@ end)()
 	MerchantFrame:Show(); M.fire("MERCHANT_SHOW"); M.runTimers()   -- the automatic sale tries the dagger; its verification is queued
 	check(#used == 1, "the first visit's automatic sale tries the dagger")
 	M.fire("ADDON_ACTION_BLOCKED", "BagSmith", "UseContainerItem")   -- the game blocked it
-	M.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); MerchantFrame:Hide()
 	MerchantFrame:Show(); M.fire("MERCHANT_SHOW")
 	M.runTimers()   -- the OLD verification runs now, then the new visit's automatic sale
 	M.runTimers()
 	check(not J.autoBlocked and #used == 2, "the old visit's verification doesn't block the new visit's automatic sale (" .. #used .. " attempts)")
-	M.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); MerchantFrame:Hide()
 	C_Container.UseContainerItem = realUse
 	n:Set("autoSellJunk", false)
 	-- R2: a sheet being edited ends with its profile.
@@ -8706,7 +8720,7 @@ end)()
 	local said = table.concat(M.log, " ")
 	check(said:find("Worn Dagger %(favorite") and said:find("Junk selling includes grey and junk%-marked items"), "the sale's reminder still arrives after a settings change: " .. said:sub(1, 120))
 	n:Set("autoSellJunk", false)
-	M.fire("MERCHANT_CLOSED"); MerchantFrame:Hide()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); MerchantFrame:Hide()
 	C_Container.UseContainerItem = realUse
 	-- F3: a newer copy request keeps its field when the old timer fires.
 	local WN = n.WhatsNew
@@ -9201,7 +9215,8 @@ end)()
 	local texts = {}
 	for _, r in ipairs(m.rows) do if r:IsShown() then texts[#texts + 1] = r.text.text end end
 	local joined = table.concat(texts, "|")
-	check(joined == "Tank|Equip|Update from What I'm Wearing...|Put on Action Bar|Show Gear Sets at Vendor|Show Gear Sets at Auction House", "the set's title menu: " .. joined)
+	-- (by design since 1.11.0-beta1: Rename..., Delete... and New Gear Set... on the set itself)
+	check(joined == "Tank|Equip|Update from What I'm Wearing...|Put on Action Bar|Rename...|Delete...|New Gear Set...|Show Gear Sets at Vendor|Show Gear Sets at Auction House", "the set's title menu: " .. joined)
 	m:Hide()
 	-- search finds a set by its name
 	local find = n:ParseSearch("tank")
@@ -9210,7 +9225,7 @@ end)()
 	n.Sections:SetShown("~gs", "vendor", false)
 	M.fire("MERCHANT_SHOW"); M.runTimers()
 	check(not laneIndex("~gs:Tank") and not laneIndex("~gs:PvP"), "gear sets hidden at vendors drop out while one is open")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	check(laneIndex("~gs:Tank"), "and come back when the vendor closes")
 	-- collapse and rename carry over
 	main:ToggleLane("~gs:Tank"); M.runTimers()
@@ -9487,7 +9502,7 @@ end)()
 	n.Sections:SetShown("~gs", "vendor", false)
 	M.fire("MERCHANT_SHOW"); M.runTimers()
 	check(not laneIndex("~gs:Tester") and not laneIndex("~gs:Banked"), "worn and empty set titles stay hidden at vendors with Gear Sets hidden there")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	check(laneIndex("~gs:Tester"), "and is back after the vendor")
 	-- headers are reused: a header that showed a set turns back into a plain one
 	n:Set("gearSetSections", false); M.runTimers()
@@ -9584,7 +9599,7 @@ end)()
 	scan()
 	local c = rec(0, 6)
 	check(c.firstSeen == since and not c.isNew and not recent():find("Linen Cloth", 1, true), "moving more from the bank onto a stack isn't new (no green dot, not recent)")
-	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 	M.bags[0][2] = nil; M.bags[0][1].count = 10
 	scan()
 	local ore = rec(0, 1)
@@ -9634,7 +9649,7 @@ end)()
 	local helm
 	for _, r in ipairs(n.items) do if r.itemID == 9801 then helm = r end end
 	check((n.Junk:ProtectReason(helm) or ""):find("hidden at vendors: Gear Sets", 1, true), "notes name Gear Sets")
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	check(laneIndex("~gs:Tank") and laneIndex("~gs:Tester"), "they come back after the vendor")
 	M.removeEquipmentSets()
 end)()
@@ -9714,7 +9729,7 @@ end)()
 	n.Sections:SetShown("~gs", "vendor", false)
 	M.fire("MERCHANT_SHOW"); M.runTimers()
 	check(main.hiddenNow == 2, "the hidden-at-vendor count counts the shared ring once: " .. tostring(main.hiddenNow))
-	M.fire("MERCHANT_CLOSED"); M.runTimers()
+	M.fire("MERCHANT_CLOSED"); M.reopenBags(); M.runTimers()
 	n.Sections:SetShown("~gs", "vendor", true)
 	-- set sections off: one showing, no mark
 	n:Set("gearSetSections", false); M.runTimers()
@@ -10369,7 +10384,7 @@ end)()
 	local function newerThan(x, y) local a1, a2, a3 = x:match("^(%d+)%.(%d+)%.?(%d*)"); local b1, b2, b3 = y:match("^(%d+)%.(%d+)%.?(%d*)"); a1, a2, a3, b1, b2, b3 = tonumber(a1), tonumber(a2), tonumber(a3) or 0, tonumber(b1), tonumber(b2), tonumber(b3) or 0; if a1 ~= b1 then return a1 > b1 end if a2 ~= b2 then return a2 > b2 end return a3 > b3 end
 	local has15 = false
 	for _, e in ipairs(real) do if e.v == "0.15.0" then has15 = true end end
-	if not has15 then WN.ENTRIES[1] = { v = "0.15.0", heading = "BagSmith 0.15", items = { "One.", "Two." } } end   -- (rc1 has the real one)
+	if not has15 then WN.ENTRIES[2] = { v = "0.15.0", heading = "BagSmith 0.15", items = { "One.", "Two." } } end   -- (rc1 has the real one)
 	for _, e in ipairs(real) do if not newerThan(e.v, "0.15.0") then WN.ENTRIES[#WN.ENTRIES + 1] = e end end   -- (this scenario runs as 0.15.0-beta10: later cards are not shown)
 	WN.ENTRIES[#WN.ENTRIES + 1] = { v = "0.10.0", heading = "BagSmith 0.10", items = { "Old." } }
 	for _, skin in ipairs({ "modern", "classic" }) do
@@ -10413,32 +10428,32 @@ end)()
 	-- (1.8.0-beta2, by design) the 1.8 card leads now; every older card one place down (each check kept)
 	-- (1.9.0-beta9, by design) the 1.9 card leads now; every older card one place down (each check kept)
 	-- (by design since 1.10.0-beta12: the 1.10 card leads What's New, so every older entry is one place further down)
-	local e17 = WN.ENTRIES[13]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e17 = WN.ENTRIES[14]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	-- (1.7.0-beta12, by design: Shweep's review) the 1.7 card has nine bullets (its body scrolls): up to nine
 	check(e17.v == "1.7.0" and e17.heading == "BagSmith 1.7" and #e17.items >= 2 and #e17.items <= 9 and table.concat(e17.items, " "):find("Split Gear by Binding:", 1, true), "What's New leads with a 1.7 entry: Split Gear by Binding among its bullets")
-	local e = WN.ENTRIES[14]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e = WN.ENTRIES[15]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	local text = table.concat(e.items, " ")
 	check(e.v == "1.6.0" and e.heading == "BagSmith 1.6" and #e.items >= 2 and #e.items <= 8 and text:find("Blackthornes Tradeskills Prices:", 1, true) and text:find("Quest Starters:", 1, true), "What's New leads with a 1.6 entry: Blackthornes prices and Quest Starters among its bullets")
 	-- (1.5.1) the 1.5.1 entry: the Loot Helper's new destroy default and its two settings
-	e = WN.ENTRIES[15]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	e = WN.ENTRIES[16]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	text = table.concat(e.items, " ")
 	check(e.v == "1.5.1" and e.heading == "BagSmith 1.5.1" and #e.items >= 2 and #e.items <= 8 and text:find("Faster Destroying:", 1, true) and text:find("Ask Before Destroying", 1, true) and text:find("Always Ask for Rare or Better", 1, true) and not text:find("\226\128\148"), "What's New leads with a 1.5.1 entry: the destroy default and its two settings")
 	-- (1.5.0) the 1.5 entry: Icon Corners and marks from other addons
-	e = WN.ENTRIES[16]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
-	check(e.v == "1.5.0" and e.heading == "BagSmith 1.5" and #e.items >= 2 and #e.items <= 8 and text:find("Icon Corners:", 1, true) and text:find("Marks from Other Addons:", 1, true) and not text:find("\226\128\148"), "What's New leads with a 1.5 entry: Icon Corners, marks from other addons")
 	e = WN.ENTRIES[17]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
-	check(e.v == "1.4.0" and e.heading == "BagSmith 1.4" and #e.items >= 3 and #e.items <= 8 and text:find("Sort: Off:", 1, true) and text:find("Pinned Sections:", 1, true) and text:find("By Section:", 1, true), "What's New leads with a 1.4 entry: Sort Off, pinned sections, By Section")
+	check(e.v == "1.5.0" and e.heading == "BagSmith 1.5" and #e.items >= 2 and #e.items <= 8 and text:find("Icon Corners:", 1, true) and text:find("Marks from Other Addons:", 1, true) and not text:find("\226\128\148"), "What's New leads with a 1.5 entry: Icon Corners, marks from other addons")
 	e = WN.ENTRIES[18]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
-	check(e.v == "1.3.0" and e.heading == "BagSmith 1.3" and #e.items >= 3 and #e.items <= 8 and text:find("Loot Helper:", 1, true) and text:find("Why Things Are Left Out:", 1, true) and text:find("Exclusion Lists:", 1, true), "What's New leads with a 1.3 entry: the Loot Helper, why things are left out, the Exclusion Lists")
+	check(e.v == "1.4.0" and e.heading == "BagSmith 1.4" and #e.items >= 3 and #e.items <= 8 and text:find("Sort: Off:", 1, true) and text:find("Pinned Sections:", 1, true) and text:find("By Section:", 1, true), "What's New leads with a 1.4 entry: Sort Off, pinned sections, By Section")
 	e = WN.ENTRIES[19]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
-	check(e.v == "1.2.0" and e.heading == "BagSmith 1.2" and #e.items >= 3 and #e.items <= 8 and text:find("Disenchant Helper:", 1, true) and text:find("Fewer Yes/No Boxes:", 1, true) and text:find("Mail and Trade:", 1, true), "What's New leads with a 1.2 entry: the Disenchant Helper, fewer yes/no boxes, mail and trade")
+	check(e.v == "1.3.0" and e.heading == "BagSmith 1.3" and #e.items >= 3 and #e.items <= 8 and text:find("Loot Helper:", 1, true) and text:find("Why Things Are Left Out:", 1, true) and text:find("Exclusion Lists:", 1, true), "What's New leads with a 1.3 entry: the Loot Helper, why things are left out, the Exclusion Lists")
 	e = WN.ENTRIES[20]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
-	check(e.v == "1.1.0" and e.heading == "BagSmith 1.1" and #e.items >= 3 and #e.items <= 8 and text:find("Item Level on Icons:", 1, true) and text:find("List View:", 1, true) and text:find("Classic Style:", 1, true) and text:find("Smoother Scrolling:", 1, true) and text:find("Pawn Arrow:", 1, true), "the 1.1 entry follows: the item level feature, List view, Classic style, smoother scrolling, the Pawn arrow")
+	check(e.v == "1.2.0" and e.heading == "BagSmith 1.2" and #e.items >= 3 and #e.items <= 8 and text:find("Disenchant Helper:", 1, true) and text:find("Fewer Yes/No Boxes:", 1, true) and text:find("Mail and Trade:", 1, true), "What's New leads with a 1.2 entry: the Disenchant Helper, fewer yes/no boxes, mail and trade")
 	e = WN.ENTRIES[21]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	check(e.v == "1.1.0" and e.heading == "BagSmith 1.1" and #e.items >= 3 and #e.items <= 8 and text:find("Item Level on Icons:", 1, true) and text:find("List View:", 1, true) and text:find("Classic Style:", 1, true) and text:find("Smoother Scrolling:", 1, true) and text:find("Pawn Arrow:", 1, true), "the 1.1 entry follows: the item level feature, List view, Classic style, smoother scrolling, the Pawn arrow")
+	e = WN.ENTRIES[22]; text = table.concat(e.items, " ")   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	check(e.v == "1.0.0" and e.heading == "BagSmith 1.0" and #e.items >= 2 and #e.items <= 8, "the 1.0 entry follows")
 	check(text:find("Thank you:", 1, true) and text:find("Discord", 1, true) and text:find("Plugins:", 1, true) and text:find("Coming soon, BagSmith Gamepad Plugin:", 1, true) and text:find("alpha testing", 1, true) and text:find("testers", 1, true),
 		"it thanks the players, invites them to the Discord, introduces plugins, and announces the Gamepad companion as coming soon with testers wanted at beta")
-	local e15 = WN.ENTRIES[22]   -- (1.9.0-beta9, by design: one place down)   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e15 = WN.ENTRIES[23]   -- (1.9.0-beta9, by design: one place down)   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	local text15 = table.concat(e15.items, " ")
 	check(e15.v == "0.15.0" and e15.heading == "BagSmith 0.15" and #e15.items >= 5 and #e15.items <= 8 and text15:find("Gear Sets:", 1, true) and text15:find("Settings Search:", 1, true) and text15:find("Recent Items:", 1, true) and text15:find("Tidier Settings:", 1, true),
 		"the 0.15 entry follows, covering gear sets, Settings search, Recent Items and the reorganized Settings")
@@ -10561,7 +10576,7 @@ end)()
 		for _, b in ipairs(vis(main, 101)) do for _, c in ipairs(vis(bank, 102)) do if b == c then shared = true end end end
 		check(not shared, combo[1] .. " " .. combo[2] .. ": no button is shown by both windows")
 		-- reopen both, then a main Recent copy next to shared bank gear
-		M.fire("BANKFRAME_CLOSED"); M.runTimers()
+		M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 		n.db.recentSection = true
 		M.now = M.now + 30
 		M.put(0, 2, { id = 103, guid = "loot", name = "Fresh Apple", q = 1, count = 1, class = 0, subclass = 5, price = 1 })
@@ -10569,7 +10584,7 @@ end)()
 		M.fire("BANKFRAME_OPENED"); M.runTimers()
 		main:Refresh(true); bank:Refresh(true)
 		check(#vis(main, 103) == 2 and #vis(bank, 102) == 2, combo[1] .. " " .. combo[2] .. ": a Recent copy in the bags survives the bank's shared rows (" .. #vis(main, 103) .. ")")
-		M.fire("BANKFRAME_CLOSED"); M.runTimers()
+		M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 		M.removeEquipmentSets()
 	end
 end)()
@@ -10754,7 +10769,7 @@ end)()
 	check(recent(n, "E"), "an item you didn't have is new at once, at the bank too")
 	-- away from the bank: a grown stack is new at once, as before
 	n, M = boot()
-	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 	M.bags[0][1].count = 9
 	M.fire("BAG_UPDATE", 0); M.fire("BAG_UPDATE_DELAYED"); M.runTimers(); M.runTimers()
 	check(rec(n, "A").isNew, "away from the bank, a stack that grew is new at once (as before)")
@@ -10867,7 +10882,7 @@ end)()
 	n, M = boot()
 	M.bags[0][1].count = 12; bags(M)
 	step(M); M.bags[-1][1] = nil; bank(M, 1)
-	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 	settle(M)
 	expect(n, "", "", "a move, then the bank closing before the second is up: nothing new")
 	-- staggered: the move, then loot onto the same stack half a second later
@@ -10905,7 +10920,7 @@ end)()
 	-- cleared before anything settles, with the bank closing and reopening
 	n, M = boot()
 	M.bags[0][1].count = 6; bags(M)
-	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	M.fire("BANKFRAME_CLOSED"); M.reopenBags(); M.runTimers()
 	n:ClearRecent()
 	settle(M)
 	expect(n, "", "", "held loot, bank closed, then Clear Recent: nothing new")
@@ -10932,7 +10947,7 @@ end)()
 ;(function()
 	-- 0.15.0 (prod): one clean 0.15.0 changelog section; the sword-and-shield replaces the helmet everywhere.
 	local log = io.open("BagSmith/CHANGELOG.md"):read("*a")
-	check(log:find("^## 1%.10%.1\n") and log:find("\n## 1%.10%.0\n") and log:find("\n## 1%.9%.8\n") and log:find("\n## 1%.9%.7\n") and log:find("\n## 1%.9%.6\n") and log:find("\n## 1%.9%.5\n") and log:find("\n## 1%.9%.4\n") and log:find("\n## 1%.9%.3\n") and log:find("\n## 1%.9%.2\n") and log:find("\n## 1%.9%.1\n") and log:find("\n## 1%.9%.0\n") and log:find("\n## 1%.8%.0\n") and log:find("\n## 1%.7%.5\n") and log:find("\n## 1%.7%.4\n") and log:find("\n## 1%.7%.3\n") and log:find("\n## 1%.7%.2\n") and log:find("\n## 1%.7%.1\n") and log:find("\n## 1%.7%.0\n") and log:find("\n## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.10.0 (the release in progress; 1.10.0, by design), then 1.9.8, 1.9.7, 1.9.6, 1.9.5, 1.9.4, 1.9.3, 1.9.2, 1.9.1, 1.9.0, 1.8.0, 1.7.5, 1.7.4, 1.7.3, 1.7.2, 1.7.1, 1.7.0, 1.6.3, 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
+	check(log:find("^## 1%.11%.0\n") and log:find("\n## 1%.10%.1\n") and log:find("\n## 1%.10%.0\n") and log:find("\n## 1%.9%.8\n") and log:find("\n## 1%.9%.7\n") and log:find("\n## 1%.9%.6\n") and log:find("\n## 1%.9%.5\n") and log:find("\n## 1%.9%.4\n") and log:find("\n## 1%.9%.3\n") and log:find("\n## 1%.9%.2\n") and log:find("\n## 1%.9%.1\n") and log:find("\n## 1%.9%.0\n") and log:find("\n## 1%.8%.0\n") and log:find("\n## 1%.7%.5\n") and log:find("\n## 1%.7%.4\n") and log:find("\n## 1%.7%.3\n") and log:find("\n## 1%.7%.2\n") and log:find("\n## 1%.7%.1\n") and log:find("\n## 1%.7%.0\n") and log:find("\n## 1%.6%.3\n") and log:find("\n## 1%.6%.2\n") and log:find("\n## 1%.6%.1\n") and log:find("\n## 1%.6%.0\n") and log:find("\n## 1%.5%.8\n") and log:find("\n## 1%.5%.7\n") and log:find("\n## 1%.5%.6\n") and log:find("\n## 1%.5%.5\n") and log:find("\n## 1%.5%.4\n") and log:find("\n## 1%.5%.3\n") and log:find("\n## 1%.5%.2\n") and log:find("\n## 1%.5%.1\n") and log:find("\n## 1%.5%.0\n") and log:find("\n## 1%.4%.2\n") and log:find("\n## 1%.4%.1\n") and log:find("\n## 1%.4%.0\n") and log:find("\n## 1%.3%.1\n") and log:find("\n## 1%.3%.0\n") and log:find("\n## 1%.2%.0\n") and log:find("\n## 1%.1%.0\n") and log:find("\n## 1%.0%.1\n") and log:find("\n## 1%.0%.0\n") and log:find("\n## 0%.15%.0\n") and not log:find("## 0%.15%.0%-beta") and not log:find("## 0%.15%.0%-rc"), "the changelog leads with 1.10.0 (the release in progress; 1.10.0, by design), then 1.9.8, 1.9.7, 1.9.6, 1.9.5, 1.9.4, 1.9.3, 1.9.2, 1.9.1, 1.9.0, 1.8.0, 1.7.5, 1.7.4, 1.7.3, 1.7.2, 1.7.1, 1.7.0, 1.6.3, 1.6.2, 1.6.1, 1.6.0, 1.5.8, 1.5.7, 1.5.6, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1, 1.5.0, 1.4.2, 1.4.1, 1.4.0, 1.3.1, 1.3.0, 1.2.0, 1.1.0, 1.0.1 and 1.0.0, then one 0.15.0 section (the beta and rc entries folded in)")
 	local section = log:match("(## 0%.15%.0\n.-)\n## ") or ""
 	local bad = false
 	for _, w in ipairs({ "colour", "favourite", "behaviour", "cancelled", "helmet", "\226\128\148" }) do if section:find(w) then bad = true end end

@@ -91,17 +91,17 @@ end
 -- Someone coming straight from an older release sees all of them.
 -- (1.10.0-beta12) 1.10's list, with its What's New card. Other Addons' page (Addon Sources) and each of its switches;
 -- Custom Sections (the rule editor, the examples) and its last card; Sections, for All Items in its list.
+-- (1.11.0-beta4) 1.11's list, with its What's New card (1.10's: Addon Sources and its switches, Custom Sections' rule
+-- editor and New Section..., Sections for All Items; 1.10.1's Auto-Close Bags I Opened, which 1.11 moved). The
+-- Auto-Open and Auto-Close card and its When I Leave choice on Automations; the Special Bag list on Item Icons;
+-- Sections on a Sheet... on Custom Sections. No page is new.
 Panel.NEW = {
-	release = "1.10",
-	pages = { addons = true, sections = true, custom = true },
-	heads = { ["How an Item Finds Its Section"] = "custom" },
-	keys = { useItemTree = "addons", makeRoomHoldItemTree = "addons", deHoldItemTree = "addons", makeRoomHoldPawn = "addons", deHoldPawn = "addons" },
-	-- (1.10.0-beta15, Shweep: "why no New tag beside New Section button", "yes just add to that one button please") a
-	-- button, by its label: New Section... was there in 1.9, and what it opens is 1.10's main feature
-	buttons = { ["New Section..."] = "custom" },
-	added = {
-		["1.10.1"] = { keys = { autoCloseOwnBags = "general" } },   -- (1.10.1-beta2) Auto-Close Bags I Opened
-	},
+	release = "1.11",
+	pages = {},
+	heads = { ["Auto-Open and Auto-Close"] = "automation" },
+	keys = { closeOnLeave = "automation", bagKindPick = "icons" },
+	buttons = { ["Sections on a Sheet..."] = "custom" },
+	added = {},
 }
 local NEW_KINDS = { "heads", "keys", "buttons" }   -- what a page holds besides itself
 Panel.NEW_COLOR = { 0.55, 0.78, 1 }   -- the soft blue of What's New's links
@@ -1037,6 +1037,28 @@ function Panel:Dropdown(key, label, choices, help, binding)
 	self.y = self.y + s:GetHeight()
 end
 
+-- (1.11.0-beta3) The kind of special bag Settings > Item Icons is showing: the one picked from its list; before any
+-- pick, the first kind whose indicator is on, else a kind this character has in a bag slot, else the first in the
+-- list. Remembered while the game runs (not saved), so turning a kind's indicator off doesn't move the page to another.
+function Panel:PickedBagKind(kinds, db)
+	for _, k in ipairs(kinds) do if k.key == self.bagKind then return k.key end end
+	local pick
+	for _, k in ipairs(kinds) do if not pick and db["glow_" .. k.key] then pick = k.key end end
+	if not pick then
+		local worn = {}
+		-- (a slot with a bag in it: the reagent slot is always a reagent bag's, filled or not)
+		for _, bag in ipairs(ns.BAGS or {}) do
+			local kind = ns:BagKind(bag)
+			local ok, size = pcall(C_Container.GetContainerNumSlots, bag)
+			if kind and ok and (tonumber(size) or 0) > 0 then worn[kind] = true end
+		end
+		for _, k in ipairs(kinds) do if not pick and worn[k.key] then pick = k.key end end
+	end
+	pick = pick or (kinds[1] and kinds[1].key)
+	self.bagKind = pick
+	return pick
+end
+
 -- (1.7.3-beta6) Shows a number in a shown stepper's box without saving it (the bags window's size while its outline is
 -- dragged). A box being typed in is left alone.
 function Panel:ShowStepValue(key, value)
@@ -1763,12 +1785,8 @@ pages.general = function(self, db)
 	-- (1.10.1-beta1, Shweep) the name and its help say the player's own bag key, not always B (KeyBinds.lua)
 	local bagLabel, bagHelp = ns.KeyBinds:BagKeyWords()
 	self:Check("replaceBlizzardBags", bagLabel, bagHelp)
-	-- (1.10.1-beta2, Shweep: "keep it as it is but add a setting default (true) for that so players can turn it off in
-	-- future"; the name is his pick) Greyed while Blizzard's bags are on the key: BagSmith opens and closes nothing
-	-- for a window then. (1.10.1, Shweep: "slightly improve the description ... a tad confusing as written"; his
-	-- pick of three.)
-	self:Check("autoCloseOwnBags", "Auto-Close Bags I Opened", "When you leave a vendor, the mailbox, a trade or the auction house, your bags close, even if you already had them open. Turn off, and bags you already had open stay open.",
-		(not db.replaceBlizzardBags) and { disabled = true, checked = db.autoCloseOwnBags } or nil)
+	-- (1.11.0-beta2) 1.10.1's Auto-Close Bags I Opened moved to Automations, as the When I Leave choice of the
+	-- Auto-Open and Auto-Close card
 	self:Check("minimap", "Show Minimap Button", "With it off, you can still open BagSmith with /bs or from the game's addon list.")
 	self:Check("minimapFade", "Fade Minimap Button", "The button only appears when you point at the minimap.")
 	-- (1.10.0-beta9) auction prices, ItemTree and Pawn have a page of their own: Addon Sources (pages.addons)
@@ -1870,7 +1888,8 @@ pages.icons = function(self, db)
 	-- (1.8.0-beta5) Special bags: an inner glow per kind of bag, each off until turned on, in a color of your choice
 	self:Head("Special Bag Slot Indicators")   -- (beta7 feedback, Shweep) was "Special Bags"
 	-- (beta5 feedback, Shweep) each kind's options sit under it and name it: its items too (on by default), its color
-	for _, k in ipairs(ns:BagKindsSorted()) do   -- (beta7 feedback, Shweep) alphabetical
+	local kinds = ns:BagKindsSorted()   -- (beta7 feedback, Shweep) alphabetical
+	local function kindRows(k)
 		local name = ns:BagKindName(k.key)
 		local lower = name:lower()
 		-- (beta9, Shweep) an indicator, as a soft inner glow or as the slot's frame color; "indicator", not "mark" (Marks
@@ -1887,6 +1906,21 @@ pages.icons = function(self, db)
 			end)
 		end
 	end
+	-- (1.11.0-beta3, Shweep: "where you select which Special Bag to edit first (dropdown maybe?) and then the settings
+	-- show up for it") One kind at a time: a Special Bag list, each kind marked when its indicator is on, and under it
+	-- that kind's own settings. Twelve switches in a column became one list. A search still looks through every kind.
+	if self.filter then
+		for _, k in ipairs(kinds) do kindRows(k) end
+	else
+		local picked = self:PickedBagKind(kinds, db)
+		local choices = {}
+		for _, k in ipairs(kinds) do
+			choices[#choices + 1] = { key = k.key, label = ns:BagKindName(k.key) .. (db["glow_" .. k.key] and " (On)" or "") }
+		end
+		self:Dropdown("bagKindPick", "Special Bag", choices, "Choose a kind of bag, then set up its indicator below.",
+			{ get = function() return picked end, set = function(v) self.bagKind = v; self:Refresh() end })
+		for _, k in ipairs(kinds) do if k.key == picked then kindRows(k) end end
+	end
 	self:IconCorners()
 end
 
@@ -1901,6 +1935,24 @@ pages.automation = function(self, db)
 	self:Head("Clear Soul Shards")
 	-- (Shweep: "clear shards button where? that needs context. Also does it auto destroy any that exceed that count?")
 	self:Step("shardKeep", "Soul Shards to Keep", 1, "%d", "|cff8788eeWarlocks|r only. Soul Shards are only cleared when you click Clear Shards (on their section in your bags) or use the Loot Helper, and you always keep this many. Shards in your soul bag count toward it and are never cleared.")
+	-- (1.11.0-beta2, Shweep: "something more like auto open with, and then list out all the places that BagSmith auto
+	-- opens when you go to and default them all to true"; "The lighter version is good"; "Yeah automations is fine for
+	-- that") A switch for each place, and one choice for leaving. Greyed while Blizzard's bags are on the bag key,
+	-- when BagSmith opens for none of them; the bank's switch stays, since the bank opens BagSmith's bags either way.
+	self:Head("Auto-Open and Auto-Close")
+	self:Text("BagSmith opens your bags when you visit these, and closes them when you leave.")
+	do
+		local off = not db.replaceBlizzardBags
+		local function grey(key) return off and { disabled = true, checked = db[key] } or nil end
+		self:Check("autoOpenVendor", "Auto-Open at Vendors", nil, grey("autoOpenVendor"))
+		self:Check("autoOpenMail", "Auto-Open at the Mailbox", nil, grey("autoOpenMail"))
+		self:Check("autoOpenTrade", "Auto-Open When Trading", nil, grey("autoOpenTrade"))
+		self:Check("autoOpenAH", "Auto-Open at the Auction House", nil, grey("autoOpenAH"))
+		self:Check("autoOpenBank", "Auto-Open at the Bank", nil)
+		self:Check("autoOpenGuildBank", "Auto-Open at the Guild Bank", nil, grey("autoOpenGuildBank"))
+		self:Seg("closeOnLeave", "When I Leave", { { "always", "Always Close" }, { "auto", "Close If Auto-Opened" }, { "never", "Never Close" } },
+			"Always Close closes your bags when you leave, even if you already had them open. Close If Auto-Opened leaves bags you already had open. Never Close leaves them all open.", true)
+	end
 	self:Head("Auto Travel Mode")
 	self:Text("Travel Mode is a compact view for adventuring. The signpost by the close button turns it on and off. These settings turn it off when you need your full bags, and back on afterwards.")
 	self:Check("travelLeaveBank", "Leave Travel Mode at the Bank", "Turns it back on when you close the bank.")
@@ -2254,6 +2306,8 @@ pages.custom = function(self, db)
 	self:Text("Make your own sections. Drag an item onto a section's title, or Alt+Left-click it, to move it there. Every copy of the item moves with it.")
 	-- (1.10.0-beta3) New Section... opens the editor: a name, and rules if you want them
 	self:Button("New Section...", function() ns.Sections:EditSection() end)
+	-- (1.11.0-beta2) several sections to a sheet at once
+	self:Button("Sections on a Sheet...", function() ns.Sections:OpenSheetSections() end)
 	-- (1.10.0-beta1) sections that fill themselves
 	self:Text("A section can also fill itself. Give it rules with the pencil beside it, or Alt+Left-click an item and pick New Section From This Item.")
 	-- (1.10.0-beta11, the mockup's "or start from an example") each opens the editor filled in, to look over and create
@@ -2807,7 +2861,10 @@ function Panel:Refresh()
 	self.counts, self.y = {}, 4
 	self.card, rowX, rowW = nil, 0, ROW_W
 	for _, pool in pairs(self.pools) do for _, w in ipairs(pool) do w:Hide() end end
-	self.frame.sub:SetText("Profile: " .. ns.profileName)
+	-- (1.11.0-beta4, Shweep: "should we always show the full version number in top left?", "Header is fine for 1.11")
+	-- the version as the TOC has it, a beta's suffix included, in the muted line beside the title, before the profile:
+	-- a screenshot of Settings then says which build it is. (In the Classic look that line sits under the title strip.)
+	self.frame.sub:SetText(("%s   Profile: %s"):format(tostring(ns.version or "?"), ns.profileName))
 	local fn = pages[self.page] or pages.profile
 	if self.query then self:RefreshSearch(ns.db) else self:MainPageTitle(self.page); fn(self, ns.db) end
 	self:CloseCard()

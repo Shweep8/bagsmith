@@ -186,7 +186,12 @@ local function offTip(b)
 	if not (b.offReason and ns.TooltipsOK()) then return false end
 	GameTooltip:SetOwner(b, "ANCHOR_TOP")
 	ns.TipText(GameTooltip, b.offName or "")
-	ns.TipLine(GameTooltip, View.GLOBAL_OFF, 1, 0.82, 0)
+	-- (1.11.0-beta6) the line under the name is Global Inventory's unless the caller gave its own, or none (false):
+	-- a control greyed for another reason said "Not available in Global Inventory" over it (New Gear Set at the
+	-- game's limit, since 1.11.0-beta1)
+	local head = b.offHead
+	if head == nil then head = View.GLOBAL_OFF end
+	if head then ns.TipLine(GameTooltip, head, 1, 0.82, 0) end
 	ns.TipLine(GameTooltip, b.offReason, 0.8, 0.8, 0.8, true)
 	GameTooltip:Show()
 	return true
@@ -201,14 +206,14 @@ View.GLOBAL_WHY = {
 	bagBar = "The bag bar shows the bags of the character you're playing.",
 	byBag = "Global Inventory brings all your characters' bags together, so it groups items by section.",   -- (beta17)
 }
-function View.GlobalOff(b, off, name, reason)
+function View.GlobalOff(b, off, name, reason, head)
 	if not b then return end
 	if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
 	if off then
-		b:Disable(); b:SetAlpha(0.45); b.offName, b.offReason = name, reason
+		b:Disable(); b:SetAlpha(0.45); b.offName, b.offReason, b.offHead = name, reason, head
 	else
 		if b.offReason then b:Enable(); b:SetAlpha(1) end
-		b.offName, b.offReason = nil, nil
+		b.offName, b.offReason, b.offHead = nil, nil, nil
 	end
 end
 local function textButton(parent, text, width, onClick, template, name)

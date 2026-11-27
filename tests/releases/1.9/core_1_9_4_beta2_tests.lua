@@ -154,6 +154,8 @@ end)()
 	local okB, badB = all(B, "none")
 	check(okB, "the bank, off: no values" .. (badB ~= "" and (" (" .. badB .. ")") or ""))
 	M.fire("BANKFRAME_CLOSED"); M.runTimers()
+	-- (by design since 1.11.0-beta3, Shweep's "1": Always Close closes the bags at every place, whether they opened for it or were open already): opened again for Global Inventory
+	n.Window:Show(); M.runTimers()
 	V:SetGlobal(true); M.runTimers(); M.runTimers()
 	local ok, bad = all(V, "none")
 	check(ok, "Global Inventory, off: no values" .. (bad ~= "" and (" (" .. bad .. ")") or ""))
@@ -167,7 +169,7 @@ end)()
 	-- What's New: 1.9.4's entry, under 1.9 as an update
 	local n, M = boot(nil, { whatsNewSeen = "1.9.3", whatsNewPatchSeen = { ["1.9.2"] = true, ["1.9.1"] = true }, whatsNewButtonSeen = "1.9.2" })
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[7]   -- (by design since 1.9.8: four places down, after 1.9.8's, 1.9.7's, 1.9.6's and 1.9.5's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e = WN.ENTRIES[8]   -- (by design since 1.9.8: four places down, after 1.9.8's, 1.9.7's, 1.9.6's and 1.9.5's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
 	check(e.v == "1.9.4" and e.heading == "BagSmith 1.9.4" and #e.items == 2, "the 1.9.4 entry, two bullets")
 	check(e.items[1] == "|cfffac775Section Values in Compact View:|r Compact View now shows what each section is worth, too. Just hover over or click the little coin on a section's header.", "Section Values in Compact View, word for word as chosen")
 	check(e.items[2] == "|cfffac775Show Section Values:|r prefer clean headers? Turn the values off in Settings > Sections. You can still hover a section's name to see them.", "Show Section Values, word for word as chosen")
