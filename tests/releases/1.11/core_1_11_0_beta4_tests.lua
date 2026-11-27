@@ -1,4 +1,4 @@
--- ======== 1.11.0-beta4 (Shweep, 27 Nov: "build") ========
+-- ======== 1.11.0-beta4 (Shweep, 26 Nov: "build") ========
 -- 1.11's fourth beta: his beta3 check, and the wrap-up before the audit candidate.
 --   1. The mailbox, again. beta3 in game: "at mailbox and leaving bags closing still, maybe not doable?" His /bs debug
 --      lines and a call stack showed the game's hide function for the mailbox running twice, one inside the other:
@@ -70,7 +70,7 @@ local function boot(opt)
 	-- the game's mail window, there from the start unless the test says it loads later
 	-- The mail window's own OnHide, set before BagSmith hooks the window: hiding it ends the visit, and the game's hide
 	-- function runs again inside that and closes the bags naming no window (Shweep's /bs debug and call stack on
-	-- Forever, 27 Nov). A hook added with HookScript only runs after this.
+	-- Forever, 26 Nov). A hook added with HookScript only runs after this.
 	if not opt.lateMail then
 		G.mail = CreateFrame("Frame", "MailFrame", UIParent); G.mail:Hide()
 		G.mail:SetScript("OnHide", function()
