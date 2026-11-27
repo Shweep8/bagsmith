@@ -36,7 +36,7 @@ WN.ENTRIES = {
 		"|cfffac775More Ways to Start a Section:|r New Section From This Item now offers the kind of consumable, quest items, crafting materials and whether you can use it.",
 		"|cfffac775Shorter Special Bag Settings:|r Special Bag Slot Indicators in Settings > Item Icons is one short list now. Pick a kind of bag, then set it up.",
 		-- (1.11.0-beta6) an eighth, for the held-back rows Shweep asked for on 26 Nov; last, so the others keep their places
-		"|cfffac775See What the Disenchant Helper Holds Back:|r click the Held Back line at the end of its list to see those items, each with the reason and its vendor, auction and materials values. Offer Anyway puts one in the list when you'd rather decide for yourself.",
+		"|cfffac775See What the Disenchant Helper Holds Back:|r click the Held Back line at the end of its list to see those items, each with the reason and its vendor, auction and materials values. Disenchant Anyway puts one in the list when you'd rather decide for yourself.",
 	} },
 	-- (1.10.1-beta1) drafted with the beta for Shweep to keep, change or strike (the convention since 1.9.8). An
 	-- update under 1.10's tab: it never opens the card by itself.

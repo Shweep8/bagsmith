@@ -362,6 +362,10 @@ local function deStatsValidator(v)
 		if type(v.mats) ~= "table" then gap = true end
 		if out.cn > out.n or out.ahN + out.ahU > out.cn or out.alt < out.vendor or out.alt < out.ah or out.alt > out.vendor + out.ah then gap = true end
 	end
+	-- (1.11.0-beta8, the beta7 re-audit's B7-2) And the other way about: materials, sale amounts or priced counts
+	-- with NO matched count (it is missing, or zero) are a comparison that lost its count. Read as "nothing compared",
+	-- the next disenchant mixed its own numbers into them. A record that truly compared nothing has none of these.
+	if out.cn == 0 and (next(out.mats) ~= nil or out.vendor > 0 or out.ah > 0 or out.alt > 0 or out.ahN > 0 or out.ahU > 0) then gap = true end
 	out.gap = gap or nil   -- (settled here: the most valuable item below is not part of the comparison)
 	local b = v.best
 	if type(b) == "table" and itemID(b.id) and finite(b.worth) and b.worth >= 1 and b.worth < DE_MONEY_MAX then

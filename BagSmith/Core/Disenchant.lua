@@ -414,7 +414,7 @@ function DE:Tally(c, id, count, source, learn)
 end
 function DE:CloseCast(why)
 	if not self.castOpen then return end
-	ns:Debug("Disenchant Helper: attribution closed (%s)", why or "done")
+	ns:Debug("Disenchant Helper: attribution closed (%s) at +%.1fs", why or "done", GetTime() - (self.castOpen.at or 0))
 	self.castOpen = nil
 	-- (1.11.0-beta6, B5-3) an open Results view was holding its winner back for this: drawn again now (after combat, if in it)
 	if self.view == "results" and self.frame and self.frame:IsShown() then self:Paint() end
@@ -423,14 +423,16 @@ end
 local lootPatterns
 local function buildLootPatterns()
 	lootPatterns = {}
-	local function pat(fmt, multi)
+	local function pat(fmt, multi, pushed)
 		if type(fmt) ~= "string" then return end
 		local p = fmt:gsub("%%", "%%%%"):gsub("%%%%s", "(.+)"):gsub("%%%%d", "(%%d+)")
 		p = p:gsub("%.$", "%%.?")
-		lootPatterns[#lootPatterns + 1] = { "^" .. p, multi }
+		lootPatterns[#lootPatterns + 1] = { "^" .. p, multi, pushed }
 	end
-	pat(LOOT_ITEM_SELF_MULTIPLE, true); pat(LOOT_ITEM_PUSHED_SELF_MULTIPLE, true)
-	pat(LOOT_ITEM_SELF, false); pat(LOOT_ITEM_PUSHED_SELF, false)
+	-- (1.11.0-beta8) each remembers which of the game's two forms it is: "You receive loot" (taken from a loot
+	-- window) or "You receive item" (pushed: made, handed over, taken from mail)
+	pat(LOOT_ITEM_SELF_MULTIPLE, true, false); pat(LOOT_ITEM_PUSHED_SELF_MULTIPLE, true, true)
+	pat(LOOT_ITEM_SELF, false, false); pat(LOOT_ITEM_PUSHED_SELF, false, true)
 end
 function DE.ParseLootLine(msg)
 	if not lootPatterns then buildLootPatterns() end
@@ -438,7 +440,7 @@ function DE.ParseLootLine(msg)
 		local link, count = msg:match(p[1])
 		if link then
 			local id = tonumber(link:match("item:(%d+)"))
-			if id then return id, p[2] and tonumber(count) or 1 end
+			if id then return id, p[2] and tonumber(count) or 1, p[3] and true or false end
 		end
 	end
 end
@@ -446,9 +448,25 @@ function DE:OnLootChat(msg)
 	local c = self.castOpen
 	if not (c and msg) then return end
 	if (GetTime() - c.at) > self.LOOT_WINDOW then self:CloseCast("window passed"); return end
-	local id, count = self.ParseLootLine(msg)
+	local id, count, pushed = self.ParseLootLine(msg)
 	if not id then return end
 	if not self:Attributable(c, id) then return end   -- somebody else's loot, or a pickup: not the cast's (1.8.0: learned materials count)
+	-- (1.11.0-beta8, the beta7 re-audit's B7-1: "The longer attribution window can record loot from a different
+	-- source") Two receipts are not the cast's, and /bs debug says which and when:
+	--   once the cast's OWN loot window has been read, that window is the cast's loot and a receipt adds nothing;
+	--   a "You receive item" receipt (the form of something made, handed over or taken from mail) keeps the limit it
+	--   had before beta7: it counts until a second after the item left its slot, not for the cast's whole five
+	--   seconds. A "You receive loot" receipt, the form of a loot window's own, still counts for the five.
+	local when, form = GetTime() - c.at, pushed and "receive item" or "receive loot"
+	if c.ownWindow then
+		ns:Debug("Disenchant Helper: receipt at +%.1fs, %s x%d (\"%s\"): not counted, the cast's own loot window was read", when, self.MatName(id), count, form)
+		return
+	end
+	if pushed and c.goneAt and (GetTime() - c.goneAt) > 1 then
+		ns:Debug("Disenchant Helper: receipt at +%.1fs, %s x%d (\"%s\"): not counted, it came more than a second after the item left", when, self.MatName(id), count, form)
+		return
+	end
+	ns:Debug("Disenchant Helper: receipt at +%.1fs, %s x%d (\"%s\")", when, self.MatName(id), count, form)
 	if self:Tally(c, id, count, "chat") and self.frame and self.frame:IsShown() then self:Paint() end
 end
 -- Expected quantity of each material per cast: the shipped chances, or your own averages once a bracket
@@ -979,6 +997,7 @@ DE.HELD_INFO = {
 	skill = { short = "Needs skill", text = "needs more Enchanting skill", cant = "Your Enchanting skill is too low to disenchant it." },
 	itemtreewait = { short = "ItemTree: wait", text = "waiting for ItemTree", cant = "ItemTree hasn't answered about it yet. This clears by itself in a moment." },
 }
+DE.ARM_HOLD = 0.5   -- (1.11.0-beta8) seconds the Disenchant button stays dead after Disenchant Anyway put a piece in the list
 DE.HELD_TIP, DE.HELD_TIP_SUB = "Held-back items", "Each with why it's held back and its vendor, auction and materials values. Click to show or hide them."
 DE.HELD_ORDER = { "itemtree", "pawn", "junk", "epic", "favorite", "gear set", "never", "refundable", "tradeable", "skill", "itemtreewait" }
 local NO_OFFER = {}
@@ -1047,7 +1066,7 @@ function DE:OfferAnyway(e, sure)
 			DE:OfferAnyway(now, true)
 		end
 		self.askFn, self.asked = answer, e
-		ns.Confirm(self.frame and self.frame.offer, ("%s %s.\nOffer this one anyway? Nothing is disenchanted until you click Disenchant."):format(e.name or "This item", self.HELD_INFO[e.held].ask), answer)
+		ns.Confirm(self.frame and self.frame.offer, ("%s %s.\nDisenchant this one anyway? Nothing is disenchanted until you click Disenchant."):format(e.name or "This item", self.HELD_INFO[e.held].ask), answer)
 		return false
 	end
 	local key = e.rec.guid   -- (DE:CanOffer has made sure there is one)
@@ -1057,6 +1076,16 @@ function DE:OfferAnyway(e, sure)
 	o.why[e.held] = true
 	ns:Debug("Disenchant Helper: %s offered by you (%s set aside)", tostring(e.name), e.held)
 	self.wantPiece = e   -- the panel stays on this piece: armed if nothing else holds it, still held back if something does
+	-- (1.11.0-beta8) the Disenchant button takes Disenchant Anyway's place and stays dead for a moment (DE:Arm)
+	if (self.ARM_HOLD or 0) > 0 then
+		local till = GetTime() + self.ARM_HOLD
+		self.armHoldUntil = till
+		C_Timer.After(self.ARM_HOLD + 0.05, function()
+			if DE.armHoldUntil ~= till then return end
+			DE.armHoldUntil = nil
+			if DE:IsOpen() and not InCombatLockdown() then DE:Refresh() end
+		end)
+	end
 	self:Refresh()
 	return true
 end
@@ -1201,7 +1230,10 @@ function DE:Arm(entry)
 		end
 		entry = nil
 	end
-	if entry then
+	-- (1.11.0-beta8) just after Disenchant Anyway: the piece is in the panel, and the button, which has taken that
+	-- button's place, is not live yet (the hold's own timer draws the list again when it is over)
+	local held = entry and self.armHoldUntil and GetTime() < self.armHoldUntil
+	if entry and not held then
 		b:SetAttribute("type", "spell")
 		b:SetAttribute("target-bag", entry.bag)
 		b:SetAttribute("target-slot", entry.slot)
@@ -1235,6 +1267,7 @@ function DE:OnSpellSucceeded(unit, spellID)
 	self.session = self.session or { done = 0, mats = {} }
 	self.session.done = self.session.done + 1
 	self:NoteDisenchanted(e, self.castOpen)   -- (1.11.0-beta3) the Results view's records
+	ns:Debug("Disenchant Helper: cast succeeded on %s; its loot is followed for %d seconds", tostring(e.name), self.LOOT_WINDOW)
 end
 -- The loot window, for players with auto-loot off: its slots are the same materials, tallied once per cast.
 -- (1.8.0) A window shown to be the cast's own counts whatever it holds, and a material the table doesn't list is learned.
@@ -1289,6 +1322,11 @@ function DE:OnLootOpened()
 	local n = (GetNumLootItems and GetNumLootItems()) or 0
 	local sums = {}   -- a material in two slots is one count
 	local castOwn = n > 0 and not fishing()
+	-- (1.11.0-beta8, B7-1) A window whose source can be READ and is not the disenchanted item (a creature, a chest,
+	-- another item) is somebody else's loot: nothing in it is the cast's. Until now it was treated like a window
+	-- whose source couldn't be read at all, and its materials were counted if the bracket could give them.
+	local foreign = false
+	local own = c.entry and c.entry.rec and c.entry.rec.guid
 	for i = 1, n do
 		local link = GetLootSlotLink and GetLootSlotLink(i)
 		local id = type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil
@@ -1296,7 +1334,18 @@ function DE:OnLootOpened()
 		if GetLootSlotInfo then local _, _, q = GetLootSlotInfo(i); qty = q end
 		if id then sums[id] = (sums[id] or 0) + (tonumber(qty) or 1) end
 		if castOwn and not slotIsCast(i, id) then castOwn = false end
+		if type(GetLootSourceInfo) == "function" then
+			for _, guid in ipairs(sourcesOf(i) or {}) do
+				if type(guid) == "string" and guid ~= "" and (not guid:find("^Item%-") or (type(own) == "string" and own ~= "" and guid ~= own)) then foreign = true end
+			end
+		end
 	end
+	if foreign then
+		ns:Debug("Disenchant Helper: loot window at +%.1fs: not the disenchanted item's, ignored", GetTime() - c.at)
+		return
+	end
+	if castOwn then c.ownWindow = true end
+	ns:Debug("Disenchant Helper: loot window at +%.1fs: %s", GetTime() - c.at, castOwn and "the cast's own" or "its source can't be read")
 	for id, total in pairs(sums) do
 		if castOwn then self:Tally(c, id, total, "window", true)
 		elseif self:IsMaterial(id) and self:Attributable(c, id) then self:Tally(c, id, total, "window", false) end
@@ -1444,9 +1493,15 @@ function DE:Frame()
 	f.junk.tipSub = "Sell Junk will sell it at your next vendor."
 	-- (1.11.0-beta6) For a held-back row: Offer Anyway beside the Disenchant button (greyed then: nothing is armed),
 	-- with Skip after it. For a piece the player offered: Hold Back, where Exclude sits for any other piece.
-	f.offer = ns.TextButton(f.cur, "Offer Anyway", 104, function() DE:OfferAnyway() end); f.offer:SetHeight(24); f.offer:SetPoint("LEFT", b, "RIGHT", 6, 0); f.offer:Hide()
-	f.offer.tip = "Offer this piece for disenchanting"
-	f.offer.tipSub = "Sets its reason aside for this piece only, until you close the Helper. Nothing is disenchanted until you click Disenchant."
+	-- (1.11.0-beta8, Shweep: "instead of offer anyway, have Disenchant button be Disenchant Anyway. think that will
+	-- be more intuitive") An ordinary button lying exactly over the Disenchant button while a held-back row is in the
+	-- panel (the secure button under it is disarmed and greyed then). A click on it is the offer, never a cast; the
+	-- real button, in the same place, comes alive DE.ARM_HOLD seconds later, so a double click can't do both.
+	f.offer = ns.TextButton(f.cur, "Disenchant Anyway", 140, function() DE:OfferAnyway() end); f.offer:Hide()
+	f.offer:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0); f.offer:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0)
+	if f.offer.SetFrameLevel and b.GetFrameLevel then f.offer:SetFrameLevel((b:GetFrameLevel() or 1) + 5) end
+	f.offer.tip = "Disenchant this piece anyway"
+	f.offer.tipSub = "Sets its reason aside for this piece only, until you close the Helper. Then click Disenchant."
 	f.unoffer = ns.TextButton(f.cur, "Hold Back", 70, function() DE:TakeBack() end); f.unoffer:SetHeight(24); f.unoffer:SetPoint("LEFT", f.skip, "RIGHT", 6, 0); f.unoffer:Hide()
 	f.unoffer.tip = "Take back your offer"
 	f.unoffer.tipSub = "The piece goes back under Held Back."
@@ -1549,7 +1604,8 @@ function DE:Frame()
 	-- it fades in combat like the bags window.
 	ns:CloseOnEscape(f, function() DE:Close() end)
 	ns:CombatWindow(f)
-	f:HookScript("OnHide", function() DE:AfterClose() end)
+	-- (1.11.0-beta8, the beta7 re-audit's B7-3) and hidden by whatever means, its question goes with it
+	f:HookScript("OnHide", function() DE:DropQuestion(); DE:AfterClose() end)
 	-- (1.7.3-beta4) closed mid-resize: no outline left on screen; the resize is dropped (out of combat; in combat the
 	-- gesture still finishes when combat ends, with what the outline had)
 	f:HookScript("OnHide", function()
@@ -2236,7 +2292,7 @@ function DE:Paint()
 		f.skip:ClearAllPoints(); f.skip:SetPoint("LEFT", isHeld and f.offer or b, "RIGHT", 6, 0)
 		if isHeld then
 			local how, cant = self:CanOffer(cur)
-			ns.View.GlobalOff(f.offer, not how, "Offer Anyway", cant, false)
+			ns.View.GlobalOff(f.offer, not how, "Disenchant Anyway", cant, false)
 		end
 		local lines, head, likelyBasis, _, parts = self:LikelyLines(cur.rec)
 		f.cur.likelyHead:SetText("Likely results")
@@ -2285,6 +2341,8 @@ function DE:Paint()
 			if e.held then r.cells[6]:SetTextColor(1, 0.6, 0.25) else r.cells[6]:SetTextColor(1, 1, 1) end
 			r.chev:Hide(); r.band:Hide(); r.rule:Hide()
 			r.lock:SetShown(e.held ~= nil); r.dot:SetShown(e.held == nil)
+			-- (1.11.0-beta8, Shweep: "have the lock be white or something and then colored when selected")
+			if e == cur then r.lock:SetVertexColor(1, 0.82, 0) else r.lock:SetVertexColor(1, 1, 1) end
 			r.hl:SetShown(e == cur); r.dotFill:SetShown(e == cur and e.held == nil)
 		end
 		r:SetAlpha(1)
@@ -2514,6 +2572,17 @@ ns:OnSignal("ADDON_READY", function()
 		-- while Results named a winner. A cast now stays open for its loot until the loot window closes
 		-- (LOOT_CLOSED) or its five seconds pass (DE:OnLootChat, DE:Results), whichever comes first. What may be
 		-- counted for it is unchanged: only what DE:Attributable admits.
+		-- (1.11.0-beta8, B7-1) When the item left is noted, for the limit a "You receive item" receipt keeps
+		-- (DE:OnLootChat) and for /bs debug.
+		local c = DE.castOpen
+		if c and c.entry and not c.goneAt then
+			local C = C_Container
+			local info = C and C.GetContainerItemInfo and C.GetContainerItemInfo(c.entry.bag, c.entry.slot)
+			if not (type(info) == "table" and info.itemID == c.entry.itemID) then
+				c.goneAt = GetTime()
+				ns:Debug("Disenchant Helper: the item left its slot at +%.1fs", c.goneAt - c.at)
+			end
+		end
 		if DE.frame and DE.frame:IsShown() then DE:Refresh() end
 	end)
 	-- combat over: re-arm from a fresh look (the state driver only disarms) (1.4.0-beta6: also when something was armed)

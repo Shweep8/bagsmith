@@ -123,6 +123,10 @@ local function hBoot(stock, opts)
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	for _ = 1, 10 do M.runTimers() end
 	local DE = n.Disenchant
+	-- (by design since 1.11.0-beta8: Offer Anyway became Disenchant Anyway, lying over the Disenchant button, which then
+	-- stays dead for half a second. These scenarios are about what is set aside and checked, not that pause, so it is
+	-- switched off here; the beta8 set has the pause. The button's words and the question's are the new ones below.)
+	DE.ARM_HOLD = 0
 	DE:Show(); M.runTimers()
 	return n, M, DE, DE.frame, DE:Button()
 end
@@ -195,7 +199,7 @@ do
 	check(not armed(b) and b:GetAttribute("target-slot") == nil and b:GetAttribute("target-item") == nil and not b:IsEnabled(), "and the Disenchant button is disarmed and greyed")
 	check(f.cur:IsShown() and plain(f.cur.name.text) == "Enchanted Moonstalker Cloak" and f.cur.values.text:find("Vendor " .. DE.Money(150), 1, true), "the panel shows the piece and its values")
 	check(f.cur.verdict.text == "Held back: ItemTree says to keep", "and why it is held back, in place of the recommendation: " .. tostring(f.cur.verdict.text))
-	check(f.offer:IsShown() and f.offer:IsEnabled() and f.offer.label.text == "Offer Anyway" and not f.never:IsShown() and not f.unoffer:IsShown() and not f.junk:IsShown(), "its buttons: Offer Anyway, no Exclude or Junk")
+	check(f.offer:IsShown() and f.offer:IsEnabled() and f.offer.label.text == "Disenchant Anyway" and not f.never:IsShown() and not f.unoffer:IsShown() and not f.junk:IsShown(), "its buttons: Offer Anyway, no Exclude or Junk")
 	check(f.offer.points[1][2] == b and f.skip.points[1][2] == f.offer and f.skip:IsShown(), "Offer Anyway beside the greyed Disenchant button, Skip after it")
 	check(cloakRow.hl:IsShown() and cloakRow.lock:IsShown() and not cloakRow.dotFill:IsShown() and not rows[1].dotFill:IsShown() and not rows[1].hl:IsShown(), "its row is the highlighted one (by design since 1.11.0-beta7: it keeps its lock, no dot)")
 	local held = DE.viewing
@@ -292,7 +296,7 @@ do
 	local realConfirm = n.Confirm
 	n.Confirm = function(anchor, text, onYes, onNo) askedText, yes, no = text, onYes, onNo end
 	click(f.offer)
-	check(askedText == "Worn Dagger is a favorite.\nOffer this one anyway? Nothing is disenchanted until you click Disenchant.", "Offer Anyway asks first: " .. tostring(askedText))
+	check(askedText == "Worn Dagger is a favorite.\nDisenchant this one anyway? Nothing is disenchanted until you click Disenchant.", "Offer Anyway asks first: " .. tostring(askedText))
 	check(DE.offered == nil and entryOf(DE, 7002) == nil and not armed(b), "and nothing is offered until the answer is yes")
 	yes()
 	check(entryOf(DE, 7002) ~= nil and DE.current.itemID == 7002 and DE.current.offered == "Favorite" and armed(b), "yes: the dagger is offered and armed")
@@ -410,7 +414,7 @@ do
 	local can, cant = DE:CanOffer(plate)
 	check(can == false and cant == "Your Enchanting skill is too low to disenchant it." and rowFor(f, 7020).cells[6].text == "Needs skill", "not enough skill: it can't be offered, and says why")
 	click(rowFor(f, 7020))
-	check(f.offer:IsShown() and not f.offer:IsEnabled() and f.offer.offReason == cant and f.offer.offName == "Offer Anyway" and f.offer.offHead == false, "Offer Anyway is greyed, its tooltip giving the reason")
+	check(f.offer:IsShown() and not f.offer:IsEnabled() and f.offer.offReason == cant and f.offer.offName == "Disenchant Anyway" and f.offer.offHead == false, "Offer Anyway is greyed, its tooltip giving the reason")
 	check(DE:OfferAnyway(plate) == false and DE:OfferAnyway(plate, true) == false and DE.offered == nil, "and DE:OfferAnyway does nothing for it")
 	can, cant = DE:CanOffer(boots)
 	check(can == false and cant == "ItemTree hasn't answered about it yet. This clears by itself in a moment." and rowFor(f, 7001).cells[6].text == "ItemTree: wait", "waiting on ItemTree: not yet")

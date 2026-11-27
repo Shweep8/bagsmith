@@ -124,6 +124,10 @@ local function hBoot(stock, opts)
 	M.fire("ADDON_LOADED", "BagSmith"); M.fire("PLAYER_ENTERING_WORLD"); M.runTimers(); M.runTimers()
 	for _ = 1, 10 do M.runTimers() end
 	local DE = n.Disenchant
+	-- (by design since 1.11.0-beta8: Offer Anyway became Disenchant Anyway, lying over the Disenchant button, which then
+	-- stays dead for half a second. These scenarios are about what is set aside and checked, not that pause, so it is
+	-- switched off here; the beta8 set has the pause. The button's words and the question's are the new ones below.)
+	DE.ARM_HOLD = 0
 	DE:Show(); M.runTimers()
 	return n, M, DE, DE.frame, DE:Button()
 end
@@ -169,7 +173,7 @@ local function favBoot()
 	click(bandOf(f)); click(rowFor(f, 7001))
 	return n, M, DE, f, b
 end
-local QUESTION = "Sturdy Boots is a favorite.\nOffer this one anyway? Nothing is disenchanted until you click Disenchant."
+local QUESTION = "Sturdy Boots is a favorite.\nDisenchant this one anyway? Nothing is disenchanted until you click Disenchant."
 
 ------------------------------------------------------------------------
 -- B6-1. A question belongs to the moment it was asked
@@ -282,7 +286,8 @@ do
 	yes = pop.onYes
 	check(pop:IsShown() and DE.askFn == yes, "(its question is up)")
 	DE.frame:Hide()   -- (hidden without the Helper's own close)
-	check(pop:IsShown(), "(the box is still up)")
+	-- (by design since 1.11.0-beta8, the beta7 re-audit's B7-3: the window hiding, by whatever means, takes its question down)
+	check(not pop:IsShown(), "(the box goes down with the window)")
 	DE:Show(); pump(M)
 	check(DE.viewing and DE.viewing.itemID == 5387, "(opened again: the panel is on that row once more)")
 	check(not pop:IsShown() and DE.askFn == nil, "opening the Helper drops a question left from before")
