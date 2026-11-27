@@ -211,14 +211,17 @@ do
 	local t = DE:Results("session").tracked
 	check(t.cn == 1 and t.matsValue == 1200 and t.ahead == -285 and DE:Stats().mats[10940] == 10, "a \"You receive item\" receipt that long after the item left is not counted for the cast (beta7 counted it and flipped the winner)")
 	check(DE:Log()[DE.castOpen and DE.castOpen.key or next(DE:Log())].mats[10940] == 10, "nor does it teach the bracket")
-	check(said(M, from, "receipt at +2.0s, Strange Dust x5 (\"receive item\"): not counted, it came more than a second after the item left"), "/bs debug says so, with the time and the line's form")
+	-- (by design since 1.11.0-beta9: the reason given is the form itself, at any time)
+	check(said(M, from, "receipt at +2.0s, Strange Dust x5 (\"receive item\"): not counted, a disenchant's loot is never announced that way"), "/bs debug says so, with the time and the line's form")
 	local saved = deep(BagSmithDB.deShared)
 	local n2, M2, DE2 = hBoot(function(M) put(M, 1, BOOTS) end, { deShared = saved })
 	check(DE2:Results("all").tracked.matsValue == 1200 and DE2:Results("all").tracked.ahead == -285, "and what is saved is the cast's own ten")
 	-- within a second of the item leaving, such a receipt counts as it always has
 	n, M, DE, at = start()
 	at(100.8); pushed(M, 10940, 5)
-	check(DE:Stats().mats[10940] == 15, "inside the second after the item left, a \"You receive item\" receipt counts as before")
+	-- (by design since 1.11.0-beta9, the beta8 re-audit's B8-2 and Shweep's trace: that form is never a disenchant's,
+	-- so the second's allowance beta8 kept is gone)
+	check(DE:Stats().mats[10940] == 10, "inside the second after the item left, a \"You receive item\" receipt is not counted either")
 	-- and one that names nothing a disenchant gives never does
 	at(101); pushed(M, 2589, 3)
 	check(DE:Stats().mats[2589] == nil, "(a receipt of something else is no material of the cast's, as ever)")

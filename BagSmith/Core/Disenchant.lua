@@ -454,16 +454,18 @@ function DE:OnLootChat(msg)
 	-- (1.11.0-beta8, the beta7 re-audit's B7-1: "The longer attribution window can record loot from a different
 	-- source") Two receipts are not the cast's, and /bs debug says which and when:
 	--   once the cast's OWN loot window has been read, that window is the cast's loot and a receipt adds nothing;
-	--   a "You receive item" receipt (the form of something made, handed over or taken from mail) keeps the limit it
-	--   had before beta7: it counts until a second after the item left its slot, not for the cast's whole five
-	--   seconds. A "You receive loot" receipt, the form of a loot window's own, still counts for the five.
+	--   a "You receive item" receipt (the form of something made, handed over or taken from mail) is never a
+	--   disenchant's. (1.11.0-beta9, the beta8 re-audit's B8-2, on Shweep's trace from the game, 27 Nov, auto-loot on
+	--   and off: a disenchant's loot comes from its own loot window and is announced as "You receive loot"; "You
+	--   receive item" never came. beta8 still counted that form for a second after the item left its slot.)
+	--   A "You receive loot" receipt, the form of a loot window's own, still counts for the cast's five seconds.
 	local when, form = GetTime() - c.at, pushed and "receive item" or "receive loot"
 	if c.ownWindow then
 		ns:Debug("Disenchant Helper: receipt at +%.1fs, %s x%d (\"%s\"): not counted, the cast's own loot window was read", when, self.MatName(id), count, form)
 		return
 	end
-	if pushed and c.goneAt and (GetTime() - c.goneAt) > 1 then
-		ns:Debug("Disenchant Helper: receipt at +%.1fs, %s x%d (\"%s\"): not counted, it came more than a second after the item left", when, self.MatName(id), count, form)
+	if pushed then
+		ns:Debug("Disenchant Helper: receipt at +%.1fs, %s x%d (\"%s\"): not counted, a disenchant's loot is never announced that way", when, self.MatName(id), count, form)
 		return
 	end
 	ns:Debug("Disenchant Helper: receipt at +%.1fs, %s x%d (\"%s\")", when, self.MatName(id), count, form)
