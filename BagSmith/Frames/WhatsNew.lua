@@ -24,7 +24,7 @@ ns.WhatsNew = WN
 -- Newest first. Only notable releases get an entry; keep a handful of short
 -- bullets that say what it is and where to turn it on.
 WN.ENTRIES = {
-	-- (1.11.0-beta4) the 1.11 card, drafted for Shweep to keep, change or strike. Seven bullets, each leading with what
+	-- (1.11.0-beta4) the 1.11 card, drafted for Shweep to keep, change or strike. Seven bullets (eight since beta6), each leading with what
 	-- the player gets, as 1.10's. The third is his ask ("Leave as history and make sure new one speaks to it being
 	-- changed"): 1.10.1's entry below stays as it was written, and this one says where its switch went.
 	{ v = "1.11.0", heading = "BagSmith 1.11", items = {
@@ -35,6 +35,8 @@ WN.ENTRIES = {
 		"|cfffac775Sections on a Sheet:|r pick a tab and tick the sections of yours that should show there, several at once. It's in Settings > Custom Sections and in each section's menu.",
 		"|cfffac775More Ways to Start a Section:|r New Section From This Item now offers the kind of consumable, quest items, crafting materials and whether you can use it.",
 		"|cfffac775Shorter Special Bag Settings:|r Special Bag Slot Indicators in Settings > Item Icons is one short list now. Pick a kind of bag, then set it up.",
+		-- (1.11.0-beta6) an eighth, for the held-back rows Shweep asked for on 26 Nov; last, so the others keep their places
+		"|cfffac775See What the Disenchant Helper Holds Back:|r click Show beside \"held back\" to list those items, each with the reason and its vendor, auction and materials values. Offer Anyway puts one in the list when you'd rather decide for yourself.",
 	} },
 	-- (1.10.1-beta1) drafted with the beta for Shweep to keep, change or strike (the convention since 1.9.8). An
 	-- update under 1.10's tab: it never opens the card by itself.

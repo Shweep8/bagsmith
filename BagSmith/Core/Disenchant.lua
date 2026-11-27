@@ -202,13 +202,23 @@ function DE:Stats()
 	for _, k in ipairs({ "n", "cn", "vendor", "ah", "ahN", "ahU", "alt" }) do st[k] = tonumber(st[k]) or 0 end
 	return st
 end
+-- (1.11.0-beta6, the beta5 re-audit's B5-2: "A gross AH winner can be a net loss") What an auction house sale leaves
+-- after its cut, in whole copper: the same cut the Helper's own recommendation takes (DE:Verdict). Whole-number
+-- arithmetic, so equal amounts stay equal after it.
+function DE.AfterCut(v)
+	v = tonumber(v)
+	if not v or v ~= v or v <= 0 then return 0 end
+	local keep = 100 - DE.DecimalHundredths(DE.AH_CUT)   -- 95
+	return math.floor((math.min(v, DE.MONEY_MAX - 1) * keep + 50) / 100)
+end
 -- A disenchant that succeeded: counted in both records, and what its item would have sold for kept with the cast
 -- (c.sale) until its materials show up.
 function DE:NoteDisenchanted(e, c)
 	if type(e) ~= "table" then return end
 	local q = tonumber(e.quality) or 0
 	local vendor = math.min(math.floor((tonumber(e.vendor) or 0) + 0.5), DE.MONEY_MAX - 1)
-	local ah = tonumber(e.ah) and math.min(math.floor(e.ah + 0.5), DE.MONEY_MAX - 1) or nil
+	-- (1.11.0-beta6, B5-2) the auction price after the cut: what the sale would have paid, like the vendor price
+	local ah = tonumber(e.ah) and DE.AfterCut(math.min(math.floor(e.ah + 0.5), DE.MONEY_MAX - 1)) or nil
 	local worth = math.max(vendor, ah or 0)
 	local function add(st)
 		st.n = st.n + 1
@@ -402,7 +412,13 @@ function DE:Tally(c, id, count, source, learn)
 	ns:Debug("Disenchant Helper: %s x%d from the cast under bracket %s", self.MatName(id), delta, c.key)
 	return true
 end
-function DE:CloseCast(why) if self.castOpen then ns:Debug("Disenchant Helper: attribution closed (%s)", why or "done"); self.castOpen = nil end end
+function DE:CloseCast(why)
+	if not self.castOpen then return end
+	ns:Debug("Disenchant Helper: attribution closed (%s)", why or "done")
+	self.castOpen = nil
+	-- (1.11.0-beta6, B5-3) an open Results view was holding its winner back for this: drawn again now (after combat, if in it)
+	if self.view == "results" and self.frame and self.frame:IsShown() then self:Paint() end
+end
 -- The loot chat's own patterns, built from the game's strings ("You receive loot: %s." and "...%sx%d.").
 local lootPatterns
 local function buildLootPatterns()
@@ -795,6 +811,7 @@ DE.Refundable, DE.Tradeable = refundable, tradeable
 -- or false and why. Anything the client cannot answer is a no.
 function DE:LiveCheck(entry)
 	if not entry then return false, "nothing is armed" end
+	if entry.held then return false, "that item is held back" end   -- (1.11.0-beta6) a held-back row is looked at, never armed
 	if not (ns.db and ns.db.deEnabled) then return false, "the Disenchant Helper is off" end   -- (1.5.7, C1)
 	local C = C_Container
 	if not (C and type(C.GetContainerItemInfo) == "function") then return false, "the bag could not be read" end
@@ -812,9 +829,12 @@ function DE:LiveCheck(entry)
 		sameInstance = true
 	end
 	if info.isLocked then return false, "that item is locked right now" end
-	if self:Never()[entry.itemID] then return false, "that item is on your DE Exclusion List" end
-	if ns.Marks and ns.Marks:IsFavorite(entry.itemID) then return false, "that item is a favorite now" end
-	if ns.GearSets and ns.GearSets:Available() then
+	-- (1.11.0-beta6) What the player set aside for this very piece with Offer Anyway (DE:OfferAnyway), read only now
+	-- that the slot is known to hold the armed piece. Each reason lifts its own check below and no other.
+	local over = self:OfferedWhy(entry.rec)
+	if self:Never()[entry.itemID] and not over.never then return false, "that item is on your DE Exclusion List" end
+	if ns.Marks and ns.Marks:IsFavorite(entry.itemID) and not over.favorite then return false, "that item is a favorite now" end
+	if ns.GearSets and ns.GearSets:Available() and not over["gear set"] then
 		local okS, setsAt, unreadable = pcall(function() return ns.GearSets:SetsAt(entry.bag, entry.slot) end)
 		if not okS or unreadable then return false, "gear sets could not be checked" end
 		if setsAt and #setsAt > 0 then return false, "that item is in a gear set now" end
@@ -823,12 +843,16 @@ function DE:LiveCheck(entry)
 	-- the same gates the list applies, against the live slot; a read that fails is unknown, and unknown is a no
 	if ns.db and ns.db.deSkipRefundable ~= false then
 		local live = { bag = entry.bag, slot = entry.slot }
-		local isRefundable, unknownR = refundable(live)
-		if unknownR then return false, "whether that item is refundable could not be checked" end
-		if isRefundable then return false, "that item is refundable now" end
-		local isTradeable, unknownT = tradeable(live)
-		if unknownT then return false, "whether that item is tradeable could not be checked" end
-		if isTradeable then return false, "that item is still tradeable" end
+		if not over.refundable then
+			local isRefundable, unknownR = refundable(live)
+			if unknownR then return false, "whether that item is refundable could not be checked" end
+			if isRefundable then return false, "that item is refundable now" end
+		end
+		if not over.tradeable then
+			local isTradeable, unknownT = tradeable(live)
+			if unknownT then return false, "whether that item is tradeable could not be checked" end
+			if isTradeable then return false, "that item is still tradeable" end
+		end
 	end
 	-- (1.10.0-beta15, the beta14 audit's B14-1) The slot is the armed piece's (the same item, the same instance, checked
 	-- above). If the game now gives it a link the list didn't have, or a different one (a slot read before its link
@@ -849,14 +873,14 @@ function DE:LiveCheck(entry)
 		if ns.KeepLink then ns:KeepLink(entry.bag, entry.slot, entry.itemID, info.hyperlink) end
 	end
 	-- (1.10.0-beta8) Pawn, asked fresh, while Hold Back Pawn Upgrades is on: an upgrade, or no answer yet, is a no
-	if ns.db.deHoldPawn and ns.Pawn and ns.Pawn:Active() then
+	if ns.db.deHoldPawn and ns.Pawn and ns.Pawn:Active() and not over.pawn then
 		local up = ns.Pawn:IsUpgradeLink(info.hyperlink or entry.link, true)
 		if up == true then return false, "Pawn says that item is an upgrade" end
 		if up == nil then return false, "Pawn hasn't decided yet whether that item is an upgrade" end
 	end
 	-- (1.10.0-beta7) and the ItemTree addon's word, asked fresh (beta8: not for a piece it keeps for its dust)
 	-- (1.10.0-beta13, the beta12 audit's F1) and no answer from it now refuses too, whatever it said before
-	if ns.ItemTree then
+	if ns.ItemTree and not over.itemtree then
 		local verdict = ns.ItemTree:Verdict({ itemID = entry.itemID, link = info.hyperlink or entry.link }, true, true)
 		if verdict == "hold" then return false, "ItemTree says to keep that item" end
 		if verdict == "unknown" then return false, "ItemTree couldn't be asked about that item just now (try again in a moment, or untick its Hold Back in the Disenchant Helper in Settings > Addon Sources)" end
@@ -870,31 +894,34 @@ function DE:Eligible(rec, skill)
 	if not self.IsGear(rec) then return false, "not weapon or armor" end
 	local q = rec.quality or 0
 	if q < self.MIN_QUALITY then return false, "common" end
-	if q >= 4 and not (ns.db and ns.db.deIncludeEpics) then return false, "epic" end
+	-- (1.11.0-beta6) the reasons the player set aside for this very piece (DE:OfferAnyway): each lifts its own line
+	-- below and no other. A piece nobody offered has none.
+	local over = self:OfferedWhy(rec)
+	if q >= 4 and not (ns.db and ns.db.deIncludeEpics) and not over.epic then return false, "epic" end
 	if q > 4 then return false, "legendary" end
 	if (rec.ilvl or 0) < 5 then return false, "no item level" end
-	if self:Never()[rec.itemID] then return false, "never" end
-	if ns.Marks and rec.itemID and ns.Marks:IsFavorite(rec.itemID) then return false, "favorite" end
-	if rec.gearSets then return false, "gear set" end
+	if self:Never()[rec.itemID] and not over.never then return false, "never" end
+	if ns.Marks and rec.itemID and ns.Marks:IsFavorite(rec.itemID) and not over.favorite then return false, "favorite" end
+	if rec.gearSets and not over["gear set"] then return false, "gear set" end
 	-- (1.10.0-beta3, Shweep: "when you mark an item to vendor in DE Helper it stays in there, it should leave") an item
 	-- you marked as junk is going to a vendor: not offered while it's marked, and back when the mark comes off
-	if ns.Junk and rec.itemID and ns.Junk:Marked(rec.itemID) then return false, "junk" end
+	if ns.Junk and rec.itemID and ns.Junk:Marked(rec.itemID) and not over.junk then return false, "junk" end
 	if skill and self.SkillFor(rec.ilvl) > skill then return false, "skill" end
 	if ns.db and ns.db.deSkipRefundable ~= false then
-		if refundable(rec) then return false, "refundable" end
-		if tradeable(rec) then return false, "tradeable" end
+		if not over.refundable and refundable(rec) then return false, "refundable" end
+		if not over.tradeable and tradeable(rec) then return false, "tradeable" end
 	end
 	-- (1.10.0-beta8) Hold Back Pawn Upgrades (off unless you turn it on): Pawn says this piece is an upgrade. What Pawn
 	-- answered is kept beside the list, so the list can follow when Pawn changes its answer (DE:PawnPass).
 	if ns.db and ns.db.deHoldPawn and ns.Pawn then
 		local up = ns.Pawn:IsUpgrade(rec)
 		if self.pawnSeen and rec.link then self.pawnSeen[rec.link] = (up == nil) and "?" or up end
-		if up == true then return false, "pawn" end
+		if up == true and not over.pawn then return false, "pawn" end
 	end
 	-- (1.10.0-beta7) last, so it's only asked about what would otherwise be offered: the ItemTree addon says keep it
 	-- (1.10.0-beta8: unless ItemTree keeps it for its dust, which is what this Helper is for)
 	-- (1.10.0-beta13, F1: on but no answer: the piece waits under "couldn't be checked")
-	if ns.ItemTree then
+	if ns.ItemTree and not over.itemtree then
 		local verdict = ns.ItemTree:Verdict(rec, nil, true)
 		if verdict == "hold" then return false, "itemtree" end
 		if verdict == "unknown" then return false, "itemtreewait" end   -- (1.10.0-beta14: its own heading, which names ItemTree)
@@ -914,34 +941,162 @@ function DE:PawnPass()
 		if ((now == nil) and "?" or now) ~= seen then self:Refresh(); return end
 	end
 end
+------------------------------------------------------------------------
+-- Held back, shown (1.11.0-beta6). Shweep, 26 Nov, with a piece ItemTree kept for a spec he doesn't play: "we need a
+-- way to see what is being held back somehow to make our own decisions if we so wish to. When we can see them we
+-- should see the reason still beside each... using the same width we already have ... so we can DE skip, etc if we
+-- want to w/ vendor and AH data etc."
+--
+-- Show, beside "N held back", lists the held-back pieces under the offered ones in the same columns, the reason
+-- where Rec. Action is. A held-back row can be selected and looked at; it is NEVER armed (DE:Arm, DE:LiveCheck and
+-- DE:Select each refuse one). To disenchant one the player clicks Offer Anyway on it, which records, for that very
+-- piece and that one reason, that the reason is set aside (DE.offered). The piece is then judged again like any
+-- other: DE:Eligible and DE:LiveCheck skip only the lines whose reason was set aside, so every other gate, and the
+-- whole fresh check at the click, still stands. An offer is never saved, is dropped when its piece is gone, can be
+-- taken back (Hold Back), and ends when the Helper is next opened. An offer is kept by the piece's own instance
+-- (its GUID), so it can never pass to another copy of the same item; on a client that gives no instances, no piece
+-- can be offered at all.
+--
+-- How each reason may be set aside. "free": one click (an addon's advice, or a mark that only sends the piece
+-- somewhere else). "ask": asked first (a protection the player set, or one that guards against a real loss).
+-- Neither: it can't be (the game won't disenchant it, or it is still being checked).
+------------------------------------------------------------------------
+DE.HELD_INFO = {
+	itemtree = { short = "ItemTree: keep", text = "ItemTree says to keep", offer = "free" },
+	pawn = { short = "Pawn upgrade", text = "Pawn says it's an upgrade", offer = "free" },
+	junk = { short = "Marked junk", text = "marked as junk, for the vendor", offer = "free" },
+	epic = { short = "Epic", text = "an epic (Include Epics is off)", offer = "ask", ask = "is an epic" },
+	favorite = { short = "Favorite", text = "a favorite", offer = "ask", ask = "is a favorite" },
+	["gear set"] = { short = "Gear set", text = "in a gear set", offer = "ask", ask = "is in a gear set" },
+	never = { short = "Excluded", text = "on your DE Exclusion List", offer = "ask", ask = "is on your DE Exclusion List" },
+	refundable = { short = "Refundable", text = "still refundable", offer = "ask", ask = "can still be refunded" },
+	tradeable = { short = "Tradeable", text = "still tradeable", offer = "ask", ask = "can still be traded to your group" },
+	skill = { short = "Needs skill", text = "needs more Enchanting skill", cant = "Your Enchanting skill is too low to disenchant it." },
+	itemtreewait = { short = "ItemTree: wait", text = "waiting for ItemTree", cant = "ItemTree hasn't answered about it yet. This clears by itself in a moment." },
+}
+DE.HELD_ORDER = { "itemtree", "pawn", "junk", "epic", "favorite", "gear set", "never", "refundable", "tradeable", "skill", "itemtreewait" }
+local NO_OFFER = {}
+-- The reasons set aside for this very piece: a table of reason = true, empty for a piece nobody offered (and for
+-- any piece without an instance). DE.offered is keyed by instance and keeps the item ID beside it.
+function DE:OfferedWhy(rec)
+	local o = rec and rec.guid and self.offered and self.offered[rec.guid]
+	if not o or o.itemID == nil or o.itemID ~= rec.itemID then return NO_OFFER end
+	return o.why
+end
+-- Those reasons in a fixed order, as their short words: "ItemTree: keep", or nil.
+function DE:OfferedText(rec)
+	local over, parts = self:OfferedWhy(rec), {}
+	for _, why in ipairs(self.HELD_ORDER) do if over[why] then parts[#parts + 1] = self.HELD_INFO[why].short end end
+	return #parts > 0 and table.concat(parts, ", ") or nil
+end
+-- Can this held-back row be offered? "free" or "ask"; or false and why not.
+function DE:CanOffer(e)
+	local info = e and e.held and self.HELD_INFO[e.held]
+	if not info then return false end
+	if (e.quality or 0) > 4 then return false, "A legendary item is never offered." end
+	if not info.offer then return false, info.cant end
+	if not (e.rec and e.rec.guid) then return false, "This game client can't tell one copy of an item from another, so a single piece can't be offered." end
+	return info.offer
+end
+-- The held-back row for the same piece and the same reason as this one, in the list as it stands now.
+function DE:HeldNow(e)
+	if not (e and e.rec) then return nil end
+	for _, h in ipairs(self.heldEntries or {}) do
+		if h.rec.guid == e.rec.guid and h.bag == e.bag and h.slot == e.slot and h.itemID == e.itemID and h.held == e.held then return h end
+	end
+end
+-- Offer Anyway: this piece's reason is set aside, and the list is judged again. Nothing is disenchanted here, and
+-- nothing is armed that the fresh look doesn't pass. sure: the question for an "ask" reason was answered yes.
+function DE:OfferAnyway(e, sure)
+	if InCombatLockdown() then return false end
+	e = self:HeldNow(e or self.viewing)   -- the row as the list has it now (a question may have sat a while)
+	local how = self:CanOffer(e)
+	if not how then return false end
+	if how == "ask" and not sure then
+		local asked = e
+		ns.Confirm(self.frame and self.frame.offer, ("%s %s.\nOffer this one anyway? Nothing is disenchanted until you click Disenchant."):format(e.name or "This item", self.HELD_INFO[e.held].ask),
+			function() DE:OfferAnyway(asked, true) end)
+		return false
+	end
+	local key = e.rec.guid   -- (DE:CanOffer has made sure there is one)
+	self.offered = self.offered or {}
+	local o = self.offered[key]
+	if not o or o.itemID ~= e.itemID then o = { itemID = e.itemID, why = {} }; self.offered[key] = o end
+	o.why[e.held] = true
+	ns:Debug("Disenchant Helper: %s offered by you (%s set aside)", tostring(e.name), e.held)
+	self.wantPiece = e   -- the panel stays on this piece: armed if nothing else holds it, still held back if something does
+	self:Refresh()
+	return true
+end
+-- Hold Back: the offer on this piece is taken back, all of it.
+function DE:TakeBack(e)
+	if InCombatLockdown() then return false end
+	e = e or self.current
+	if not (e and e.rec and e.rec.guid and self.offered and self.offered[e.rec.guid]) then return false end
+	self.offered[e.rec.guid] = nil
+	self.wantPiece = e
+	self:Refresh()
+	return true
+end
+-- Show or hide the held-back rows.
+function DE:ShowHeld(on)
+	if InCombatLockdown() then return false end
+	self.showHeld = on and true or false
+	if not self.showHeld then self.viewing = nil end
+	if self.frame and self.frame:IsShown() then self:Refresh() end
+	return true
+end
 function DE:Entries()
-	local out = {}
+	local out, held = {}, {}
 	self.pawnSeen = {}
 	local skill = self:Skill()
 	local items = ns.items or {}
 	self.held = ns.Why:New()
+	local function entry(rec)
+		local e = { rec = rec, bag = rec.bag, slot = rec.slot, itemID = rec.itemID, name = rec.name, link = rec.link, quality = rec.quality, ilvl = rec.ilvl }
+		e.vendor = (rec.sellPrice or 0) * (rec.count or 1)
+		-- (1.6.0-beta11, Shweep) a soulbound item can't be sold at the AH: no AH price, so only Disenchant or Vendor
+		e.bound = rec.isBound and true or nil
+		if ns.AH and ns.AH:Available() and not e.bound then e.ah = ns.AH:Price(rec) end
+		local mats, why, missing, basis, n = self:MatsValue(rec)
+		e.mats, e.matsWhy, e.missing, e.basis, e.n = mats, why, missing, basis, n
+		e.verdict = self:Verdict(e)
+		return e
+	end
+	local here = {}   -- (1.11.0-beta6) the pieces in the bags this pass, by instance
 	for _, rec in ipairs(items) do
+		if rec.itemID and rec.guid then here[rec.guid] = rec.itemID end
 		if not (self.skipped and self.skipped[rec.guid or (rec.bag .. ":" .. rec.slot)]) then
 			local ok, why = self:Eligible(rec, skill)
-			if not ok and self.HELD[why] then ns.Why:Add(self.held, self.HELD[why], rec.name) end
+			if not ok and self.HELD[why] then
+				ns.Why:Add(self.held, self.HELD[why], rec.name)
+				-- (1.11.0-beta6) the held-back rows, built only while they are shown
+				if self.showHeld then local e = entry(rec); e.held = why; held[#held + 1] = e end
+			end
 			if ok then
-				local e = { rec = rec, bag = rec.bag, slot = rec.slot, itemID = rec.itemID, name = rec.name, link = rec.link, quality = rec.quality, ilvl = rec.ilvl }
-				e.vendor = (rec.sellPrice or 0) * (rec.count or 1)
-				-- (1.6.0-beta11, Shweep) a soulbound item can't be sold at the AH: no AH price, so only Disenchant or Vendor
-				e.bound = rec.isBound and true or nil
-				if ns.AH and ns.AH:Available() and not e.bound then e.ah = ns.AH:Price(rec) end
-				local mats, why, missing, basis, n = self:MatsValue(rec)
-				e.mats, e.matsWhy, e.missing, e.basis, e.n = mats, why, missing, basis, n
-				e.verdict = self:Verdict(e)
+				local e = entry(rec)
+				e.offered = self:OfferedText(rec)   -- (1.11.0-beta6) in the list because the player offered it
 				out[#out + 1] = e
 			end
 		end
 	end
+	-- (1.11.0-beta6) an offer goes with its piece: once the piece isn't in the bags it is forgotten, so nothing that
+	-- later takes its place inherits it
+	for key, o in pairs(self.offered or {}) do if here[key] ~= o.itemID then self.offered[key] = nil end end
 	local order = { de = 1, unknown = 2, call = 3, ah = 4, vendor = 5 }
 	table.sort(out, function(a, b)
 		if order[a.verdict] ~= order[b.verdict] then return order[a.verdict] < order[b.verdict] end
 		return (a.mats or 0) > (b.mats or 0)
 	end)
+	local rank = {}
+	for i, why in ipairs(self.HELD_ORDER) do rank[why] = i end
+	table.sort(held, function(a, b)
+		if (rank[a.held] or 99) ~= (rank[b.held] or 99) then return (rank[a.held] or 99) < (rank[b.held] or 99) end
+		if (a.name or "") ~= (b.name or "") then return (a.name or "") < (b.name or "") end
+		if a.bag ~= b.bag then return a.bag < b.bag end
+		return a.slot < b.slot
+	end)
+	self.heldEntries = held
 	return out
 end
 
@@ -1001,6 +1156,7 @@ end
 function DE:Arm(entry)
 	local b = self:Button()
 	if not (ns.db and ns.db.deEnabled) then entry = nil end   -- (1.5.7, C1) never armed while the helper is off
+	if entry and entry.held then entry = nil end   -- (1.11.0-beta6) a held-back row is never armed
 	if InCombatLockdown and InCombatLockdown() then self.armPending = entry; return false end
 	self.armPending = nil
 	-- no combat guard, no arming: without it a click in combat would skip the checks (fail closed, 1.4.0-beta6)
@@ -1213,6 +1369,10 @@ function DE:Frame()
 	-- beside the count: how many items the list holds back, and why on hover (1.3.0)
 	f.heldLine = f:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); f.heldLine:Hide()
 	f.heldInfo = ns.Why.InfoButton(f); f.heldInfo:Hide()
+	-- (1.11.0-beta6) and a way to see them in the list (DE:ShowHeld)
+	f.heldShow = ns.TextButton(f, "Show", 46, function() DE:ShowHeld(not DE.showHeld) end); f.heldShow:SetHeight(18); f.heldShow:Hide()
+	f.heldShow.tip = "Held-back items in the list"
+	f.heldShow.tipSub = "Each with why it's held back and its vendor, auction and materials values."
 	-- the current item: icon, name, values, the recommendation; one row of buttons beneath
 	f.cur = CreateFrame("Frame", nil, f); f.cur:SetHeight(84); f.cur:SetPoint("TOPLEFT", 12, -56); f.cur:SetPoint("TOPRIGHT", -12, -56)
 	f.cur.icon = f.cur:CreateTexture(nil, "ARTWORK"); f.cur.icon:SetSize(40, 40); f.cur.icon:SetPoint("TOPLEFT", 0, -2)
@@ -1249,6 +1409,14 @@ function DE:Frame()
 	f.junk:SetHeight(24); f.junk:SetPoint("LEFT", f.never, "RIGHT", 6, 0)
 	f.junk.tip = "Mark as Junk"
 	f.junk.tipSub = "Sell Junk will sell it at your next vendor."
+	-- (1.11.0-beta6) For a held-back row: Offer Anyway beside the Disenchant button (greyed then: nothing is armed),
+	-- with Skip after it. For a piece the player offered: Hold Back, where Exclude sits for any other piece.
+	f.offer = ns.TextButton(f.cur, "Offer Anyway", 104, function() DE:OfferAnyway() end); f.offer:SetHeight(24); f.offer:SetPoint("LEFT", b, "RIGHT", 6, 0); f.offer:Hide()
+	f.offer.tip = "Offer this piece for disenchanting"
+	f.offer.tipSub = "Sets its reason aside for this piece only, until you close the Helper. Nothing is disenchanted until you click Disenchant."
+	f.unoffer = ns.TextButton(f.cur, "Hold Back", 70, function() DE:TakeBack() end); f.unoffer:SetHeight(24); f.unoffer:SetPoint("LEFT", f.skip, "RIGHT", 6, 0); f.unoffer:Hide()
+	f.unoffer.tip = "Take back your offer"
+	f.unoffer.tipSub = "The piece goes back under Held Back."
 	-- the list: a selection dot, the item, three values, the recommendation
 	f.heads = {}
 	for i = 1, #COLS do
@@ -1279,6 +1447,8 @@ function DE:Frame()
 	f.empty.skipped = ns.TextButton(f.empty, "Consider skipped again", 160, function() DE:ClearSkipped() end); f.empty.skipped:SetHeight(22); f.empty.skipped:SetPoint("TOP", f.empty.line, "BOTTOM", 0, -10); f.empty.skipped:Hide()
 	f.empty.held = f.empty:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); f.empty.held:Hide()
 	f.empty.heldInfo = ns.Why.InfoButton(f.empty); f.empty.heldInfo:Hide()
+	f.empty.heldShow = ns.TextButton(f.empty, "Show", 46, function() DE:ShowHeld(true) end); f.empty.heldShow:SetHeight(18); f.empty.heldShow:Hide()   -- (1.11.0-beta6)
+	f.empty.heldShow.tip = f.heldShow.tip; f.empty.heldShow.tipSub = f.heldShow.tipSub
 	f.empty.never = ns.TextButton(f.empty, "DE Exclusion List...", 140, function() DE:ManageNever() end); f.empty.never:SetHeight(22); f.empty.never:Hide()
 	-- the footer: what the mats values are, centered beside Close
 	-- centered on the window itself, like the title and the card (the line is short enough to clear Close)
@@ -1549,19 +1719,27 @@ function DE:RowTip(r)
 		ns.TipLine(GameTooltip, ("Likely results (%s):"):format(head), 1, 0.82, 0)
 		for _, l in ipairs(lines) do ns.TipLine(GameTooltip, l, 0.9, 0.9, 0.9) end
 	end
+	-- (1.11.0-beta6) a held-back row says why, in full
+	if e.held and self.HELD_INFO[e.held] then
+		ns.TipLine(GameTooltip, " ")
+		ns.TipLine(GameTooltip, "Held back: " .. self.HELD_INFO[e.held].text, 1, 0.82, 0, true)
+	end
 	GameTooltip:Show()
 end
 
 function DE:Select(entry)
 	-- (1.6.0-beta6, the beta5 audit's F2; Shweep) in combat the helper doesn't change: a row click does nothing
 	if InCombatLockdown() then return end
-	self:Arm(entry)
+	-- (1.11.0-beta6) a held-back row is looked at in the panel with nothing armed; any other row is armed as ever
+	if entry and entry.held then self:Arm(nil); self.viewing = entry
+	else self.viewing = nil; self:Arm(entry) end
 	self:Paint()
 end
 function DE:Skip()
-	if not self.current then return end
+	local e = self.current or self.viewing   -- (1.11.0-beta6) a held-back row can be passed on too
+	if not e then return end
 	self.skipped = self.skipped or {}
-	self.skipped[self.current.rec.guid or (self.current.bag .. ":" .. self.current.slot)] = true
+	self.skipped[e.rec.guid or (e.bag .. ":" .. e.slot)] = true
 	self:Refresh()
 end
 function DE:NeverCurrent()
@@ -1735,12 +1913,17 @@ function DE:Results(which)
 	out.mats, out.matsValue, out.matsUnpriced = valued(mats)
 	-- (1.11.0-beta5, B4-2) ahead only when it is known: a disenchant in the comparison, every material priced now, and
 	-- no counted item that lacked an auction price it could have had
+	-- (1.11.0-beta6, the beta5 re-audit) and: B5-2, both sides after the auction house's cut (the items' were noted
+	-- that way; the materials' total is cut here, matsNet); B5-3, not while a disenchant is still collecting its loot
+	-- (pending); B5-4, not from a saved record that lost part of itself when it was read (gap)
+	local open = self.castOpen
+	out.pending = (open ~= nil and (GetTime() - (open.at or 0)) <= self.LOOT_WINDOW) or nil
 	if (st.n or 0) > 0 then
 		local _, value, unpriced = valued(st.mats)
 		local t = { n = st.n, cn = math.min(st.cn or 0, st.n), vendor = st.vendor or 0, ah = st.ah or 0, ahN = st.ahN or 0, ahU = st.ahU or 0, alt = st.alt or 0,
-			matsValue = value, matsUnpriced = unpriced }
+			matsValue = value, matsNet = DE.AfterCut(value), matsUnpriced = unpriced, gap = (which == "all" and st.gap) or nil }
 		t.matsKnown = t.cn > 0 and ahOn and unpriced == 0 and next(st.mats or {}) ~= nil
-		if t.matsKnown and t.ahU == 0 then t.ahead = value - t.alt end
+		if t.matsKnown and t.ahU == 0 and not out.pending and not t.gap then t.ahead = t.matsNet - t.alt end
 		out.tracked = t
 		out.best = type(st.best) == "table" and st.best or nil
 	end
@@ -1795,13 +1978,21 @@ function DE:ResultLines(which)
 			if r.partial then add("note", unseen == 1 and "1 more since then gave no materials BagSmith saw." or ("%d more since then gave no materials BagSmith saw."):format(unseen))
 			else add("note", ("Counted: %d of %d disenchants. %s gave no materials BagSmith saw."):format(t.cn, t.n, unseen == 1 and "The other" or ("The other %d"):format(unseen))) end
 		end
+		-- (1.11.0-beta6, B5-2) every auction house amount in this block is what the sale would leave you
+		if r.ahOn and (t.ahN > 0 or t.matsKnown) then add("note", ("Auction house amounts here are after its %d%% cut."):format(DE.DecimalHundredths(DE.AH_CUT))) end
 		add("row", "To a Vendor", coins(t.vendor))
 		if t.ahN > 0 then
 			add("row", t.ahN < t.cn and ("At the Auction House (%d of %d had a price)"):format(t.ahN, t.cn) or "At the Auction House", coins(t.ah))
 			if t.ahU == 0 then add("row", "Best of the Two", coins(t.alt)) end
 		end
-		if t.matsKnown then add("row", "Their Materials, at AH Value Now", coins(t.matsValue)) end
-		if t.ahU > 0 then
+		if t.matsKnown then add("row", "Their Materials, Sold at the AH Now", coins(t.matsNet)) end
+		if r.pending then
+			-- (B5-3) the last disenchant's loot may not all be in yet
+			add("note", "No winner yet: a disenchant is still collecting its loot.")
+		elseif t.gap then
+			-- (B5-4) the saved record lost part of itself when it was read
+			add("note", "No winner named: part of the saved record couldn't be read.")
+		elseif t.ahU > 0 then
 			-- the best sale isn't known for all of them: no Best of the Two, no winner (said where one could have been
 			-- named: with no auction prices at all, the line above about AH values is the whole story)
 			if r.ahOn then add("note", t.ahU == 1 and "No winner named: 1 of these had no auction price when you disenchanted it."
@@ -1817,7 +2008,7 @@ function DE:ResultLines(which)
 		add("gap")
 		add("head", "Most Valuable Item Disenchanted")
 		local name = DE.PlainName(b.name) or DE.PlainName((itemInfo(b.id))) or ("Item " .. tostring(b.id))
-		local worth = (b.ah and b.ah >= (b.vendor or 0)) and ("AH " .. coins(b.ah)) or ("Vendor " .. coins(b.vendor))
+		local worth = (b.ah and b.ah >= (b.vendor or 0)) and ("AH, after its cut, " .. coins(b.ah)) or ("Vendor " .. coins(b.vendor))
 		add("row", ("%s%s|r"):format(hexOf(b.q or 1), name), worth, b.id)
 	end
 	return L, r
@@ -1848,7 +2039,16 @@ function DE:PaintResults()
 	if not R then return end
 	local which = self.resultsTab == "all" and "all" or "session"
 	R.tabSession:SetActive(which == "session"); R.tabAll:SetActive(which == "all")
-	local lines = self:ResultLines(which)
+	local lines, res = self:ResultLines(which)
+	-- (1.11.0-beta6, B5-3) a winner held back for a disenchant still collecting its loot: looked at again once that
+	-- can no longer be so, should nothing else draw the view first
+	if res and res.pending and not self.pendingLook and C_Timer and C_Timer.After then
+		self.pendingLook = true
+		C_Timer.After(self.LOOT_WINDOW + 0.2, function()
+			DE.pendingLook = nil
+			if DE.view == "results" and DE.frame and DE.frame:IsShown() then DE:Paint() end
+		end)
+	end
 	local s = ns.Skins:Current()
 	local rh = ns.Fonts and ns.Fonts:Grow(RESULT_ROW) or RESULT_ROW
 	local width = math.max(100, (f:GetWidth() or W) - 24 - 26)
@@ -1907,16 +2107,19 @@ function DE:Paint()
 	local results = self.view == "results"
 	f.results:SetShown(results); f.resultsBtn:SetActive(results); f.footer:SetShown(not results)
 	if results then
-		f.empty:Hide(); f.scroll:Hide(); f.cur:Hide(); f.sub:Hide(); f.heldLine:Hide(); f.heldInfo:Hide(); f.refresh:Hide(); f.status:Hide()
+		f.empty:Hide(); f.scroll:Hide(); f.cur:Hide(); f.sub:Hide(); f.heldLine:Hide(); f.heldInfo:Hide(); f.heldShow:Hide(); f.refresh:Hide(); f.status:Hide()
 		for _, h in ipairs(f.heads) do h:Hide() end
 		self:PaintResults()
 		return
 	end
 	local entries = self.entries or {}
-	local cur = self.current
+	-- (1.11.0-beta6) the panel shows the armed piece, or a held-back row being looked at (never armed); the list has
+	-- the held-back rows under the offered ones while they are shown
+	local cur = self.current or self.viewing
+	local heldRows = self.showHeld and self.heldEntries or NO_OFFER
 	local ahOn = ns.AH and ns.AH:Available()
 	-- nothing to consider: the empty card instead of the panel, headers and list
-	local empty = #entries == 0
+	local empty = #entries == 0 and #heldRows == 0
 	f.empty:SetShown(empty)
 	for _, h in ipairs(f.heads) do h:SetShown(not empty) end
 	f.scroll:SetShown(not empty)
@@ -1943,12 +2146,13 @@ function DE:Paint()
 		else f.empty.line:SetPoint("TOP", f.empty.head, "BOTTOM", 0, -6) end
 		f.sub:Hide()
 		local heldN = self.held and self.held.total or 0
-		f.empty.held:SetShown(heldN > 0); f.empty.heldInfo:SetShown(heldN > 0)
+		f.empty.held:SetShown(heldN > 0); f.empty.heldInfo:SetShown(heldN > 0); f.empty.heldShow:SetShown(heldN > 0)
 		local below = f.empty.line
 		if heldN > 0 then
 			f.empty.held:ClearAllPoints(); f.empty.held:SetPoint("TOP", f.empty.line, "BOTTOM", 0, -8)
 			f.empty.held:SetText(("%d held back"):format(heldN))
 			f.empty.heldInfo:ClearAllPoints(); f.empty.heldInfo:SetPoint("LEFT", f.empty.held, "RIGHT", 4, 0)
+			f.empty.heldShow:ClearAllPoints(); f.empty.heldShow:SetPoint("LEFT", f.empty.heldInfo, "RIGHT", 8, 0)   -- (1.11.0-beta6)
 			below = f.empty.held
 		end
 		local skipped, never = self:SkippedCount(), self:NeverCount()
@@ -1971,7 +2175,18 @@ function DE:Paint()
 		if cur.verdict == "de" and self:Leveling() then vt = vt .. " (for leveling)" end   -- (1.6.0-beta8)
 		if cur.basis then vt = vt .. (cur.basis == "yours" and ("  (from %d of your results)"):format(cur.n or 0) or "  (DE estimate)") end
 		if cur.verdict == "unknown" and cur.missing then vt = ("No price yet for %s"):format(self.MatName(cur.missing)) end
+		-- (1.11.0-beta6) a held-back row says why in place of the recommendation; a piece the player offered says so
+		local isHeld = cur.held ~= nil
+		if isHeld then vt = "Held back: " .. (self.HELD_INFO[cur.held] and self.HELD_INFO[cur.held].text or cur.held)
+		elseif cur.offered then vt = (self.VERDICT_TEXT[cur.verdict] or "") .. ("  (offered by you: %s)"):format(cur.offered) end
 		f.cur.verdict:SetText(vt)
+		local b = self:Button()
+		f.offer:SetShown(isHeld); f.unoffer:SetShown(not isHeld and cur.offered ~= nil); f.never:SetShown(not isHeld and cur.offered == nil)
+		f.skip:ClearAllPoints(); f.skip:SetPoint("LEFT", isHeld and f.offer or b, "RIGHT", 6, 0)
+		if isHeld then
+			local how, cant = self:CanOffer(cur)
+			ns.View.GlobalOff(f.offer, not how, "Offer Anyway", cant, false)
+		end
 		local lines, head, likelyBasis, _, parts = self:LikelyLines(cur.rec)
 		f.cur.likelyHead:SetText("Likely results")
 		-- (1.7.3-beta5) one row per material, its name a link to the item's tooltip; the plain line only says there's no table
@@ -1980,25 +2195,40 @@ function DE:Paint()
 		self:PaintLikely(parts)
 		f.cur.basis:SetText(head and (head:sub(1, 1):upper() .. head:sub(2)) or "")
 		f.cur.rule:Show(); f.cur.likelyHead:Show(); f.cur.likely:Show(); f.cur.basis:Show(); f.cur.info:SetShown(head ~= nil)
-		f.junk:SetShown(cur.verdict == "vendor" and ns.Junk ~= nil and not ns.Junk:Marked(cur.itemID))   -- never a nudge toward junking something the AH pays for
+		f.junk:SetShown(not isHeld and cur.verdict == "vendor" and ns.Junk ~= nil and not ns.Junk:Marked(cur.itemID))   -- never a nudge toward junking something the AH pays for
 	else
 		f.cur:Hide()
 	end
-	-- the list
-	for i, e in ipairs(entries) do
+	-- the list: the offered pieces, then (1.11.0-beta6, while shown) a heading and the held-back ones, dimmed, the
+	-- reason where the recommendation is
+	local shown = {}
+	for _, e in ipairs(entries) do shown[#shown + 1] = e end
+	if #heldRows > 0 then
+		shown[#shown + 1] = { heading = ("Held Back (%d)"):format(#heldRows) }
+		for _, e in ipairs(heldRows) do shown[#shown + 1] = e end
+	end
+	for i, e in ipairs(shown) do
 		local r = row(f, i)
-		r.entry = e
-		r.cells[1]:SetText("")
-		r.cells[2]:SetText(e.name or ""); r.cells[2]:SetTextColor(qcolor(e.quality))
-		r.cells[3]:SetText(self:ValueText(e.vendor, "vendor"))
-		r.cells[4]:SetText(self:ValueText(e.ah, "ah", e))
-		r.cells[5]:SetText(self:ValueText(e.mats, "mats", e))
-		r.cells[6]:SetText(self.VERDICT_TEXT[e.verdict] or "")
-		r.hl:SetShown(e == cur); r.dotFill:SetShown(e == cur)
+		if e.heading then
+			r.entry, r.heading = nil, true
+			for c = 1, #r.cells do r.cells[c]:SetText("") end
+			r.cells[2]:SetText(e.heading); r.cells[2]:SetTextColor(1, 0.82, 0)
+			r.dot:Hide(); r.hl:Hide(); r.dotFill:Hide(); r:SetAlpha(1)
+		else
+			r.entry, r.heading = e, nil
+			r.cells[1]:SetText("")
+			r.cells[2]:SetText(e.name or ""); r.cells[2]:SetTextColor(qcolor(e.quality))
+			r.cells[3]:SetText(self:ValueText(e.vendor, "vendor"))
+			r.cells[4]:SetText(self:ValueText(e.ah, "ah", e))
+			r.cells[5]:SetText(self:ValueText(e.mats, "mats", e))
+			r.cells[6]:SetText(e.held and (self.HELD_INFO[e.held] and self.HELD_INFO[e.held].short or "Held back") or self.VERDICT_TEXT[e.verdict] or "")
+			r.dot:Show(); r.hl:SetShown(e == cur); r.dotFill:SetShown(e == cur)
+			r:SetAlpha(e.held and 0.6 or 1)
+		end
 		r:Show()
 	end
-	for i = #entries + 1, #f.rows do f.rows[i]:Hide() end
-	f.child:SetHeight(math.max(10, #entries * ROW))
+	for i = #shown + 1, #f.rows do f.rows[i]:Hide() end
+	f.child:SetHeight(math.max(10, #shown * ROW))
 	-- the words at the top and bottom
 	local known, skill = self:Known(), self:Skill()
 	f.sub:SetShown(not empty)
@@ -2008,11 +2238,14 @@ function DE:Paint()
 		f.sub:SetText(("%d %s to consider.%s"):format(#entries, #entries == 1 and "item" or "items", skill and ("  Enchanting skill %d."):format(skill) or ""))
 	end
 	local heldN = self.held and self.held.total or 0
-	f.heldLine:SetShown(heldN > 0 and not empty); f.heldInfo:SetShown(heldN > 0 and not empty)
+	f.heldLine:SetShown(heldN > 0 and not empty); f.heldInfo:SetShown(heldN > 0 and not empty); f.heldShow:SetShown(heldN > 0 and not empty)
 	if heldN > 0 then
 		f.heldLine:ClearAllPoints(); f.heldLine:SetPoint("LEFT", f.sub, "LEFT", (f.sub:GetStringWidth() or 120) + 10, 0)
 		f.heldLine:SetText(("%d held back"):format(heldN))
 		f.heldInfo:ClearAllPoints(); f.heldInfo:SetPoint("LEFT", f.heldLine, "LEFT", (f.heldLine:GetStringWidth() or 60) + 4, 0)
+		-- (1.11.0-beta6) Show, or Hide once they are listed
+		f.heldShow:ClearAllPoints(); f.heldShow:SetPoint("LEFT", f.heldInfo, "RIGHT", 8, 0)
+		f.heldShow.label:SetText(self.showHeld and "Hide" or "Show")
 		f.heldInfo.title = "Not offered"; f.heldInfo.lines = ns.Why:Lines(self.held)
 		f.empty.heldInfo.title = "Not offered"; f.empty.heldInfo.lines = f.heldInfo.lines
 	end
@@ -2058,12 +2291,23 @@ function DE:Refresh()
 		ns.ItemTree:RetrySoon("disenchant", function() if ns.db and ns.db.deEnabled and DE.frame and DE.frame:IsShown() then DE:Refresh() end end)
 	end
 	-- the current item: keep it if it is still there, else the first
-	local keep
-	if self.current then
-		for _, e in ipairs(self.entries) do if e.bag == self.current.bag and e.slot == self.current.slot and e.itemID == self.current.itemID then keep = e end end
+	-- (1.11.0-beta6) "it" is the piece the panel was on: the armed one, or a held-back row being looked at, or the
+	-- piece just offered or taken back. Found among the offered pieces it is armed; found only among the held-back
+	-- rows it is looked at and nothing is armed.
+	local want = self.wantPiece or self.current or self.viewing
+	self.wantPiece, self.viewing = nil, nil
+	local keep, keepHeld
+	if want then
+		for _, e in ipairs(self.entries) do if e.bag == want.bag and e.slot == want.slot and e.itemID == want.itemID then keep = e end end
+		if not keep then
+			for _, e in ipairs(self.heldEntries or {}) do if e.bag == want.bag and e.slot == want.slot and e.itemID == want.itemID then keepHeld = e end end
+		end
 	end
 	-- (1.5.7, D1) nothing armed when Disenchant isn't known (the profession was dropped)
-	if self:Known() then self:Arm(keep or self.entries[1]) else self:Arm(nil) end
+	if keepHeld then self:Arm(nil); self.viewing = keepHeld
+	elseif self:Known() then self:Arm(keep or self.entries[1]) else self:Arm(nil) end
+	-- nothing offered and the held-back rows showing: the panel looks at the first of them
+	if not self.current and not self.viewing and self.heldEntries and self.heldEntries[1] then self.viewing = self.heldEntries[1] end
 	self:Paint()
 end
 
@@ -2102,6 +2346,7 @@ function DE:Show()
 	end
 	self.skipped = self.skipped or {}
 	self.view = nil   -- (1.11.0-beta3) it opens on the list
+	self.offered, self.viewing, self.wantPiece = nil, nil, nil   -- (1.11.0-beta6) an offer lasts while the Helper stays open
 	f:Show()
 	self:Refresh()
 end

@@ -369,7 +369,8 @@ do
 	local M, n = boot({ profile = {} })
 	local WN = n.WhatsNew
 	local e = WN.ENTRIES[1]
-	check(e.v == "1.11.0" and e.heading == "BagSmith 1.11" and #e.items == 7 and not e.opens and not e.remind, "What's New opens with 1.11's card: seven bullets")
+	-- (by design since 1.11.0-beta6: an eighth bullet, last, for the held-back rows; the seven here keep their places)
+	check(e.v == "1.11.0" and e.heading == "BagSmith 1.11" and #e.items == 8 and not e.opens and not e.remind, "What's New opens with 1.11's card: seven bullets, and beta6's eighth")
 	local WANT = {
 		"See What Your Disenchants Gave You: the Disenchant Helper has a new Results button. This Session and All Time show how many items you broke down, the materials you got and what they're worth at the auction house now, and whether selling the items would have paid more.",
 		"Auto-Open Where You Want It: choose where your bags open by themselves (vendors, the mailbox, trades, the auction house, the bank and the guild bank) and what happens when you leave: Always Close, Close If Auto-Opened or Never Close. Find it in Settings > Automations.",

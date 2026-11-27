@@ -1884,7 +1884,7 @@ function View:PlaceGearSetsNote(host, y, width, show, lanes)
 		note.btn:Show()
 		if note.btn.SetClassic then note.btn:SetClassic(ns.Classic and ns.Classic.IsOn and ns.Classic.IsOn() or false) end
 		note.btn:SetActive(false)
-		View.GlobalOff(note.btn, full, "New Gear Set", ("You have the most sets the game allows (%d). Delete one to make another."):format(most))
+		View.GlobalOff(note.btn, full, "New Gear Set", ("You have the most sets the game allows (%d). Delete one to make another."):format(most), false)
 		local h = 10 + math.max(14, math.ceil(note.text:GetStringHeight() or 14)) + 10 + 22 + 10
 		note:SetHeight(h)
 		note:Show()
@@ -1913,7 +1913,7 @@ function View:PlaceGearSetsNote(host, y, width, show, lanes)
 		countH = 4 + math.max(12, math.ceil(note.count:GetStringHeight() or 12))
 		note.btn:ClearAllPoints(); note.btn:SetPoint("TOP", note.count, "BOTTOM", 0, -10)
 		note.btn.label:SetText("New Gear Set")
-		View.GlobalOff(note.btn, have >= most, "New Gear Set", ("You have the most sets the game allows (%d). Delete one to make another."):format(most))
+		View.GlobalOff(note.btn, have >= most, "New Gear Set", ("You have the most sets the game allows (%d). Delete one to make another."):format(most), false)
 	end
 	note.text:SetText(text); note.text:SetWidth(math.max(80, width - 24)); note.text:SetTextColor(Skins:Color("muted"))
 	local withButton = mine and (kept or #ns.GearSets:Sets() == 0)

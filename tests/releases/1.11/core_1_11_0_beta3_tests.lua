@@ -415,8 +415,10 @@ do
 	local r = DE:Results("session")
 	check(r.n == 1 and #r.byQuality == 1 and r.byQuality[1].q == 2 and r.byQuality[1].n == 1, "one disenchant: counted, as uncommon")
 	check(#r.mats == 1 and r.mats[1].id == bootsMat and r.mats[1].count == 2 and r.mats[1].value == prices[bootsMat] * 2 and r.matsValue == prices[bootsMat] * 2 and r.matsUnpriced == 0, "its materials, at the AH's price now")
-	check(r.tracked.n == 1 and r.tracked.vendor == 452 and r.tracked.ah == 1500 and r.tracked.ahN == 1 and r.tracked.alt == 1500 and r.tracked.ahead == prices[bootsMat] * 2 - 1500, "what the boots would have sold for, and how the materials compare")
-	check(r.best and r.best.id == 7001 and r.best.name == "Sturdy Boots" and r.best.worth == 1500 and not r.partial, "the most valuable so far: the boots")
+	-- (by design since 1.11.0-beta6, the beta5 re-audit's B5-2: every auction house amount in the comparison is after
+	-- the 5% cut, the items' and the materials' alike. 15s leaves 14s25c, 6s leaves 5s70c.)
+	check(r.tracked.n == 1 and r.tracked.vendor == 452 and r.tracked.ah == 1425 and r.tracked.ahN == 1 and r.tracked.alt == 1425 and r.tracked.ahead == DE.AfterCut(prices[bootsMat] * 2) - 1425, "what the boots would have sold for, and how the materials compare")
+	check(r.best and r.best.id == 7001 and r.best.name == "Sturdy Boots" and r.best.worth == 1425 and not r.partial, "the most valuable so far: the boots")
 	disenchant(M, DE, 7002, { { daggerMat, 3 } })
 	disenchant(M, DE, 7003, { { ringMat, 1 } })
 	r = DE:Results("session")
@@ -429,12 +431,13 @@ do
 	check(okMats and r.matsValue == matsTotal, "every material counted once, their total at AH prices: " .. tostring(r.matsValue))
 	for i = 2, #r.mats do if (r.mats[i - 1].value or -1) < (r.mats[i].value or -1) then okMats = false end end
 	check(okMats, "the dearest material first")
-	check(r.tracked.vendor == 452 + 800 + 2500 and r.tracked.ah == 1500 + 600 and r.tracked.ahN == 2 and r.tracked.alt == 1500 + 800 + 2500, "vendor total, AH total (two of the three had a price), and the better of the two for each")
-	check(r.tracked.ahead == matsTotal - (1500 + 800 + 2500), "ahead: the materials less the best sale")
+	-- (by design since 1.11.0-beta6, B5-2: after the cut)
+	check(r.tracked.vendor == 452 + 800 + 2500 and r.tracked.ah == 1425 + 570 and r.tracked.ahN == 2 and r.tracked.alt == 1425 + 800 + 2500, "vendor total, AH total (two of the three had a price), and the better of the two for each")
+	check(r.tracked.ahead == DE.AfterCut(matsTotal) - (1425 + 800 + 2500), "ahead: the materials less the best sale")
 	check(r.best.id == 7003 and r.best.worth == 2500 and r.best.ah == nil and r.best.q == 3, "the most valuable: the ring, by its vendor price")
 	-- the same in the saved record your characters share, and nothing else added to the save
 	local st = BagSmithDB.deShared.stats
-	check(st and st.n == 3 and st.q[2] == 2 and st.q[3] == 1 and st.vendor == 3752 and st.ah == 2100 and st.ahN == 2 and st.alt == 4800 and st.best.id == 7003, "the shared record holds the same")
+	check(st and st.n == 3 and st.q[2] == 2 and st.q[3] == 1 and st.vendor == 3752 and st.ah == 1995 and st.ahN == 2 and st.alt == 4725 and st.best.id == 7003, "the shared record holds the same")   -- (by design since 1.11.0-beta6, B5-2: after the cut)
 	local okSaved = true
 	for id, count in pairs(want) do if st.mats[id] ~= count then okSaved = false end end
 	check(okSaved, "with the same materials")
@@ -453,9 +456,10 @@ do
 	check(L[4][1] == ("%s x%d"):format(MATNAMES[first.id], first.count) and L[4][2] == DE.Money(first.value) and L[4][4] == first.id, "each material: its name and count, its value, and its tooltip on hover: " .. L[4][1] .. " / " .. L[4][2])
 	check(lineFor(DE, "Total") and lineFor(DE, "Total")[2] == DE.Money(matsTotal), "Total")
 	check(lineFor(DE, "If You Had Sold Them Instead") and lineFor(DE, "To a Vendor")[2] == DE.Money(3752), "If You Had Sold Them Instead: To a Vendor")
-	check(lineFor(DE, "At the Auction House (2 of 3 had a price)") and lineFor(DE, "At the Auction House (2 of 3 had a price)")[2] == DE.Money(2100), "At the Auction House, saying how many had a price")
-	check(lineFor(DE, "Best of the Two")[2] == DE.Money(4800) and lineFor(DE, "Their Materials, at AH Value Now")[2] == DE.Money(matsTotal), "Best of the Two, and Their Materials")
-	local diff = matsTotal - 4800
+	check(lineFor(DE, "At the Auction House (2 of 3 had a price)") and lineFor(DE, "At the Auction House (2 of 3 had a price)")[2] == DE.Money(1995), "At the Auction House, saying how many had a price")
+	-- (by design since 1.11.0-beta6, B5-2: after the cut, and the materials row says they are sold, not valued)
+	check(lineFor(DE, "Best of the Two")[2] == DE.Money(4725) and lineFor(DE, "Their Materials, Sold at the AH Now")[2] == DE.Money(DE.AfterCut(matsTotal)), "Best of the Two, and Their Materials")
+	local diff = DE.AfterCut(matsTotal) - 4725   -- (by design since 1.11.0-beta6, B5-2: both sides after the cut)
 	local verdict = diff > 0 and lineFor(DE, "Disenchanting Came Out Ahead By") or lineFor(DE, "Selling Would Have Paid More By")
 	check(diff ~= 0 and verdict and verdict[2] == DE.Money(math.abs(diff)), "and which came out ahead, by how much: " .. tostring(verdict and (verdict[1] .. " " .. verdict[2])))
 	check(lineFor(DE, "Most Valuable Item Disenchanted") and lineFor(DE, "Ring of the Deep") and lineFor(DE, "Ring of the Deep")[2] == "Vendor " .. DE.Money(2500) and lineFor(DE, "Ring of the Deep")[4] == 7003, "Most Valuable Item Disenchanted: the ring, Vendor 25s")
@@ -513,7 +517,7 @@ do
 	disenchant(M, DE, 7001, { { mat, 2 } })
 	r = DE:Results("all")
 	check(r.n == 6 and r.partial and r.tracked.n == 1 and r.tracked.vendor == 452, "one more, in 1.11: six in all, one with its worth noted")
-	check(r.tracked.matsValue == prices[mat] * 2 and r.tracked.ahead == prices[mat] * 2 - 1500, "compared with its own materials only, not the older ones'")
+	check(r.tracked.matsValue == prices[mat] * 2 and r.tracked.ahead == DE.AfterCut(prices[mat] * 2) - 1425, "compared with its own materials only, not the older ones'")   -- (by design since 1.11.0-beta6, B5-2: after the cut)
 	DE:ShowResults(true)
 	check(lineFor(DE, "Counted since 1.11: 1 of your 6 disenchants.") and lineFor(DE, "Counted since 1.11: 1 of your 6 disenchants.")[3] == "note", "the sold-instead lines say which disenchants they count")
 	DE:SetResultsTab("session")
@@ -533,8 +537,8 @@ do
 	DE:ShowResults(true)
 	check(lineFor(DE, MATNAMES[unpriced] .. " x" .. (unpriced == a and 2 or 1))[2] == "no price yet", "a material with no price says \"no price yet\"")
 	check(lineFor(DE, "Total (1 with no price yet)") ~= nil, "the total says one is missing")
-	check(not lineFor(DE, "Disenchanting Came Out Ahead By") and not lineFor(DE, "Selling Would Have Paid More By") and not lineFor(DE, "Their Materials, at AH Value Now"), "and no verdict is given on part of the materials")
-	check(lineFor(DE, "To a Vendor")[2] == DE.Money(452) and lineFor(DE, "At the Auction House")[2] == DE.Money(1500), "the items' own lines stand (one item, priced: no \"N of M\")")
+	check(not lineFor(DE, "Disenchanting Came Out Ahead By") and not lineFor(DE, "Selling Would Have Paid More By") and not lineFor(DE, "Their Materials, Sold at the AH Now"), "and no verdict is given on part of the materials")
+	check(lineFor(DE, "To a Vendor")[2] == DE.Money(452) and lineFor(DE, "At the Auction House")[2] == DE.Money(1425), "the items' own lines stand (one item, priced: no \"N of M\")")
 	check((n.errors or 0) == 0, "no errors")
 	-- no price addon: dashes, a note, the vendor line only
 	M, n, DE = deBoot({ noAH = true })
@@ -554,8 +558,9 @@ end
 do
 	-- the saved record is checked piece by piece when it loads
 	local huge = 1 / 0
-	-- (by design since 1.11.0-beta5: a record is read only with this version's stamp, v = 2; this one and the 400-material one below have it)
-	local bad = { v = 2, n = -3, vendor = "lots", ah = huge, ahN = 2.9, alt = 0 / 0, q = { [2] = 4.7, [3] = -1, [9] = 5, x = 1 }, mats = { [10940] = 12.9, [-5] = 3, [10938] = "many", [0.5] = 2, [11083] = 0, bad = 1 },
+	-- (by design since 1.11.0-beta5: a record is read only with this version's stamp; this one and the 400-material one below have it)
+	-- (by design since 1.11.0-beta6, B5-2: the stamp is 3)
+	local bad = { v = 3, n = -3, vendor = "lots", ah = huge, ahN = 2.9, alt = 0 / 0, q = { [2] = 4.7, [3] = -1, [9] = 5, x = 1 }, mats = { [10940] = 12.9, [-5] = 3, [10938] = "many", [0.5] = 2, [11083] = 0, bad = 1 },
 		best = { id = 7001, name = ("x"):rep(500), q = 99, vendor = -1, ah = "no", worth = 1500.6 } }
 	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = bad } })
 	local st = DE:Stats()
@@ -569,7 +574,7 @@ do
 	check((n.errors or 0) == 0, "and the view draws from it without error")
 	local many = {}
 	for i = 1, 400 do many[20000 + i] = 1 end
-	M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 2, n = 1, mats = many, best = { id = "x", worth = 5 } } } })
+	M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 3, n = 1, mats = many, best = { id = "x", worth = 5 } } } })
 	local count = 0
 	for _ in pairs(DE:Stats().mats) do count = count + 1 end
 	check(count == 200 and DE:Stats().best == nil, "no more than 200 kinds of material are kept, and a most valuable item with no ID is dropped")

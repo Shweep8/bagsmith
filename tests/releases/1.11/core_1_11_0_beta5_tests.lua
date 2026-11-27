@@ -308,36 +308,40 @@ end
 local function line(DE, left, which) for _, l in ipairs(lines(DE, which)) do if l[1] == left then return l end end end
 local function matOf(DE, id, i) return DE:Expectation(entryOf(DE, id).rec)[i or 1][1] end
 
+-- (By design since 1.11.0-beta6, the beta5 re-audit's B5-2, throughout this section: every auction house amount in
+-- the comparison is after the 5% cut. The boots' 15s quote leaves 14s25c; 24s of dust leaves 22s80c, so the boots'
+-- disenchant is ahead by 8s55c where it was 9s; the materials row is "Their Materials, Sold at the AH Now"; and the
+-- saved record's version is 3. The scenarios and what they show are unchanged.)
 do
 	-- the auditor's first case: a second cast that succeeds and gives no loot BagSmith sees
 	local M, n, DE = deBoot()
 	disenchant(M, DE, 7001, { { 10940, 20 } })
 	local t = DE:Results("session").tracked
-	check(t.n == 1 and t.cn == 1 and t.matsValue == 2400 and t.alt == 1500 and t.ahead == 900, "(one disenchant: 24s of dust against boots worth 15s at the auction house, ahead by 9s)")
-	check(line(DE, "Counted: 1 of 1 disenchants. The other gave no materials BagSmith saw.") == nil and line(DE, "Disenchanting Came Out Ahead By")[2] == DE.Money(900),
+	check(t.n == 1 and t.cn == 1 and t.matsValue == 2400 and t.alt == 1425 and t.ahead == 855, "(one disenchant: 24s of dust against boots worth 15s at the auction house; after the cut, ahead by 8s55c)")
+	check(line(DE, "Counted: 1 of 1 disenchants. The other gave no materials BagSmith saw.") == nil and line(DE, "Disenchanting Came Out Ahead By")[2] == DE.Money(855),
 		"with every disenchant counted, no note about what is counted, and the winner as before")
 	disenchant(M, DE, 7002, {})
 	local r = DE:Results("session")
 	t = r.tracked
 	check(r.n == 2 and t.n == 2 and t.matsValue == 2400, "(a second disenchant succeeds and no materials are seen: two on record, the materials unchanged)")
-	check(t.cn == 1 and t.vendor == 452 and t.ah == 1500 and t.ahN == 1 and t.alt == 1500, "its sale values stay out of the comparison (beta4 added the dagger's 8s to the sale side alone): " .. tostring(t.alt))
-	check(t.ahead == 900, "so the comparison is still the boots against the boots' dust, +9s, not beta4's +1s across two: " .. tostring(t.ahead))
+	check(t.cn == 1 and t.vendor == 452 and t.ah == 1425 and t.ahN == 1 and t.alt == 1425, "its sale values stay out of the comparison (beta4 added the dagger's 8s to the sale side alone): " .. tostring(t.alt))
+	check(t.ahead == 855, "so the comparison is still the boots against the boots' dust (+8s55c after the cut), not beta4's result across two: " .. tostring(t.ahead))
 	local note = line(DE, "Counted: 1 of 2 disenchants. The other gave no materials BagSmith saw.")
 	check(note and note[3] == "note", "and the view says which disenchants it counts")
 	local L = lines(DE)
 	local at = {}
 	for i, l in ipairs(L) do at[l[1]] = i end
 	check(at["If You Had Sold Them Instead"] and at["Counted: 1 of 2 disenchants. The other gave no materials BagSmith saw."] == at["If You Had Sold Them Instead"] + 1, "right under the heading, before the numbers")
-	check(line(DE, "Items Disenchanted")[2] == "2" and line(DE, "To a Vendor")[2] == DE.Money(452) and line(DE, "Best of the Two")[2] == DE.Money(1500), "Items Disenchanted still counts both; the sold-instead lines are the counted one's")
+	check(line(DE, "Items Disenchanted")[2] == "2" and line(DE, "To a Vendor")[2] == DE.Money(452) and line(DE, "Best of the Two")[2] == DE.Money(1425), "Items Disenchanted still counts both; the sold-instead lines are the counted one's")
 	check(r.best and r.best.id == 7001, "(the most valuable item is the boots either way)")
 	-- a third with no loot
 	disenchant(M, DE, 7003, {})
 	check(line(DE, "Counted: 1 of 3 disenchants. The other 2 gave no materials BagSmith saw."), "two unseen: \"The other 2\"")
 	check(DE:Results("session").best.id == 7003, "(a disenchant whose loot wasn't seen is still the most valuable item if it was)")
 	-- the same in All Time, and in what is saved
-	check(line(DE, "Counted: 1 of 3 disenchants. The other 2 gave no materials BagSmith saw.", "all") and DE:Results("all").tracked.ahead == 900, "All Time says the same")
+	check(line(DE, "Counted: 1 of 3 disenchants. The other 2 gave no materials BagSmith saw.", "all") and DE:Results("all").tracked.ahead == 855, "All Time says the same")
 	local st = BagSmithDB.deShared.stats
-	check(st.v == 2 and st.n == 3 and st.cn == 1 and st.vendor == 452 and st.ah == 1500 and st.ahN == 1 and st.ahU == 0 and st.alt == 1500, "the saved record keeps the counted ones apart from the rest")
+	check(st.v == 3 and st.n == 3 and st.cn == 1 and st.vendor == 452 and st.ah == 1425 and st.ahN == 1 and st.ahU == 0 and st.alt == 1425, "the saved record keeps the counted ones apart from the rest")
 	check((n.errors or 0) == 0, "no errors")
 end
 do
@@ -352,11 +356,11 @@ do
 	check(line(DE, "If You Had Sold Them Instead") == nil and line(DE, "Items Disenchanted")[2] == "1", "(nothing to compare is shown until there is)")
 	lootLine(M, m1, 2)
 	t = DE:Results("session").tracked
-	check(t.cn == 1 and t.vendor == 452 and t.alt == 1500, "its first material counted: now it is in")
+	check(t.cn == 1 and t.vendor == 452 and t.alt == 1425, "its first material counted: now it is in")
 	if m2 then lootLine(M, m2, 1) end
 	lootLine(M, m1, 1)
 	t = DE:Results("session").tracked
-	check(t.cn == 1 and t.vendor == 452 and t.alt == 1500 and t.ahN == 1, "a second material, or more of the first, doesn't count the item twice")
+	check(t.cn == 1 and t.vendor == 452 and t.alt == 1425 and t.ahN == 1, "a second material, or more of the first, doesn't count the item twice")
 	finish(M, e)
 	check(DE:Results("session").tracked.cn == 1 and line(DE, "If You Had Sold Them Instead"), "and the comparison shows")
 	-- a call with no cast behind it (nothing in the game makes one) notes the item and compares nothing
@@ -380,12 +384,12 @@ do
 	check(line(DE, "Best of the Two") == nil, "and no Best of the Two, which would be the vendor price under another name")
 	local why = line(DE, "No winner named: 1 of these had no auction price when you disenchanted it.")
 	check(why and why[3] == "note", "it says why")
-	check(line(DE, "To a Vendor")[2] == DE.Money(800) and line(DE, "Their Materials, at AH Value Now")[2] == DE.Money(PRICES[mat] * 3), "the two things that are known stay: the vendor total and the materials' value")
+	check(line(DE, "To a Vendor")[2] == DE.Money(800) and line(DE, "Their Materials, Sold at the AH Now")[2] == DE.Money(DE.AfterCut(PRICES[mat] * 3)), "the two things that are known stay: the vendor total and the materials' value")
 	-- one with a price beside it
 	disenchant(M, DE, 7001, { { matOf(DE, 7001), 2 } })
 	t = DE:Results("session").tracked
 	check(t.cn == 2 and t.ahN == 1 and t.ahU == 1 and t.ahead == nil, "(a second, with an auction price)")
-	check(line(DE, "At the Auction House (1 of 2 had a price)")[2] == DE.Money(1500) and line(DE, "Best of the Two") == nil and line(DE, "No winner named: 1 of these had no auction price when you disenchanted it."), "the auction house line says one of two had a price; still no winner")
+	check(line(DE, "At the Auction House (1 of 2 had a price)")[2] == DE.Money(1425) and line(DE, "Best of the Two") == nil and line(DE, "No winner named: 1 of these had no auction price when you disenchanted it."), "the auction house line says one of two had a price; still no winner")
 	check(BagSmithDB.deShared.stats.ahU == 1, "(saved with the record)")
 	check((n.errors or 0) == 0, "no errors")
 end
@@ -405,7 +409,7 @@ do
 	local mat = matOf(DE, 7003)
 	disenchant(M, DE, 7003, { { mat, 1 } })
 	local t = DE:Results("session").tracked
-	check(t.cn == 1 and t.ahU == 0 and t.ahN == 0 and t.alt == 2500 and t.ahead == PRICES[mat] - 2500, "it is compared by its vendor price, and a winner is named: " .. tostring(t.ahead))
+	check(t.cn == 1 and t.ahU == 0 and t.ahN == 0 and t.alt == 2500 and t.ahead == DE.AfterCut(PRICES[mat]) - 2500, "it is compared by its vendor price, and a winner is named: " .. tostring(t.ahead))
 	check(line(DE, t.ahead > 0 and "Disenchanting Came Out Ahead By" or "Selling Would Have Paid More By") and not line(DE, "No winner named: 1 of these had no auction price when you disenchanted it."), "the winner line shows, with no note")
 end
 do
@@ -415,7 +419,7 @@ do
 	local t = DE:Results("session").tracked
 	check(t.cn == 1 and t.ahU == 1 and t.ahead == nil and not t.matsKnown, "(no auction addon: nothing priced)")
 	check(line(DE, "AH values need Auctionator or Blackthornes Tradeskills.") and line(DE, "To a Vendor")[2] == DE.Money(800), "the view says AH values need an addon, and shows the vendor total")
-	check(line(DE, "No winner named: 1 of these had no auction price when you disenchanted it.") == nil and line(DE, "Their Materials, at AH Value Now") == nil and line(DE, "Best of the Two") == nil,
+	check(line(DE, "No winner named: 1 of these had no auction price when you disenchanted it.") == nil and line(DE, "Their Materials, Sold at the AH Now") == nil and line(DE, "Best of the Two") == nil,
 		"and doesn't add a second note about a winner nobody could have named")
 end
 do
@@ -439,22 +443,22 @@ do
 		stats = { n = 3, vendor = 3752, ah = 2100, ahN = 2, alt = 4800, q = { [2] = 2, [3] = 1 }, mats = { [10940] = 6 }, best = { id = 7001, q = 2, vendor = 452, ah = 1500, worth = 1500, name = "Sturdy Boots" } } }
 	local M, n, DE = deBoot({ deShared = copy(old) })
 	local st = DE:Stats()
-	check(st.v == 2 and st.n == 0 and st.cn == 0 and st.alt == 0 and next(st.mats) == nil and st.best == nil, "a beta3 or beta4 record (no version) isn't read: its totals were not a matched set")
+	check(st.v == 3 and st.n == 0 and st.cn == 0 and st.alt == 0 and next(st.mats) == nil and st.best == nil, "a beta3 or beta4 record (no version) isn't read: its totals were not a matched set")
 	local r = DE:Results("all")
 	check(r.n == 3 and r.matsValue == 6 * 120 and r.tracked == nil and r.best == nil, "All Time still has the three disenchants and their materials, from the log")
 	check(line(DE, "If You Had Sold Them Instead", "all") == nil and line(DE, "Items Disenchanted", "all")[2] == "3", "with no sold-instead lines until a disenchant is counted")
 	-- one that reaches memory some other way is no better
 	BagSmithDB.deShared.stats = { n = 9, alt = 5, vendor = 5, q = {}, mats = { [10940] = 3 } }
 	st = DE:Stats()
-	check(st.v == 2 and st.n == 0 and st.alt == 0 and next(st.mats) == nil and BagSmithDB.deShared.stats == st, "a record without the version found in memory is replaced too")
+	check(st.v == 3 and st.n == 0 and st.alt == 0 and next(st.mats) == nil and BagSmithDB.deShared.stats == st, "a record without the version found in memory is replaced too")
 	disenchant(M, DE, 7001, { { matOf(DE, 7001), 2 } })
 	check(line(DE, "Counted since 1.11: 1 of your 4 disenchants.", "all") and DE:Results("all").tracked.cn == 1, "the next one starts the count")
 	-- a record of this version comes back as it was saved
 	local saved = copy(BagSmithDB.deShared)
 	M, n, DE = deBoot({ deShared = saved })
 	st = DE:Stats()
-	check(st.v == 2 and st.n == 1 and st.cn == 1 and st.vendor == 452 and st.ah == 1500 and st.ahN == 1 and st.ahU == 0 and st.alt == 1500 and st.best and st.best.name == "Sturdy Boots", "this version's record loads as it was saved")
-	check(DE:Results("all").tracked.ahead == PRICES[matOf(DE, 7001)] * 2 - 1500, "and compares as it did")
+	check(st.v == 3 and st.n == 1 and st.cn == 1 and st.vendor == 452 and st.ah == 1425 and st.ahN == 1 and st.ahU == 0 and st.alt == 1425 and st.best and st.best.name == "Sturdy Boots", "this version's record loads as it was saved")
+	check(DE:Results("all").tracked.ahead == DE.AfterCut(PRICES[matOf(DE, 7001)] * 2) - 1425, "and compares as it did")
 	check((n.errors or 0) == 0, "no errors")
 end
 
@@ -540,7 +544,7 @@ end
 ------------------------------------------------------------------------
 do
 	-- the auditor's record (given this version's stamp, so it is read at all)
-	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 2, n = 1, alt = 100, ah = math.huge, vendor = -500,
+	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 3, n = 1, alt = 100, ah = math.huge, vendor = -500,
 		q = { [2] = 1e30, [3] = 0 / 0, [9] = 3 }, mats = { [10940] = 1e30, [10938] = 0 / 0, [11083] = math.huge, [-1] = 2, [10939.2] = 1, [10998] = 1.7 },
 		best = { id = 7001, q = 2, worth = 1e30, ah = 1e30, name = "Test" } } } })
 	local st = DE:Stats()
@@ -552,7 +556,7 @@ do
 end
 do
 	-- where the bounds are: a count below a billion, an amount of copper below 1e13
-	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 2, n = 1e9 - 1, cn = 1e9, ahN = 5, ahU = 1e9 + 5, vendor = 1e13 - 1, ah = 1e13, alt = 2e13,
+	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 3, n = 1e9 - 1, cn = 1e9, ahN = 5, ahU = 1e9 + 5, vendor = 1e13 - 1, ah = 1e13, alt = 2e13,
 		q = { [2] = 1e9 - 1, [3] = 1e9, [4] = 12 }, mats = { [10940] = 1e9 - 1, [10938] = 1e9, [10939] = 7 },
 		best = { id = 7001, q = 2, worth = 1e13 - 1, ah = 1e13, vendor = 1e13, name = "Sturdy Boots" } } } })
 	local st = DE:Stats()
@@ -561,21 +565,21 @@ do
 	check(st.q[2] == 1e9 - 1 and st.q[3] == nil and st.q[4] == 12 and st.mats[10940] == 1e9 - 1 and st.mats[10938] == nil and st.mats[10939] == 7, "the same bound inside the quality counts and the materials")
 	check(st.best and st.best.worth == 1e13 - 1 and st.best.ah == nil and st.best.vendor == 0 and st.best.name == "Sturdy Boots", "and inside the most valuable item: each piece on its own")
 	-- a most valuable item worth too much is no record of one
-	M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 2, n = 1, best = { id = 7001, q = 2, worth = 1e13, name = "Sturdy Boots" } } } })
+	M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 3, n = 1, best = { id = 7001, q = 2, worth = 1e13, name = "Sturdy Boots" } } } })
 	check(DE:Stats().best == nil, "a most valuable item worth 1e13 or more is dropped whole")
 	check((n.errors or 0) == 0, "no errors")
 end
 do
 	-- the name is shown in a line of text: one with a | code or a control character isn't kept
 	for _, bad in ipairs({ "|cffff0000Red|r", "|TInterface\\Icons\\x:64|t", "|Hitem:1|h[x]|h", "two\nlines", "tab\there", "" }) do
-		local M, n, DE = deBoot({ deShared = { version = 3, results = { ["2:3:a"] = { n = 1, mats = {} } }, materials = {}, stats = { v = 2, n = 1, best = { id = 7001, q = 2, worth = 500, vendor = 500, name = bad } } } })
+		local M, n, DE = deBoot({ deShared = { version = 3, results = { ["2:3:a"] = { n = 1, mats = {} } }, materials = {}, stats = { v = 3, n = 1, best = { id = 7001, q = 2, worth = 500, vendor = 500, name = bad } } } })
 		local b = DE:Stats().best
 		check(b and b.id == 7001 and b.name == nil, ("a saved name like %q is dropped, the item kept"):format(bad))
 		local row
 		for _, l in ipairs((DE:ResultLines("all"))) do if l.id == 7001 then row = l end end
 		check(row and plain(row.left) == "Sturdy Boots", "and the view shows the item's own name: " .. tostring(row and row.left))
 	end
-	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 2, n = 1, best = { id = 7001, q = 2, worth = 500, vendor = 500, name = "Boots of the Whale" } } } })
+	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 3, n = 1, best = { id = 7001, q = 2, worth = 500, vendor = 500, name = "Boots of the Whale" } } } })
 	check(DE:Stats().best.name == "Boots of the Whale", "a plain name is kept")
 	check(DE.PlainName("Fine") == "Fine" and DE.PlainName("a|b") == nil and DE.PlainName(("x"):rep(121)) == nil and DE.PlainName(7) == nil and DE.PlainName("") == nil, "(DE.PlainName: plain, not over-long, or nothing)")
 	-- written that way as well: an item whose name isn't plain is recorded without it
@@ -595,14 +599,14 @@ do
 	local many = {}
 	for i = 1, 2000 do many[i] = 0 end
 	for i = 2001, 3000 do many[i] = 5 end
-	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 2, n = 1, mats = many } } })
+	local M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 3, n = 1, mats = many } } })
 	local count = 0
 	for _ in pairs(DE:Stats().mats) do count = count + 1 end
 	check(count == 0, "reading stops after 2,000 entries, kept or not (beta4 read the whole table): " .. count)
 	-- within that, the first 200 good ones are kept, as before
 	many = {}
 	for i = 1, 1500 do many[i] = 5 end
-	M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 2, n = 1, mats = many } } })
+	M, n, DE = deBoot({ deShared = { version = 3, results = {}, materials = {}, stats = { v = 3, n = 1, mats = many } } })
 	count = 0
 	for _ in pairs(DE:Stats().mats) do count = count + 1 end
 	check(count == 200, "and no more than 200 kinds are kept: " .. count)
@@ -612,7 +616,7 @@ do
 	-- nothing shown runs past what the game can format, whatever is in memory or whatever a price addon answers
 	local M, n, DE = deBoot()
 	local MAX = DE.MONEY_MAX
-	check(MAX == 1e13 and DE.COUNT_MAX == 1e9 and DE.STATS_VERSION == 2, "(the bounds: 1e13 copper, a billion, record version 2)")
+	check(MAX == 1e13 and DE.COUNT_MAX == 1e9 and DE.STATS_VERSION == 3, "(the bounds: 1e13 copper, a billion, record version 3)")   -- (by design since 1.11.0-beta6, B5-2: version 3)
 	check(n.DE_STATS.VERSION == DE.STATS_VERSION and n.DE_STATS.MONEY_MAX == MAX and n.DE_STATS.COUNT_MAX == DE.COUNT_MAX and n.DE_STATS.MATS_KEPT == 200 and n.DE_STATS.MATS_READ == 2000,
 		"(the check on load and the Helper read them from one place)")
 	local list, total, unpriced = DE.Valued({ [10940] = 1e30, [10938] = 2 })
@@ -636,7 +640,7 @@ do
 	st.best = { id = 7001, q = 2, worth = 1e30, ah = 1e30 }
 	local row
 	for _, l in ipairs((DE:ResultLines("all"))) do if l.id == 7001 then row = l end end
-	check(row and not plain(row.right):find("%-%d") and plain(row.right) == "AH " .. DE.Money(MAX - 1), "an oversized value in memory is shown at the cap, never as a negative: " .. tostring(row and row.right))
+	check(row and not plain(row.right):find("%-%d") and plain(row.right) == "AH, after its cut, " .. DE.Money(MAX - 1), "an oversized value in memory is shown at the cap, never as a negative: " .. tostring(row and row.right))
 	st.vendor, st.alt, st.ah = 1e30, 1e30, 1e30
 	local ok = true
 	for _, l in ipairs(lines(DE, "all")) do if l[2]:find("%-%d") then ok = false end end

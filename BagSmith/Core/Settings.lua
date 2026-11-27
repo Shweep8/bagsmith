@@ -317,13 +317,24 @@ end
 -- total). The materials table is read for its first 2,000 keys at most, however many a damaged file holds. The best
 -- item's name is dropped when it carries a | code or a control character (it is shown in a line of text). And
 -- (B4-2) the record has a version: one without this version's is not read, and the record starts over.
-ns.DE_STATS = { VERSION = 2, COUNT_MAX = 1e9, MONEY_MAX = 1e13, MATS_KEPT = 200, MATS_READ = 2000 }   -- (Core/Disenchant.lua reads these)
+-- (1.11.0-beta6, the beta5 re-audit's B5-2) Version 3: its auction house amounts are after the cut, item by item,
+-- which version 2's can't be turned into. (B5-4) And when anything the comparison is made of had to be dropped or
+-- changed here (a total, a count, a material, or materials past the cap), the record says so (gap): the totals are
+-- still shown, and no winner is named from them.
+ns.DE_STATS = { VERSION = 3, COUNT_MAX = 1e9, MONEY_MAX = 1e13, MATS_KEPT = 200, MATS_READ = 2000 }   -- (Core/Disenchant.lua reads these)
 local DE_STATS_VERSION, DE_COUNT_MAX, DE_MONEY_MAX, DE_MATS_KEPT, DE_MATS_READ = ns.DE_STATS.VERSION, ns.DE_STATS.COUNT_MAX, ns.DE_STATS.MONEY_MAX,
 	ns.DE_STATS.MATS_KEPT, ns.DE_STATS.MATS_READ
 local function deStatsValidator(v)
 	if type(v) ~= "table" or v.v ~= DE_STATS_VERSION then return nil end
-	local function count(x) return (finite(x) and x >= 0 and x < DE_COUNT_MAX) and math.floor(x) or 0 end
-	local function money(x) return (finite(x) and x >= 0 and x < DE_MONEY_MAX) and math.floor(x) or 0 end
+	local gap = v.gap == true
+	local function whole(x, max)
+		if x == nil then return 0 end
+		if not (finite(x) and x >= 0 and x < max) then gap = true; return 0 end
+		if x ~= math.floor(x) then gap = true end
+		return math.floor(x)
+	end
+	local function count(x) return whole(x, DE_COUNT_MAX) end
+	local function money(x) return whole(x, DE_MONEY_MAX) end
 	local function itemID(id) return type(id) == "number" and id > 0 and id < 10000000 and id == math.floor(id) end
 	local out = { v = DE_STATS_VERSION, n = count(v.n), cn = count(v.cn), vendor = money(v.vendor), ah = money(v.ah), ahN = count(v.ahN), ahU = count(v.ahU),
 		alt = money(v.alt), q = {}, mats = {} }
@@ -334,10 +345,15 @@ local function deStatsValidator(v)
 		local kept, read = 0, 0
 		for id, c in pairs(v.mats) do
 			read = read + 1
-			if read > DE_MATS_READ or kept >= DE_MATS_KEPT then break end
-			if itemID(id) and finite(c) and c >= 1 and c < DE_COUNT_MAX then out.mats[id] = math.floor(c); kept = kept + 1 end
+			if read > DE_MATS_READ or kept >= DE_MATS_KEPT then gap = true; break end   -- (B5-4) more than is kept or read
+			if itemID(id) and finite(c) and c >= 1 and c < DE_COUNT_MAX then
+				out.mats[id] = math.floor(c); kept = kept + 1
+				if c ~= math.floor(c) then gap = true end
+			else gap = true end   -- (B5-4) a material that couldn't be kept
 		end
+	elseif v.mats ~= nil then gap = true
 	end
+	out.gap = gap or nil   -- (settled here: the most valuable item below is not part of the comparison)
 	local b = v.best
 	if type(b) == "table" and itemID(b.id) and finite(b.worth) and b.worth >= 1 and b.worth < DE_MONEY_MAX then
 		local name = b.name
@@ -345,7 +361,8 @@ local function deStatsValidator(v)
 		out.best = {
 			id = b.id, name = name,
 			q = (finite(b.q) and b.q >= 0 and b.q <= 7) and math.floor(b.q) or 1,
-			vendor = money(b.vendor), ah = (finite(b.ah) and b.ah >= 0 and b.ah < DE_MONEY_MAX) and math.floor(b.ah) or nil, worth = math.floor(b.worth),
+			vendor = (finite(b.vendor) and b.vendor >= 0 and b.vendor < DE_MONEY_MAX) and math.floor(b.vendor) or 0,
+			ah = (finite(b.ah) and b.ah >= 0 and b.ah < DE_MONEY_MAX) and math.floor(b.ah) or nil, worth = math.floor(b.worth),
 		}
 	end
 	return out
