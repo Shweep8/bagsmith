@@ -353,6 +353,15 @@ local function deStatsValidator(v)
 		end
 	elseif v.mats ~= nil then gap = true
 	end
+	-- (1.11.0-beta7, the beta6 re-audit's B6-4) A comparison with anything in it must have every total it is made of,
+	-- and counts that agree with each other. A total that is simply missing read as zero until now, without a word.
+	-- (For any record BagSmith wrote: cn <= n; the priced and the unpriced among the counted are at most cn; and the
+	-- best-sale total is at least the vendor total and the auction total, and at most their sum.)
+	if out.cn > 0 then
+		for _, k in ipairs({ "n", "cn", "vendor", "ah", "ahN", "ahU", "alt" }) do if v[k] == nil then gap = true end end
+		if type(v.mats) ~= "table" then gap = true end
+		if out.cn > out.n or out.ahN + out.ahU > out.cn or out.alt < out.vendor or out.alt < out.ah or out.alt > out.vendor + out.ah then gap = true end
+	end
 	out.gap = gap or nil   -- (settled here: the most valuable item below is not part of the comparison)
 	local b = v.best
 	if type(b) == "table" and itemID(b.id) and finite(b.worth) and b.worth >= 1 and b.worth < DE_MONEY_MAX then

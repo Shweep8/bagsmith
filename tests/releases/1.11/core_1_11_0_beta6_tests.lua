@@ -134,6 +134,12 @@ local function heldOf(DE, id, slot) for _, e in ipairs(DE.heldEntries or {}) do 
 local function rowsOf(f) local t = {}; for _, r in ipairs(f.rows) do if r:IsShown() then t[#t + 1] = r end end return t end
 local function rowFor(f, id, slot) for _, r in ipairs(rowsOf(f)) do if r.entry and r.entry.itemID == id and (not slot or r.entry.slot == slot) then return r end end end
 local function armed(b) return b:GetAttribute("type") == "spell" end
+-- (By design since 1.11.0-beta7, Shweep's look at beta6 in game: "not sure dimming the held back is a good call ... the
+-- button in header is hard to find, end of the reg list would possibly be better". The switch is the Held Back band at
+-- the end of the offered rows, there whenever anything is held back; the header's Show button is gone; held-back rows
+-- are at full strength with a lock in place of the ring. The checks below that named the old button or the dimming
+-- name the band and the lock instead, each marked.)
+local function bandOf(f) for _, r in ipairs(rowsOf(f)) do if r.heading then return r end end end
 local function lootLine(M, id, count)
 	M.fire("CHAT_MSG_LOOT", ("You receive loot: |cffffffff|Hitem:%d:0:0:0:0:0:0:0|h[mat]|h|r%s."):format(id, count > 1 and ("x" .. count) or ""))
 end
@@ -163,21 +169,23 @@ do
 	local it = { facts = { [5387] = keepFacts(5387) } }
 	local n, M, DE, f, b = hBoot(function(M) put(M, 1, BOOTS); put(M, 2, CLOAK); put(M, 3, DAGGER); put(M, 4, EPIC) end, { it = it })
 	check(offered(DE) == "Sturdy Boots, Worn Dagger" and DE.held.total == 2, "(set up: boots and a dagger offered; a cloak ItemTree keeps and an epic held back)")
-	check(not DE.showHeld and #DE.heldEntries == 0 and #rowsOf(f) == 2 and DE.viewing == nil, "the list is the offered pieces, as before")
-	check(f.heldLine:IsShown() and f.heldLine.text == "2 held back" and f.heldInfo:IsShown() and f.heldShow:IsShown() and f.heldShow.label.text == "Show", "\"2 held back\", its (i), and now a Show button")
-	check(f.heldShow.points[1][2] == f.heldInfo and f.heldShow.tip == "Held-back items in the list", "after the (i), saying what it does")
+	-- (by design since 1.11.0-beta7: the band is a row of the list, so three rows, not two)
+	check(not DE.showHeld and #DE.heldEntries == 0 and #rowsOf(f) == 3 and DE.viewing == nil, "the list is the offered pieces, as before, and the Held Back band after them")
+	check(f.heldLine:IsShown() and f.heldLine.text == "2 held back" and f.heldInfo:IsShown() and f.heldShow == nil, "\"2 held back\" and its (i) in the header, with no button there")
+	check(bandOf(f) == rowsOf(f)[3] and plain(bandOf(f).cells[2].text) == "Held Back (2)" and bandOf(f).cells[6].text == "Show", "the band comes after the offered rows and reads Held Back (2), Show")
 	check(armed(b) and DE.current and DE.current.itemID == rowsOf(f)[1].entry.itemID, "(the first offered piece is armed)")
 	local first = DE.current
-	click(f.heldShow)
+	click(bandOf(f))
 	local rows = rowsOf(f)
-	check(DE.showHeld == true and #rows == 5 and f.heldShow.label.text == "Hide", "Show: the held-back pieces join the list, and the button reads Hide")
+	check(DE.showHeld == true and #rows == 5 and rows[3].cells[6].text == "Hide", "Show: the held-back pieces join the list, and the band reads Hide")
 	check(rows[3].heading and rows[3].entry == nil and plain(rows[3].cells[2].text) == "Held Back (2)" and not rows[3].dot:IsShown(), "under a heading, Held Back (2)")
 	check(heldList(DE) == "Enchanted Moonstalker Cloak [itemtree], Blade of Ages [epic]", "an addon's advice first, then the player's own protections: " .. heldList(DE))
 	local cloakRow, epicRow = rows[4], rows[5]
 	check(cloakRow.entry.itemID == 5387 and plain(cloakRow.cells[2].text) == "Enchanted Moonstalker Cloak" and cloakRow.cells[6].text == "ItemTree: keep", "the cloak's row: its reason where Rec. Action is")
 	check(cloakRow.cells[3].text == DE.Money(150) and cloakRow.cells[4].text == "no price yet" and cloakRow.cells[5].text ~= "", "with its vendor, AH and materials values in the same columns: " .. tostring(cloakRow.cells[5].text))
 	check(epicRow.entry.itemID == 7010 and epicRow.cells[6].text == "Epic" and epicRow.cells[3].text == DE.Money(50000), "the epic's row")
-	check(cloakRow:GetAlpha() == 0.6 and epicRow:GetAlpha() == 0.6 and rows[1]:GetAlpha() == 1 and rows[3]:GetAlpha() == 1, "held-back rows are dimmed; the others are not")
+	-- (by design since 1.11.0-beta7: not dimmed; a lock where the ring is)
+	check(cloakRow:GetAlpha() == 1 and epicRow:GetAlpha() == 1 and cloakRow.lock:IsShown() and not cloakRow.dot:IsShown() and rows[1].dot:IsShown() and not rows[1].lock:IsShown(), "held-back rows are at full strength, with a lock where the others have their ring")
 	check(DE.current and DE.current.itemID == first.itemID and armed(b) and b:GetAttribute("target-slot") == first.slot and DE.viewing == nil, "showing them changes nothing about what is armed")
 	check(f.sub.text:find("2 items to consider", 1, true), "(the count line still counts the offered ones)")
 
@@ -189,7 +197,7 @@ do
 	check(f.cur.verdict.text == "Held back: ItemTree says to keep", "and why it is held back, in place of the recommendation: " .. tostring(f.cur.verdict.text))
 	check(f.offer:IsShown() and f.offer:IsEnabled() and f.offer.label.text == "Offer Anyway" and not f.never:IsShown() and not f.unoffer:IsShown() and not f.junk:IsShown(), "its buttons: Offer Anyway, no Exclude or Junk")
 	check(f.offer.points[1][2] == b and f.skip.points[1][2] == f.offer and f.skip:IsShown(), "Offer Anyway beside the greyed Disenchant button, Skip after it")
-	check(cloakRow.dotFill:IsShown() and cloakRow.hl:IsShown() and not rows[1].dotFill:IsShown(), "its row carries the selection dot")
+	check(cloakRow.hl:IsShown() and cloakRow.lock:IsShown() and not cloakRow.dotFill:IsShown() and not rows[1].dotFill:IsShown() and not rows[1].hl:IsShown(), "its row is the highlighted one (by design since 1.11.0-beta7: it keeps its lock, no dot)")
 	local held = DE.viewing
 	DE:Arm(held)
 	check(DE.current == nil and not armed(b), "DE:Arm refuses a held-back row")
@@ -250,7 +258,7 @@ do
 	-- Hold Back takes an offer back; a new look at the Helper starts with none
 	local it = { facts = { [5387] = keepFacts(5387) } }
 	local n, M, DE, f, b = hBoot(function(M) put(M, 1, BOOTS); put(M, 2, CLOAK) end, { it = it })
-	click(f.heldShow); click(rowFor(f, 5387)); click(f.offer)
+	click(bandOf(f)); click(rowFor(f, 5387)); click(f.offer)
 	check(DE.current.itemID == 5387 and armed(b), "(set up: the cloak offered and armed)")
 	click(f.unoffer)
 	check(next(DE.offered) == nil and offered(DE) == "Sturdy Boots" and heldOf(DE, 5387) and heldOf(DE, 5387).held == "itemtree", "Hold Back: the offer is taken back and the cloak is held back again")
@@ -275,8 +283,8 @@ end
 do
 	-- a protection of the player's own is asked about first
 	local n, M, DE, f, b = hBoot(function(M) put(M, 1, BOOTS); put(M, 3, DAGGER) end)
-	n.Marks:ToggleFavorite(recOf(n, 7002)); pump(M)
-	click(f.heldShow)
+	n.Marks:ToggleFavorite(recOf(n, 7002)); pump(M); DE:Refresh()   -- (drawn again, so the band is there to click)
+	click(bandOf(f))
 	check(heldList(DE) == "Worn Dagger [favorite]" and rowFor(f, 7002).cells[6].text == "Favorite", "(set up: the dagger is a favorite, held back and shown)")
 	click(rowFor(f, 7002))
 	check(f.cur.verdict.text == "Held back: a favorite" and f.offer:IsEnabled(), "its panel says so, and it can be offered")
@@ -314,7 +322,7 @@ do
 	check(I.favorite.offer == "ask" and I["gear set"].offer == "ask" and I.never.offer == "ask" and I.refundable.offer == "ask" and I.tradeable.offer == "ask" and I.epic.offer == "ask", "a favorite, a gear set, the Exclusion List, refundable, tradeable, an epic: asked first")
 	check(I.skill.offer == nil and I.itemtreewait.offer == nil and I.skill.cant and I.itemtreewait.cant, "not enough skill, and a piece still waiting on ItemTree: can't be offered")
 	for why in pairs(DE.HELD) do check(I[why] ~= nil and I[why].short and I[why].text, "every reason the Helper holds a piece back for has its words: " .. why) end
-	click(f.heldShow)
+	click(bandOf(f))
 	check(recOf(n, 7001).gearSets ~= nil and heldOf(DE, 7001) and heldOf(DE, 7001).held == "gear set" and heldOf(DE, 7010).held == "epic", "(set up: the boots in a gear set, the epic)")
 	-- a gear set
 	local boots = heldOf(DE, 7001)
@@ -350,7 +358,8 @@ do
 	local trade = { slots = {} }
 	local n, M, DE, f, b = hBoot(function(M) put(M, 1, BOOTS); put(M, 3, DAGGER) end, { trade = trade })
 	C_Container.GetContainerItemPurchaseInfo = function(bag, slot) if bag == 0 and slot == 3 then return 500, 1, 3600 end return 0, 0, 0 end
-	click(f.heldShow)
+	DE:Refresh()   -- (drawn again, so the band is there to click)
+	click(bandOf(f))
 	local dagger = heldOf(DE, 7002)
 	check(dagger and dagger.held == "refundable" and rowFor(f, 7002).cells[6].text == "Refundable" and DE:CanOffer(dagger) == "ask", "(set up: the dagger can still be refunded)")
 	check(DE:OfferAnyway(dagger, true) and entryOf(DE, 7002).offered == "Refundable" and DE:LiveCheck(entryOf(DE, 7002)) == true, "offered: the click's check doesn't read whether it is refundable")
@@ -376,7 +385,7 @@ do
 	-- Pawn's word, set aside for one piece
 	local pawn = { upgrades = { [7002] = true } }
 	local n, M, DE, f, b = hBoot(function(M) put(M, 1, BOOTS); put(M, 3, DAGGER) end, { pawn = pawn, prof = { deHoldPawn = true } })
-	click(f.heldShow)
+	click(bandOf(f))
 	local dagger = heldOf(DE, 7002)
 	check(dagger and dagger.held == "pawn" and rowFor(f, 7002).cells[6].text == "Pawn upgrade" and DE:CanOffer(dagger) == "free", "(set up: Pawn says the dagger is an upgrade)")
 	click(rowFor(f, 7002))
@@ -395,7 +404,7 @@ do
 	-- what can't be offered
 	local it = { facts = {}, ready = false }
 	local n, M, DE, f, b = hBoot(function(M) put(M, 1, BOOTS); put(M, 3, { id = 7020, name = "Deep Plate", q = 2, count = 1, class = 4, subclass = 4, price = 900, ilvl = 60, equip = "INVTYPE_CHEST" }) end, { it = it, rank = 30 })
-	click(f.heldShow)
+	click(f.empty.heldShow)   -- (nothing is offered here, so it is the empty card's button)
 	check(heldList(DE) == "Deep Plate [skill], Sturdy Boots [itemtreewait]", "(set up: one piece above the character's skill, one waiting on ItemTree): " .. heldList(DE))
 	local plate, boots = heldOf(DE, 7020), heldOf(DE, 7001)
 	local can, cant = DE:CanOffer(plate)
@@ -425,12 +434,12 @@ do
 	local it = { facts = { [5387] = keepFacts(5387) } }
 	local n, M, DE, f, b = hBoot(function(M) put(M, 2, CLOAK); put(M, 5, CLOAK) end, { it = it })
 	check(f.empty:IsShown() and f.empty.held:IsShown() and f.empty.held.text == "2 held back" and f.empty.heldInfo:IsShown(), "(set up: two copies of a cloak ItemTree keeps, nothing to offer: the empty card, \"2 held back\")")
-	check(f.empty.heldShow:IsShown() and f.empty.heldShow.label.text == "Show" and f.empty.heldShow.points[1][2] == f.empty.heldInfo, "the card has the Show button too")
+	check(f.empty.heldShow:IsShown() and f.empty.heldShow.label.text == "Show Held Back" and f.empty.heldShow.points[1][2] == f.empty.held, "the card has a button of its own, centred under the count (by design since 1.11.0-beta7: Show Held Back)")
 	click(f.empty.heldShow)
 	local rows = rowsOf(f)
 	check(not f.empty:IsShown() and f.scroll:IsShown() and #rows == 3 and rows[1].heading and plain(rows[1].cells[2].text) == "Held Back (2)", "Show: the list takes the card's place, with the two held-back rows")
 	check(DE.viewing and DE.viewing.slot == 2 and DE.current == nil and not armed(b) and f.cur:IsShown(), "the panel looks at the first of them; nothing is armed")
-	check(f.heldShow:IsShown() and f.heldShow.label.text == "Hide", "(Hide is beside the count line now)")
+	check(bandOf(f) and bandOf(f).cells[6].text == "Hide", "(the band reads Hide now)")
 	click(f.offer)
 	check(#DE.entries == 1 and DE.entries[1].slot == 2 and DE.current.slot == 2 and armed(b) and b:GetAttribute("target-slot") == 2, "Offer Anyway on one copy: that copy is offered and armed")
 	check(#DE.heldEntries == 1 and DE.heldEntries[1].slot == 5 and DE.held.total == 1, "the other copy is still held back")
@@ -447,7 +456,7 @@ do
 	check(#DE.heldEntries == 0 and DE.held.total == 0 and DE.viewing == nil and f.empty:IsShown(), "Skip on a held-back row sets it aside like any other, and the card is back")
 	DE:ClearSkipped()
 	check(#DE.heldEntries == 1 and not f.empty:IsShown(), "(considered again: shown again)")
-	click(f.heldShow)
+	click(bandOf(f))
 	check(DE.showHeld == false and f.empty:IsShown() and #DE.heldEntries == 0 and DE.viewing == nil and f.empty.held.text == "1 held back", "Hide: the card again, \"1 held back\"")
 	check((n.errors or 0) == 0, "no errors")
 end
@@ -455,7 +464,7 @@ do
 	-- in combat nothing here changes anything
 	local it = { facts = { [5387] = keepFacts(5387) } }
 	local n, M, DE, f, b = hBoot(function(M) put(M, 1, BOOTS); put(M, 2, CLOAK); put(M, 4, EPIC) end, { it = it })
-	click(f.heldShow)
+	click(bandOf(f))
 	local held = heldOf(DE, 5387)
 	M.combat = true
 	check(DE:ShowHeld(false) == false and DE.showHeld == true, "in combat: Show and Hide do nothing")
@@ -469,9 +478,9 @@ do
 	M.combat = false
 	-- the Results view puts the Show button away with the rest
 	DE:ShowResults(true)
-	check(f.results:IsShown() and not f.heldShow:IsShown() and not f.heldLine:IsShown() and not armed(b), "Results: the held line and its button are put away, nothing armed")
+	check(f.results:IsShown() and not f.heldLine:IsShown() and not armed(b), "Results: the held line is put away, nothing armed")
 	DE:ShowResults(false)
-	check(f.heldShow:IsShown() and entryOf(DE, 5387) ~= nil, "back to the list: as it was, the offer still standing")
+	check(f.heldLine:IsShown() and bandOf(f) ~= nil and entryOf(DE, 5387) ~= nil, "back to the list: as it was, the offer still standing")
 	check((n.errors or 0) == 0, "no errors")
 end
 
@@ -635,7 +644,11 @@ do
 	DE2:ShowResults(true)
 	check(DE2.castOpen ~= nil and painted(DE2, "No winner yet: a disenchant is still collecting its loot.") ~= nil and painted(DE2, "Disenchanting Came Out Ahead By") == nil, "(a cast open, the view waiting)")
 	M2.bags[e2.bag][e2.slot] = nil; M2.fire("BAG_UPDATE_DELAYED"); pump(M2)
-	check(DE2.castOpen == nil and painted(DE2, "Disenchanting Came Out Ahead By") == DE2.Money(855), "the item leaves, the cast closes, and the view names the winner without being asked")
+	-- (by design since 1.11.0-beta7, the beta6 re-audit's B6-3: the item leaving no longer closes the cast a second
+	-- later; it stays open for its loot until the loot window closes or its five seconds pass)
+	check(DE2.castOpen ~= nil and painted(DE2, "Disenchanting Came Out Ahead By") == nil, "the item leaves: the cast is still open and the view still waits")
+	M2.fire("LOOT_CLOSED"); pump(M2)
+	check(DE2.castOpen == nil and painted(DE2, "Disenchanting Came Out Ahead By") == DE2.Money(855), "the loot closes, the cast closes, and the view names the winner without being asked")
 	check((n2.errors or 0) == 0, "no errors")
 end
 do
@@ -678,8 +691,8 @@ do
 		st, tr = loaded(bad)
 		check(st.gap == true and tr.ahead == nil, "no winner from a record with " .. label)
 	end
-	st, tr = loaded({ n = 2, cn = 2, vendor = 900, ah = 1400, ahN = 1, alt = 1900, mats = { [10940] = 20 }, q = { [2] = 2, [9] = 4 }, best = { id = 7001, q = 2, worth = 1425, vendor = -3, name = "a|b" } })
-	check(st.gap == nil and tr.ahead ~= nil, "what isn't part of the comparison (a quality count, the most valuable item) doesn't mark it")
+	st, tr = loaded({ n = 2, cn = 2, vendor = 900, ah = 1400, ahN = 1, ahU = 0, alt = 1900, mats = { [10940] = 20 }, q = { [2] = 2, [9] = 4 }, best = { id = 7001, q = 2, worth = 1425, vendor = -3, name = "a|b" } })
+	check(st.gap == nil and tr.ahead ~= nil, "what isn't part of the comparison (a quality count, the most valuable item) doesn't mark it")   -- (by design since 1.11.0-beta7, B6-4: the fixture names every total, ahU too)
 	-- beta5's record, version 2, is not read: its auction amounts were before the cut
 	local n3, M3, DE3 = hBoot(function(M) put(M, 1, BOOTS) end, { deShared = { version = 3, results = { ["2:3:a"] = { n = 2, mats = { [10940] = 4 } } }, stats = { v = 2, n = 2, cn = 2, vendor = 900, ah = 1500, ahN = 1, alt = 1900, mats = { [10940] = 4 } } } })
 	check(DE3:Stats().v == 3 and DE3:Stats().n == 0 and DE3:Results("all").n == 2 and DE3:Results("all").tracked == nil, "a beta5 record starts over; All Time's counts and materials stay, from the log")

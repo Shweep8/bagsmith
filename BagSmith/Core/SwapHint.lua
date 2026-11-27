@@ -540,6 +540,13 @@ ns:On("ITEM_LOCK_CHANGED", function(bag, slot)
 					if refused == rec then refused = nil end
 					if not rec.taken and not Hint.swapping then Hint:Show() end
 				end)
+			elseif not held then
+				-- (1.11.0-beta7, Shweep's trace of 26 Nov: a bag he right-clicked was "remembered" as dragged, and the
+				-- game's own refusal a moment later was read as a drag's) Back in its slot with nothing on the cursor
+				-- and the pointer not on its bag's slot: a click, or a drag let go of. Nothing is being dragged, so
+				-- nothing is remembered for the ten seconds that follow.
+				pickup = nil
+				ns:Debug("Swap hint: forgot the bag (back in its slot, nothing on the cursor)")
 			end
 		end
 		return

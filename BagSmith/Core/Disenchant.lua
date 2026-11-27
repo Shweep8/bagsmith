@@ -832,6 +832,11 @@ function DE:LiveCheck(entry)
 	-- (1.11.0-beta6) What the player set aside for this very piece with Offer Anyway (DE:OfferAnyway), read only now
 	-- that the slot is known to hold the armed piece. Each reason lifts its own check below and no other.
 	local over = self:OfferedWhy(entry.rec)
+	-- (1.11.0-beta7, the beta6 re-audit's B6-2) An offer is honoured only for the piece PROVEN to be in the slot. With
+	-- any reason set aside and no verified instance (the game's identity call missing at this moment, though it was
+	-- there when the offer was made), the click is refused, whatever the item ID and link say. A piece nobody offered
+	-- keeps the path it always had.
+	if next(over) ~= nil and not sameInstance then return false, "that item couldn't be confirmed as the piece you offered" end
 	if self:Never()[entry.itemID] and not over.never then return false, "that item is on your DE Exclusion List" end
 	if ns.Marks and ns.Marks:IsFavorite(entry.itemID) and not over.favorite then return false, "that item is a favorite now" end
 	if ns.GearSets and ns.GearSets:Available() and not over["gear set"] then
@@ -974,6 +979,7 @@ DE.HELD_INFO = {
 	skill = { short = "Needs skill", text = "needs more Enchanting skill", cant = "Your Enchanting skill is too low to disenchant it." },
 	itemtreewait = { short = "ItemTree: wait", text = "waiting for ItemTree", cant = "ItemTree hasn't answered about it yet. This clears by itself in a moment." },
 }
+DE.HELD_TIP, DE.HELD_TIP_SUB = "Held-back items", "Each with why it's held back and its vendor, auction and materials values. Click to show or hide them."
 DE.HELD_ORDER = { "itemtree", "pawn", "junk", "epic", "favorite", "gear set", "never", "refundable", "tradeable", "skill", "itemtreewait" }
 local NO_OFFER = {}
 -- The reasons set aside for this very piece: a table of reason = true, empty for a piece nobody offered (and for
@@ -1005,17 +1011,43 @@ function DE:HeldNow(e)
 		if h.rec.guid == e.rec.guid and h.bag == e.bag and h.slot == e.slot and h.itemID == e.itemID and h.held == e.held then return h end
 	end
 end
+-- (1.11.0-beta7, the beta6 re-audit's B6-1: "Offer Anyway confirmation survives leaving its context") A question
+-- belongs to the moment it was asked. It carries a token; anything that changes what the Helper is showing (closed,
+-- soft-closed in combat, opened, Results, the held-back rows hidden, another row picked, Skip, Hold Back, combat,
+-- the Helper turned off, the row gone from the list) drops it: the token moves on, and the question's box is taken
+-- down if it is still showing OURS (the box is shared with every other question BagSmith asks). The answer itself
+-- checks the token and the moment again, so a Yes from a box that somehow stayed up does nothing.
+function DE:DropQuestion()
+	self.askToken = (self.askToken or 0) + 1
+	local fn = self.askFn
+	self.askFn, self.asked = nil, nil
+	local pop = ns.Popups and ns.Popups.confirm
+	if fn and pop and pop.IsShown and pop:IsShown() and pop.onYes == fn then pop:Hide() end
+end
 -- Offer Anyway: this piece's reason is set aside, and the list is judged again. Nothing is disenchanted here, and
 -- nothing is armed that the fresh look doesn't pass. sure: the question for an "ask" reason was answered yes.
 function DE:OfferAnyway(e, sure)
 	if InCombatLockdown() then return false end
+	if not self:IsOpen() or self.view == "results" then return false end   -- (1.11.0-beta7, B6-1) only from the open list
 	e = self:HeldNow(e or self.viewing)   -- the row as the list has it now (a question may have sat a while)
 	local how = self:CanOffer(e)
 	if not how then return false end
 	if how == "ask" and not sure then
-		local asked = e
-		ns.Confirm(self.frame and self.frame.offer, ("%s %s.\nOffer this one anyway? Nothing is disenchanted until you click Disenchant."):format(e.name or "This item", self.HELD_INFO[e.held].ask),
-			function() DE:OfferAnyway(asked, true) end)
+		self:DropQuestion()   -- an earlier question of ours goes first
+		local token = self.askToken
+		local answer
+		answer = function()
+			-- the answer counts only where it was asked: this question still standing, and the panel still on that
+			-- very row (DE:OfferAnyway itself refuses unless the Helper is open on its list, out of combat)
+			if DE.askToken ~= token or DE.askFn ~= answer then return end
+			local asked = DE.asked
+			DE.askFn, DE.asked = nil, nil
+			local now = DE:HeldNow(asked)
+			if not (now and DE.viewing == now) then return end
+			DE:OfferAnyway(now, true)
+		end
+		self.askFn, self.asked = answer, e
+		ns.Confirm(self.frame and self.frame.offer, ("%s %s.\nOffer this one anyway? Nothing is disenchanted until you click Disenchant."):format(e.name or "This item", self.HELD_INFO[e.held].ask), answer)
 		return false
 	end
 	local key = e.rec.guid   -- (DE:CanOffer has made sure there is one)
@@ -1031,6 +1063,7 @@ end
 -- Hold Back: the offer on this piece is taken back, all of it.
 function DE:TakeBack(e)
 	if InCombatLockdown() then return false end
+	self:DropQuestion()
 	e = e or self.current
 	if not (e and e.rec and e.rec.guid and self.offered and self.offered[e.rec.guid]) then return false end
 	self.offered[e.rec.guid] = nil
@@ -1041,6 +1074,7 @@ end
 -- Show or hide the held-back rows.
 function DE:ShowHeld(on)
 	if InCombatLockdown() then return false end
+	self:DropQuestion()
 	self.showHeld = on and true or false
 	if not self.showHeld then self.viewing = nil end
 	if self.frame and self.frame:IsShown() then self:Refresh() end
@@ -1369,10 +1403,9 @@ function DE:Frame()
 	-- beside the count: how many items the list holds back, and why on hover (1.3.0)
 	f.heldLine = f:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); f.heldLine:Hide()
 	f.heldInfo = ns.Why.InfoButton(f); f.heldInfo:Hide()
-	-- (1.11.0-beta6) and a way to see them in the list (DE:ShowHeld)
-	f.heldShow = ns.TextButton(f, "Show", 46, function() DE:ShowHeld(not DE.showHeld) end); f.heldShow:SetHeight(18); f.heldShow:Hide()
-	f.heldShow.tip = "Held-back items in the list"
-	f.heldShow.tipSub = "Each with why it's held back and its vendor, auction and materials values."
+	-- (1.11.0-beta6) a way to see them in the list (DE:ShowHeld). (1.11.0-beta7, Shweep: "the button in header is
+	-- hard to find, end of the reg list would possibly be better") The switch is the Held Back band at the end of
+	-- the offered rows now (DE:Paint); the empty card keeps a button of its own.
 	-- the current item: icon, name, values, the recommendation; one row of buttons beneath
 	f.cur = CreateFrame("Frame", nil, f); f.cur:SetHeight(84); f.cur:SetPoint("TOPLEFT", 12, -56); f.cur:SetPoint("TOPRIGHT", -12, -56)
 	f.cur.icon = f.cur:CreateTexture(nil, "ARTWORK"); f.cur.icon:SetSize(40, 40); f.cur.icon:SetPoint("TOPLEFT", 0, -2)
@@ -1447,8 +1480,8 @@ function DE:Frame()
 	f.empty.skipped = ns.TextButton(f.empty, "Consider skipped again", 160, function() DE:ClearSkipped() end); f.empty.skipped:SetHeight(22); f.empty.skipped:SetPoint("TOP", f.empty.line, "BOTTOM", 0, -10); f.empty.skipped:Hide()
 	f.empty.held = f.empty:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall")); f.empty.held:Hide()
 	f.empty.heldInfo = ns.Why.InfoButton(f.empty); f.empty.heldInfo:Hide()
-	f.empty.heldShow = ns.TextButton(f.empty, "Show", 46, function() DE:ShowHeld(true) end); f.empty.heldShow:SetHeight(18); f.empty.heldShow:Hide()   -- (1.11.0-beta6)
-	f.empty.heldShow.tip = f.heldShow.tip; f.empty.heldShow.tipSub = f.heldShow.tipSub
+	f.empty.heldShow = ns.TextButton(f.empty, "Show Held Back", 120, function() DE:ShowHeld(true) end); f.empty.heldShow:SetHeight(22); f.empty.heldShow:Hide()   -- (1.11.0-beta6; beta7: centred, on its own line)
+	f.empty.heldShow.tip = DE.HELD_TIP; f.empty.heldShow.tipSub = DE.HELD_TIP_SUB
 	f.empty.never = ns.TextButton(f.empty, "DE Exclusion List...", 140, function() DE:ManageNever() end); f.empty.never:SetHeight(22); f.empty.never:Hide()
 	-- the footer: what the mats values are, centered beside Close
 	-- centered on the window itself, like the title and the card (the line is short enough to clear Close)
@@ -1626,8 +1659,24 @@ local function row(f, i)
 	r.dotFill = r:CreateTexture(nil, "OVERLAY"); r.dotFill:SetSize(12, 12); r.dotFill:SetPoint("LEFT", 1, 0)
 	r.dotFill:SetTexture("Interface\\Buttons\\UI-RadioButton"); r.dotFill:SetTexCoord(0.25, 0.5, 0, 1); r.dotFill:Hide()
 	r.hl = r:CreateTexture(nil, "BACKGROUND"); r.hl:SetAllPoints(); r.hl:SetColorTexture(1, 1, 1, 0.08); r.hl:Hide()
-	r:SetScript("OnClick", function(self) if self.entry then DE:Select(self.entry) end end)
-	r:SetScript("OnEnter", function(self) DE:RowTip(self) end)
+	-- (1.11.0-beta7) the Held Back band: a tinted row with a rule above it and a chevron, which is the switch; and
+	-- the lock a held-back row wears where an offered row has its selection ring
+	r.band = r:CreateTexture(nil, "BACKGROUND"); r.band:SetAllPoints(); r.band:SetColorTexture(1, 0.82, 0, 0.07); r.band:Hide()
+	r.rule = r:CreateTexture(nil, "BORDER"); r.rule:SetHeight(1); r.rule:SetPoint("TOPLEFT", 0, 0); r.rule:SetPoint("TOPRIGHT", 0, 0); r.rule:SetColorTexture(1, 0.82, 0, 0.35); r.rule:Hide()
+	r.chev = r:CreateTexture(nil, "ARTWORK"); r.chev:SetSize(12, 12); r.chev:SetPoint("LEFT", 1, 0); r.chev:Hide()
+	r.lock = r:CreateTexture(nil, "ARTWORK"); r.lock:SetSize(12, 12); r.lock:SetPoint("LEFT", 1, 0); r.lock:SetTexture("Interface\\AddOns\\BagSmith\\Media\\ui-lock.tga"); r.lock:SetVertexColor(1, 0.6, 0.25); r.lock:Hide()
+	r:SetScript("OnClick", function(self)
+		if self.heading then DE:ShowHeld(not DE.showHeld) elseif self.entry then DE:Select(self.entry) end
+	end)
+	r:SetScript("OnEnter", function(self)
+		if self.heading then
+			if GameTooltip and ns.HelpTipsOK and ns.HelpTipsOK() then
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); ns.TipText(GameTooltip, DE.HELD_TIP); ns.TipLine(GameTooltip, DE.HELD_TIP_SUB, 0.8, 0.8, 0.8, true); GameTooltip:Show()
+			end
+			return
+		end
+		DE:RowTip(self)
+	end)
 	r:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
 	f.rows[i] = r
 	return r
@@ -1730,6 +1779,7 @@ end
 function DE:Select(entry)
 	-- (1.6.0-beta6, the beta5 audit's F2; Shweep) in combat the helper doesn't change: a row click does nothing
 	if InCombatLockdown() then return end
+	self:DropQuestion()   -- (1.11.0-beta7, B6-1) a question about another row doesn't follow the panel
 	-- (1.11.0-beta6) a held-back row is looked at in the panel with nothing armed; any other row is armed as ever
 	if entry and entry.held then self:Arm(nil); self.viewing = entry
 	else self.viewing = nil; self:Arm(entry) end
@@ -1738,6 +1788,7 @@ end
 function DE:Skip()
 	local e = self.current or self.viewing   -- (1.11.0-beta6) a held-back row can be passed on too
 	if not e then return end
+	self:DropQuestion()
 	self.skipped = self.skipped or {}
 	self.skipped[e.rec.guid or (e.bag .. ":" .. e.slot)] = true
 	self:Refresh()
@@ -2107,7 +2158,7 @@ function DE:Paint()
 	local results = self.view == "results"
 	f.results:SetShown(results); f.resultsBtn:SetActive(results); f.footer:SetShown(not results)
 	if results then
-		f.empty:Hide(); f.scroll:Hide(); f.cur:Hide(); f.sub:Hide(); f.heldLine:Hide(); f.heldInfo:Hide(); f.heldShow:Hide(); f.refresh:Hide(); f.status:Hide()
+		f.empty:Hide(); f.scroll:Hide(); f.cur:Hide(); f.sub:Hide(); f.heldLine:Hide(); f.heldInfo:Hide(); f.refresh:Hide(); f.status:Hide()
 		for _, h in ipairs(f.heads) do h:Hide() end
 		self:PaintResults()
 		return
@@ -2152,8 +2203,8 @@ function DE:Paint()
 			f.empty.held:ClearAllPoints(); f.empty.held:SetPoint("TOP", f.empty.line, "BOTTOM", 0, -8)
 			f.empty.held:SetText(("%d held back"):format(heldN))
 			f.empty.heldInfo:ClearAllPoints(); f.empty.heldInfo:SetPoint("LEFT", f.empty.held, "RIGHT", 4, 0)
-			f.empty.heldShow:ClearAllPoints(); f.empty.heldShow:SetPoint("LEFT", f.empty.heldInfo, "RIGHT", 8, 0)   -- (1.11.0-beta6)
-			below = f.empty.held
+			f.empty.heldShow:ClearAllPoints(); f.empty.heldShow:SetPoint("TOP", f.empty.held, "BOTTOM", 0, -8)   -- (1.11.0-beta6; beta7: centred under the count)
+			below = f.empty.heldShow
 		end
 		local skipped, never = self:SkippedCount(), self:NeverCount()
 		f.empty.skipped:SetShown(skipped > 0)
@@ -2199,12 +2250,18 @@ function DE:Paint()
 	else
 		f.cur:Hide()
 	end
-	-- the list: the offered pieces, then (1.11.0-beta6, while shown) a heading and the held-back ones, dimmed, the
-	-- reason where the recommendation is
+	-- the list: the offered pieces, then (1.11.0-beta6) the held-back ones, the reason where the recommendation is.
+	-- (1.11.0-beta7, Shweep, from the game: "not sure dimming the held back is a good call, can be hard to read ...
+	-- the button in header is hard to find, end of the reg list would possibly be better ... can we better
+	-- differentiate reg list from held back items?") After the offered rows comes a band, "Held Back (N)", there
+	-- whenever anything is held back: a rule above it, a chevron, and Show or Hide at its right end; the band is the
+	-- switch. Under it, while shown, the held-back rows at full strength, each with a lock where an offered row has
+	-- its selection ring and its reason in amber.
+	local heldCount = self.held and self.held.total or 0
 	local shown = {}
 	for _, e in ipairs(entries) do shown[#shown + 1] = e end
-	if #heldRows > 0 then
-		shown[#shown + 1] = { heading = ("Held Back (%d)"):format(#heldRows) }
+	if heldCount > 0 and not empty then
+		shown[#shown + 1] = { heading = true }
 		for _, e in ipairs(heldRows) do shown[#shown + 1] = e end
 	end
 	for i, e in ipairs(shown) do
@@ -2212,8 +2269,11 @@ function DE:Paint()
 		if e.heading then
 			r.entry, r.heading = nil, true
 			for c = 1, #r.cells do r.cells[c]:SetText("") end
-			r.cells[2]:SetText(e.heading); r.cells[2]:SetTextColor(1, 0.82, 0)
-			r.dot:Hide(); r.hl:Hide(); r.dotFill:Hide(); r:SetAlpha(1)
+			r.cells[2]:SetText(("Held Back (%d)"):format(heldCount)); r.cells[2]:SetTextColor(1, 0.82, 0)
+			r.cells[6]:SetText(self.showHeld and "Hide" or "Show"); r.cells[6]:SetTextColor(1, 0.82, 0)
+			r.chev:SetTexture(self.showHeld and "Interface\\AddOns\\BagSmith\\Media\\ui-chev-down.tga" or "Interface\\AddOns\\BagSmith\\Media\\ui-chev-right.tga")
+			r.chev:Show(); r.band:Show(); r.rule:Show()
+			r.lock:Hide(); r.dot:Hide(); r.hl:Hide(); r.dotFill:Hide()
 		else
 			r.entry, r.heading = e, nil
 			r.cells[1]:SetText("")
@@ -2222,9 +2282,12 @@ function DE:Paint()
 			r.cells[4]:SetText(self:ValueText(e.ah, "ah", e))
 			r.cells[5]:SetText(self:ValueText(e.mats, "mats", e))
 			r.cells[6]:SetText(e.held and (self.HELD_INFO[e.held] and self.HELD_INFO[e.held].short or "Held back") or self.VERDICT_TEXT[e.verdict] or "")
-			r.dot:Show(); r.hl:SetShown(e == cur); r.dotFill:SetShown(e == cur)
-			r:SetAlpha(e.held and 0.6 or 1)
+			if e.held then r.cells[6]:SetTextColor(1, 0.6, 0.25) else r.cells[6]:SetTextColor(1, 1, 1) end
+			r.chev:Hide(); r.band:Hide(); r.rule:Hide()
+			r.lock:SetShown(e.held ~= nil); r.dot:SetShown(e.held == nil)
+			r.hl:SetShown(e == cur); r.dotFill:SetShown(e == cur and e.held == nil)
 		end
+		r:SetAlpha(1)
 		r:Show()
 	end
 	for i = #shown + 1, #f.rows do f.rows[i]:Hide() end
@@ -2238,14 +2301,11 @@ function DE:Paint()
 		f.sub:SetText(("%d %s to consider.%s"):format(#entries, #entries == 1 and "item" or "items", skill and ("  Enchanting skill %d."):format(skill) or ""))
 	end
 	local heldN = self.held and self.held.total or 0
-	f.heldLine:SetShown(heldN > 0 and not empty); f.heldInfo:SetShown(heldN > 0 and not empty); f.heldShow:SetShown(heldN > 0 and not empty)
+	f.heldLine:SetShown(heldN > 0 and not empty); f.heldInfo:SetShown(heldN > 0 and not empty)
 	if heldN > 0 then
 		f.heldLine:ClearAllPoints(); f.heldLine:SetPoint("LEFT", f.sub, "LEFT", (f.sub:GetStringWidth() or 120) + 10, 0)
 		f.heldLine:SetText(("%d held back"):format(heldN))
 		f.heldInfo:ClearAllPoints(); f.heldInfo:SetPoint("LEFT", f.heldLine, "LEFT", (f.heldLine:GetStringWidth() or 60) + 4, 0)
-		-- (1.11.0-beta6) Show, or Hide once they are listed
-		f.heldShow:ClearAllPoints(); f.heldShow:SetPoint("LEFT", f.heldInfo, "RIGHT", 8, 0)
-		f.heldShow.label:SetText(self.showHeld and "Hide" or "Show")
 		f.heldInfo.title = "Not offered"; f.heldInfo.lines = ns.Why:Lines(self.held)
 		f.empty.heldInfo.title = "Not offered"; f.empty.heldInfo.lines = f.heldInfo.lines
 	end
@@ -2283,7 +2343,8 @@ function DE:Refresh()
 	-- on. A refresh queued before a close (combat's end runs both) leaves a closed helper disarmed.
 	if not self:IsOpen() then self:Arm(nil); return end
 	-- (1.11.0-beta3) the Results view is up: the item panel is put away, so nothing is armed behind it
-	if self.view == "results" then self:Arm(nil); self:Paint(); return end
+	-- (1.11.0-beta7, B6-1) and a question asked on the list doesn't wait behind it
+	if self.view == "results" then self:DropQuestion(); self:Arm(nil); self:Paint(); return end
 	self.entries = self:Entries()
 	-- (1.10.0-beta14, the re-audit's R5) pieces waiting for ItemTree: the open Helper looks again by itself in a few
 	-- seconds, and keeps doing so while any wait
@@ -2308,6 +2369,8 @@ function DE:Refresh()
 	elseif self:Known() then self:Arm(keep or self.entries[1]) else self:Arm(nil) end
 	-- nothing offered and the held-back rows showing: the panel looks at the first of them
 	if not self.current and not self.viewing and self.heldEntries and self.heldEntries[1] then self.viewing = self.heldEntries[1] end
+	-- (1.11.0-beta7, B6-1) a question stands only while the panel is still on the row it was asked about
+	if self.askFn and not (self.viewing and self:HeldNow(self.asked) == self.viewing) then self:DropQuestion() end
 	self:Paint()
 end
 
@@ -2347,6 +2410,7 @@ function DE:Show()
 	self.skipped = self.skipped or {}
 	self.view = nil   -- (1.11.0-beta3) it opens on the list
 	self.offered, self.viewing, self.wantPiece = nil, nil, nil   -- (1.11.0-beta6) an offer lasts while the Helper stays open
+	self:DropQuestion()   -- (1.11.0-beta7, B6-1) and a question asked before this opening is not this opening's
 	f:Show()
 	self:Refresh()
 end
@@ -2395,6 +2459,7 @@ end
 function DE:Close()
 	local f = self.frame
 	if not (f and f:IsShown()) or f.bsSoftClosed then return end
+	self:DropQuestion()   -- (1.11.0-beta7, B6-1) closed, in combat or out: its question goes with it
 	if InCombatLockdown() and f.IsProtected and f:IsProtected() then
 		f.bsSoftClosed = true
 		f:SetAlpha(0)
@@ -2444,21 +2509,17 @@ ns:OnSignal("ADDON_READY", function()
 	ns:On("EQUIPMENT_SETS_CHANGED", function() if DE.frame and DE.frame:IsShown() then ns:NextFrame("de:sets", function() DE:Refresh() end) end end)
 	-- the list follows the scanner's own word that the bags changed (the raw bag event precedes the rescan); it never waits on loot
 	ns:OnSignal("ITEMS_CHANGED", function()
-		local c = DE.castOpen
-		if c and c.entry then
-			local C = C_Container
-			local info = C and C.GetContainerItemInfo and C.GetContainerItemInfo(c.entry.bag, c.entry.slot)
-			if not (type(info) == "table" and info.itemID == c.entry.itemID) then
-				-- the item is gone: give its loot lines one more second, then close
-				local f = C_Timer and C_Timer.After or function(_, fn) fn() end
-				f(1, function() if DE.castOpen == c then DE:CloseCast("item gone") end end)
-			end
-		end
+		-- (1.11.0-beta7, the beta6 re-audit's B6-3) Until now a cast whose item had left its slot was closed a second
+		-- later, here, and a loot line arriving after that, still inside the cast's own five seconds, was dropped
+		-- while Results named a winner. A cast now stays open for its loot until the loot window closes
+		-- (LOOT_CLOSED) or its five seconds pass (DE:OnLootChat, DE:Results), whichever comes first. What may be
+		-- counted for it is unchanged: only what DE:Attributable admits.
 		if DE.frame and DE.frame:IsShown() then DE:Refresh() end
 	end)
 	-- combat over: re-arm from a fresh look (the state driver only disarms) (1.4.0-beta6: also when something was armed)
 	-- (1.6.0-beta6, F4) combat starting mid-move or mid-resize: finished now while the game still allows it, else at its end
 	ns:On("PLAYER_REGEN_DISABLED", function()
+		DE:DropQuestion()   -- (1.11.0-beta7, B6-1)
 		local f = DE.frame
 		if f and (f.bsMoving or f.bsSizing) then
 			if f.bsSizing then DE:EndOutline() end   -- (1.7.3-beta4) the outline (not protected) ends now either way
@@ -2478,6 +2539,7 @@ end)
 -- helper closes through the combat-safe close and is disarmed (now, or when combat ends; Arm refuses while off).
 function DE:Reconcile()
 	if ns.db and ns.db.deEnabled then return end
+	self:DropQuestion()
 	if self.frame and self.frame:IsShown() and not self.frame.bsSoftClosed then self:Close() end
 	self.current = nil
 	-- only a button that exists can be armed: building it here, before its window, would build the window around a
