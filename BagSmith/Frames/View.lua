@@ -1206,7 +1206,8 @@ end
 -- (1.6.0) The toolbar's narrowest step: the Sort button without "Sort:", the Sections button naming the choice.
 local SORT_NAME = { quality = "Quality", name = "Name", ilvl = "iLvl", newest = "Newest", oldest = "Oldest", off = "Off" }
 function View:SyncSortLabel()
-	local name = self.st.colSort and (ns.COL_LABEL[self.st.colSort.key] or "Item") or (SORT_NAME[self:Pref("sort")] or self:Pref("sort"))
+	local cs = ns:ActiveColSort(self.st)   -- (1.12.0-beta7, B6-A1: not a column that has left the row)
+	local name = cs and (ns.COL_LABEL[cs.key] or "Item") or (SORT_NAME[self:Pref("sort")] or self:Pref("sort"))
 	self.btnSort.label:SetText(((self.toolsLevel or 0) >= 4) and name or ("Sort: " .. name))
 end
 function View:SyncGrpMenu()
@@ -1804,7 +1805,7 @@ function View:SyncTools()
 	if self.btnReagent then self.btnReagent:SetActive(sr and true or false) end
 	self:SyncSortLabel()
 	if self.btnGrpMenu then self:SyncGrpMenu() end
-	self.btnSort:SetActive(self.st.colSort ~= nil)
+	self.btnSort:SetActive(ns:ActiveColSort(self.st) ~= nil)   -- (1.12.0-beta7, B6-A1)
 	local ids, collapsedSet = self.laneIds or {}, {}
 	for _, id in ipairs(self:CollapsedList()) do collapsedSet[id] = true end
 	local all = #ids > 0

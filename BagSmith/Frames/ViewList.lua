@@ -1304,7 +1304,7 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 		for _, lane in ipairs(lanes) do byLane[lane.id] = lane end
 		-- Sort: Off (1.4.0-beta4): the grid follows the bags as they are, so empty slots go where they really are
 		-- (into the main list even when it carries its "All Items" title), instead of after the items.
-		local offOrder = self:Pref("sort") == "off" and not self.st.colSort
+		local offOrder = self:Pref("sort") == "off" and not ns:ActiveColSort(self.st)   -- (1.12.0-beta7, B6-A1)
 		local touched = {}
 		for index, bag in ipairs(bags) do
 			local size = ns.bagInfo[bag] and ns.bagInfo[bag].size or 0

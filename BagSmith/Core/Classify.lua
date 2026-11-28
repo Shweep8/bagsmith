@@ -552,9 +552,22 @@ local colValue = {
 	fv = function(r) return ns.Marks and ns.Marks:IsFavorite(r.itemID) and 1 or 0 end,   -- favorites first
 	cc = function(r) return ns.Marks and (ns.Marks:IsTracked(r.itemID) or ns.Marks:IsBuiltInCurrency(r)) and 1 or 0 end,   -- currencies first
 }
-function ns:CurrentSorter(st, sortMode)
+-- (1.12.0-beta7, the beta6 re-audit's B6-A1) The header sort a window is using right now: its colSort, unless that is
+-- a registered column that can't show at the moment (an addon's column switched off after its failures, Pawn's with
+-- its advisor off). Such a column has left the row, and beta6 went on sorting by it all the same: every item read
+-- as "nothing", so the list fell to name order while the Sort button still named the column. Now the window sorts by
+-- its configured sort while the column is away and says so. The choice itself (st.colSort) is kept, not cleared: when
+-- the column comes back (Pawn's advisor switched on again) its sort comes back with it. Everything that asks "is
+-- this window sorted by a header?" asks here.
+function ns:ActiveColSort(st)
 	st = st or ns.ui
 	local cs = st.colSort
+	if cs and ns.Columns and ns.Columns:Get(cs.key) and not ns.Columns:Usable(cs.key) then return nil end
+	return cs
+end
+function ns:CurrentSorter(st, sortMode)
+	st = st or ns.ui
+	local cs = ns:ActiveColSort(st)
 	-- (1.12.0-beta1) a registered column (Core/Columns.lua) sorts by the number it gives for an item
 	local get = cs and colValue[cs.key]
 	-- (1.12.0-beta6, the beta5 re-audit's B5-2) Each record is asked once for the life of this comparator, and that
