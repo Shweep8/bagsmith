@@ -212,7 +212,15 @@ function P:Amount(link)
 	P.amount[link] = out
 	return out or true
 end
--- The column's cell: "+15%", "Upgrade" for one Pawn gives no number for, empty for anything that isn't an upgrade,
+-- (1.12.0-beta2, Shweep: "Think a small green up arrow beside this would be good", "Yes in the cell") The arrow the
+-- icons carry, as a picture inside the cell's text, sized by the text itself (size 0), so it follows Text Size: the
+-- game's own art when the client has it, Pawn's file otherwise, the same choice P:SetArt makes for the icons.
+function P:ArrowMarkup()
+	if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(ARROW_ATLAS) then return "|A:" .. ARROW_ATLAS .. ":0:0|a" end
+	return "|T" .. ARROW_FILE .. ":0|t"
+end
+-- The column's cell: the arrow and "+15%"; the arrow alone for an upgrade Pawn gives no number for (beta1 wrote
+-- "Upgrade" there: the word and an arrow don't both fit); empty for anything that isn't an upgrade,
 -- and nil ("not yet") while Pawn hasn't answered. It reads what the arrows already know (P.memory) and asks nothing:
 -- every row that shows this cell is also decorated (P:Decorate), which does the asking, and a pass repaints the cell
 -- when an answer comes in. Another character's saved items get nothing, as with the arrows.
@@ -222,8 +230,8 @@ function P:ColumnText(rec)
 	if up == nil then return nil end
 	if not up then return "" end
 	local amount = self:Amount(rec.link)
-	if type(amount) == "number" then return ("+%d%%"):format(math.max(1, math.floor(amount * 100 + 0.5))) end
-	return "Upgrade"
+	if type(amount) == "number" then return ("%s +%d%%"):format(self:ArrowMarkup(), math.max(1, math.floor(amount * 100 + 0.5))) end
+	return self:ArrowMarkup()
 end
 -- Sorting by the column: bigger upgrades first, then upgrades without a number, then everything else.
 function P:ColumnSort(rec)
@@ -354,10 +362,11 @@ function P:AddTooltipLines() end   -- Pawn adds its own
 
 -- (1.12.0-beta1) The Pawn column. Listed in Bag Columns and Bank Columns whether or not Pawn is installed (greyed
 -- without it, as AH Price is without a price addon), and unticked until the player ticks it.
-P.COLUMN_TIP = "How much of an upgrade Pawn says an item is for you, for the scale it helps most. Empty when it isn't one."
+-- (1.12.0-beta2, Shweep on beta1's sentence: "This is far too long.."; his pick of three)
+P.COLUMN_TIP = "Pawn's upgrade amount."
 if ns.Columns then
 	ns.Columns:Register("pawn", {
-		label = "Pawn", owner = "Pawn", width = 58, numeric = true,
+		label = "Pawn", owner = "Pawn", width = 64, numeric = true,   -- (beta2: 58 before the arrow; room for the arrow and "+250%")
 		color = { 0.1, 1, 0.1 },   -- the game's green, as Pawn's own upgrade lines are
 		text = function(rec) return P:ColumnText(rec) end,
 		sort = function(rec) return P:ColumnSort(rec) end,

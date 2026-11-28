@@ -5490,7 +5490,10 @@ end)()
 	check(data.favItems and data.customCurrencies and n.IndexOf(data.customCurrencies, 9950), "Profile Sharing carries favorites and tracked currencies")
 	-- An existing profile gets the two columns once, just before Junk.
 	local n2 = boot({ cols = { "c", "t", "jk" }, colOrder = { "c", "n", "t", "jk" }, laneOrder = { "~recent", "Gear", "Junk" } })
-	check(table.concat(n2.db.cols, ",") == "c,t,fv,cc,jk" and n2.db.colOrder[4] == "fv" and n2.db.colOrder[5] == "cc" and n2.db.colOrder[6] == "jk",
+	-- (by design since 1.12.0-beta2: the Pawn column takes its place after Item in an existing profile's order, so
+	-- Favorite, Currency and Junk are each one place further on; the order's start is stated whole instead of by
+	-- three positions)
+	check(table.concat(n2.db.cols, ",") == "c,t,fv,cc,jk" and table.concat(n2.db.colOrder, ",", 1, 7) == "c,n,pawn,t,fv,cc,jk",
 		"an existing profile gets Favorite and Currency once, just before Junk")
 	check(n2.db.laneOrder[2] == "~fav", "and Favorites joins Section Order after Recent")
 end)()
@@ -6472,7 +6475,7 @@ end)()
 	local tf = io.open("BagSmith/BagSmith.toc", "r"); local toc = tf and tf:read("*a") or ""; if tf then tf:close() end
 	-- (1.5.7) the date's format only: which day it must be is the packaging check's job (it knows the build day). Pinning the
 -- day here carried 7 November into 1.5.6, built on the 8th.
-check(toc:find("## Version: 1%.12%.0%-beta1\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.12.0-beta1, with a release date in YYYY-MM-DD form")
+check(toc:find("## Version: 1%.12%.0%-beta2\n") and toc:find("## X%-Date: %d%d%d%d%-%d%d%-%d%d\n"), "the TOC version is 1.12.0-beta2, with a release date in YYYY-MM-DD form")
 	n.version = "0.14.0"
 	local e
 	for _, x in ipairs(WN.ENTRIES) do if x.v == "0.13.0" then e = x end end

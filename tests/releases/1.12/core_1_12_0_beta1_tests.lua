@@ -7,6 +7,12 @@
 --   It reads the answers the arrows already have, so Pawn is asked once per item, not twice.
 -- Pawn here is a fake with the three functions BagSmith calls, shaped as Pawn 2.14.9 describes them in Pawn.lua.
 
+-- (by design since 1.12.0-beta2, Shweep's feedback on this beta) Four things this set pinned have changed, and its
+-- checks follow them where they stand: a cell is the arrow and the number, or the arrow alone where beta1 wrote
+-- "Upgrade" (ARROW and arrowed() below; the mock has no atlas, so the arrow is Pawn's own file); the tooltip is "Pawn's
+-- upgrade amount."; the column's default place is right after Item, not last; its starting width is 64, not 58.
+local ARROW = "|TInterface\\AddOns\\Pawn\\Textures\\UpgradeArrow:0|t"
+local function arrowed(pct) return pct and (ARROW .. " " .. pct) or ARROW end
 local function plain(s) return (tostring(s or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
 local function slurp(p) local f = assert(io.open(p, "r")); local s = f:read("*a"); f:close(); return s end
 local function idOf(link) return tonumber(tostring(link):match("item:(%d+)")) end
@@ -84,9 +90,9 @@ do
 	local P = fakePawn()
 	local n, M, V = boot()
 	local d = n.Columns:Get("pawn")
-	check(d ~= nil and d.label == "Pawn" and d.owner == "Pawn" and d.numeric == true and d.width == 58 and n.COL_LABEL.pawn == "Pawn", "the Pawn column is registered: its label, a number column, 58 px to start")
+	check(d ~= nil and d.label == "Pawn" and d.owner == "Pawn" and d.numeric == true and d.width == 64 and n.COL_LABEL.pawn == "Pawn", "the Pawn column is registered: its label, a number column, 64 px to start")
 	check(not n.IndexOf(n.db.cols, "pawn") and not n.IndexOf(n.db.bankCols, "pawn"), "a new profile has it unticked, in the bags and in the bank")
-	check(n.db.colOrder[#n.db.colOrder] == "pawn" and n.db.bankColOrder[#n.db.bankColOrder] == "pawn", "it is last in each column order")
+	check(n.db.colOrder[n.IndexOf(n.db.colOrder, "n") + 1] == "pawn" and n.db.bankColOrder[n.IndexOf(n.db.bankColOrder, "n") + 1] == "pawn", "it is right after Item in each column order")
 	local a = n.db.colAside
 	check(a[n.IndexOf(a, "pawn") - 1] == "bd" and a[n.IndexOf(a, "pawn") + 1] == "fv" and n.db.bankColAside[n.IndexOf(n.db.bankColAside, "pawn") + 1] == "fv",
 		"and in Narrow Windows' lists after Bind, before the three icon columns")
@@ -101,14 +107,14 @@ do
 
 	---- 2. Ticked: what each cell says
 	tick(n, M, "pawn", true)
-	check(keys(V) == "c,n,t,bd,v,w,age,fv,cc,jk,pawn", "ticked: Pawn joins at the end of the row: " .. keys(V))
-	check(col(V, "pawn").colW == 58 and col(V, "pawn").numeric == true and col(V, "pawn").fs == "colX_pawn", "58 px wide, right-aligned, in its own cell")
+	check(keys(V) == "c,n,pawn,t,bd,v,w,age,fv,cc,jk", "ticked: Pawn joins the row right after Item: " .. keys(V))
+	check(col(V, "pawn").colW == 64 and col(V, "pawn").numeric == true and col(V, "pawn").fs == "colX_pawn", "64 px wide, right-aligned, in its own cell")
 	local t, fs = cell(V, 9802)
-	check(t == "+31%", "an upgrade for two scales shows the larger, rounded: " .. tostring(t))
+	check(t == arrowed("+31%"), "an upgrade for two scales shows the larger, rounded: " .. tostring(t))
 	check(fs:IsShown() and fs.justifyH == "RIGHT" and fs.textColor[1] == 0.1 and fs.textColor[2] == 1 and fs.textColor[3] == 0.1, "right-aligned, in the game's green")
-	check(cell(V, 9804) == "Upgrade", "nothing in the slot to compare with (Pawn's huge number): Upgrade, no number")
-	check(cell(V, 9805) == "Upgrade", "a higher item level only (Pawn gives no list): Upgrade")
-	check(cell(V, 9806) == "+1%", "under half a percent still reads as an upgrade: +1%")
+	check(cell(V, 9804) == arrowed(), "nothing in the slot to compare with (Pawn's huge number): the arrow, no number")
+	check(cell(V, 9805) == arrowed(), "a higher item level only (Pawn gives no list): the arrow alone")
+	check(cell(V, 9806) == arrowed("+1%"), "under half a percent still reads as an upgrade: +1%")
 	check(cell(V, 9801) == "" and cell(V, 2589) == "", "not an upgrade, and not gear: empty")
 	check(P.asks == 6, "ticking it asked Pawn nothing more: the column reads what the arrows know (" .. P.asks .. ")")
 	check(P.amountCalls == 4 and P.rescans == 0, "the amount was asked once for each of the four upgrades, without a rescan: " .. P.amountCalls)
@@ -118,7 +124,7 @@ do
 	check(h:IsShown() and h.text.text == "Pawn" and h.text.justifyH == "RIGHT", "the heading: Pawn, right-aligned like the cells")
 	h:GetScript("OnEnter")(h)
 	local tip = table.concat(GameTooltip.lines or {}, " | ")
-	check(GameTooltip.owner == h and tip:find("How much of an upgrade Pawn says an item is for you, for the scale it helps most. Empty when it isn't one.", 1, true) ~= nil,
+	check(GameTooltip.owner == h and tip:find("Pawn's upgrade amount.", 1, true) ~= nil,
 		"its tooltip says what the column shows: " .. tip)
 	h:GetScript("OnLeave")(h)
 
@@ -205,7 +211,7 @@ do
 	local b = row(V, 9802)
 	check(b.mode == "cell" and b.colX_pawn and not b.colX_pawn:IsShown() and b.xcols == nil, "Icons view: the cell is hidden")
 	n:Set("view", "list"); n:RefreshViews(true); M.runTimers()
-	check(cell(V, 9802) == "+31%" and select(2, cell(V, 9802)):IsShown(), "back in List view it shows again")
+	check(cell(V, 9802) == arrowed("+31%") and select(2, cell(V, 9802)):IsShown(), "back in List view it shows again")
 
 	---- 6. Unticked again
 	tick(n, M, "pawn", false)
@@ -223,7 +229,7 @@ do
 	P.answers[9802] = "wait"
 	local n, M, V = boot({ db = { cols = { "c", "t", "bd", "v", "pawn" } } })
 	check(n.IndexOf(n.db.cols, "pawn") ~= nil and col(V, "pawn") ~= nil, "a saved tick survives loading")
-	check(cell(V, 9802) == "" and cell(V, 9806) == "+1%", "an item Pawn can't answer for yet is empty; the others are filled")
+	check(cell(V, 9802) == "" and cell(V, 9806) == arrowed("+1%"), "an item Pawn can't answer for yet is empty; the others are filled")
 	local a0 = P.asks
 	n:RefreshViews(true)
 	check(P.asks - a0 == 1, "a redraw asks Pawn about the waiting item once, for its arrow: the column asks nothing itself (" .. (P.asks - a0) .. ")")
@@ -232,27 +238,27 @@ do
 	check(names(V):find("^Slight Gloves") ~= nil, "(sorted by Pawn: the unanswered item is not among the upgrades yet: " .. names(V) .. ")")
 	P.answers[9802] = true
 	M.runTimers(); M.runTimers()
-	check(cell(V, 9802) == "+31%", "when the answer comes in, the cell fills by itself")
+	check(cell(V, 9802) == arrowed("+31%"), "when the answer comes in, the cell fills by itself")
 	check(names(V):find("^Better Belt | Slight Gloves") ~= nil, "and the window, sorted by the column, sorts again: " .. names(V))
 	V.st.colSort = nil; n:RefreshViews(true); M.runTimers()
 	-- Pawn's answers forgotten (gear changed) while it is busy: the same item keeps what it showed
 	local asked = P.asks
 	for id in pairs(P.answers) do P.answers[id] = "wait" end
 	n.Pawn:Forget(); n:RefreshViews(true)
-	check(cell(V, 9802) == "+31%" and cell(V, 9806) == "+1%" and P.asks > asked, "answers forgotten and Pawn busy: each row keeps what it showed for the same item")
+	check(cell(V, 9802) == arrowed("+31%") and cell(V, 9806) == arrowed("+1%") and P.asks > asked, "answers forgotten and Pawn busy: each row keeps what it showed for the same item")
 	P.answers[9802], P.answers[9806] = false, true
 	P.pct[9806] = { { PercentUpgrade = 0.5 } }
 	M.runTimers(); M.runTimers()
-	check(cell(V, 9802) == "" and cell(V, 9806) == "+50%", "the new answers replace them: no longer an upgrade, and a bigger one")
+	check(cell(V, 9802) == "" and cell(V, 9806) == arrowed("+50%"), "the new answers replace them: no longer an upgrade, and a bigger one")
 	-- Pawn's amount function failing, and missing
 	n.Pawn:Forget(); P.fail = true
 	for _, id in ipairs({ 9804, 9805 }) do P.answers[id] = true end
 	n:RefreshViews(true); M.runTimers(); M.runTimers()
-	check(cell(V, 9806) == "Upgrade" and (n.errors or 0) == 0, "Pawn's amount function failing: Upgrade, and no error of BagSmith's")
+	check(cell(V, 9806) == arrowed() and (n.errors or 0) == 0, "Pawn's amount function failing: the arrow alone, and no error of BagSmith's")
 	P.fail = nil
 	n.Pawn:Forget(); _G.PawnGetItemData = nil
 	n:RefreshViews(true); M.runTimers(); M.runTimers()
-	check(cell(V, 9806) == "Upgrade" and cell(V, 9801) == "", "a Pawn without that function: Upgrade for an upgrade, nothing otherwise")
+	check(cell(V, 9806) == arrowed() and cell(V, 9801) == "", "a Pawn without that function: the arrow alone for an upgrade, nothing otherwise")
 	check(n.Pawn:ColumnText({ itemID = 9806, cached = true, link = row(V, 9806).rec.link }) == "" and n.Pawn:ColumnSort({ cached = true, link = "x" }) == 0,
 		"another character's saved items get nothing, as with the arrows")
 	check((n.errors or 0) == 0, "no errors")
@@ -264,12 +270,12 @@ end
 do
 	local P = fakePawn()
 	local n, M, V = boot({ db = { cols = { "c", "t", "pawn" }, fvccCols = true, jkCol = true } })
-	check(cell(V, 9806) == "+1%", "(setup) the column is showing")
+	check(cell(V, 9806) == arrowed("+1%"), "(setup) the column is showing")
 	P.answers[9810] = true; P.pct[9810] = { { PercentUpgrade = 0.2 } }
 	M.put(0, 7, { id = 9810, name = "New Helm", q = 2, class = 4, subclass = 1, price = 50, equip = "INVTYPE_HEAD" })
 	local asked = P.asks
 	M.fire("BAG_UPDATE", 0); M.fire("BAG_UPDATE_DELAYED"); M.runTimers()
-	check(row(V, 9810) ~= nil and cell(V, 9810) == "+20%", "a newly looted upgrade shows its amount as its row appears: " .. tostring(cell(V, 9810)))
+	check(row(V, 9810) ~= nil and cell(V, 9810) == arrowed("+20%"), "a newly looted upgrade shows its amount as its row appears: " .. tostring(cell(V, 9810)))
 	check(P.asks - asked == 1, "with Pawn asked about it once (" .. (P.asks - asked) .. ")")
 	check((n.errors or 0) == 0, "no errors")
 	noPawn()
@@ -308,7 +314,7 @@ do
 	_G.PawnCommon.ShowBagUpgradeAdvisor = true
 	Pn:ShowPage("bankcols"); M.runTimers(); Pn:ShowPage("bagcols"); M.runTimers()
 	r = listRow("pawn")
-	check(r.box:IsEnabled() and r.tip == "How much of an upgrade Pawn says an item is for you, for the scale it helps most. Empty when it isn't one.", "with Pawn, the row is live and says what the column shows")
+	check(r.box:IsEnabled() and r.tip == "Pawn's upgrade amount.", "with Pawn, the row is live and says what the column shows")
 	-- the Narrow Windows list under it has Pawn once it shows
 	n.db.colAside = { "t", "pawn" }
 	Pn:ShowPage("bankcols"); M.runTimers(); Pn:ShowPage("bagcols"); M.runTimers()
@@ -344,7 +350,7 @@ do
 	local saved = { cols = { "c", "t", "v" }, colOrder = { "n", "c", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
 		colAside = copy(OLD), bankColAside = copy(OLD), colWidths = { t = 120 }, fvccCols = true, jkCol = true }
 	local n, M, V = boot({ db = saved })
-	check(table.concat(n.db.colOrder, ",") == "n,c,t,bd,v,w,age,fv,cc,jk,il,rq,sl,ah,pawn", "an existing profile: Pawn is added at the end of its column order, the rest as it was")
+	check(table.concat(n.db.colOrder, ",") == "n,pawn,c,t,bd,v,w,age,fv,cc,jk,il,rq,sl,ah", "an existing profile: Pawn is added to its column order right after Item, the rest as it was")
 	check(table.concat(n.db.cols, ",") == "c,t,v", "unticked: its columns are what they were")
 	check(table.concat(n.db.colAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,pawn,fv,cc,jk" and table.concat(n.db.bankColAside, ",") == "t,age,v,ah,w,sl,rq,il,bd,pawn,fv,cc,jk",
 		"Narrow Windows' lists, still the untouched default: Pawn joins where a new profile has it, after Bind")
@@ -403,7 +409,7 @@ do
 	check(n.Junk:IsJunk(b.rec) and c[1] == n.Junk.DIM_TEXT[1] and c[2] == n.Junk.DIM_TEXT[2], "Dim Junk Items: a junk row's Pawn cell dims with the rest of the row")
 	n.Junk:Toggle(b.rec); n:RefreshViews(true); M.runTimers()
 	c = row(V, 9802).colX_pawn.textColor
-	check(c[1] == 0.1 and c[2] == 1 and c[3] == 0.1 and cell(V, 9802) == "+31%", "no longer junk: its green is back")
+	check(c[1] == 0.1 and c[2] == 1 and c[3] == 0.1 and cell(V, 9802) == arrowed("+31%"), "no longer junk: its green is back")
 	V:SetGlobal(true); M.runTimers(); M.runTimers()
 	check(n.ui.global and not col(V, "pawn"), "Global Inventory has no Pawn column: " .. keys(V))
 	V:SetGlobal(false); M.runTimers(); M.runTimers()
@@ -521,7 +527,7 @@ do
 	local top = log:match("^## 1%.12%.0\n(.-)\n## 1%.11%.0\n")
 	check(top ~= nil, "the changelog opens with 1.12.0, above 1.11.0")
 	top = (top or ""):gsub("\n  ", " ")
-	check(top:find("\nNew:\n- A Pawn column for List view (Settings > Bag Columns or Bank Columns, with Pawn installed). It shows how much of an upgrade Pawn says each item is for you, such as +15%, or Upgrade when Pawn gives no number. Click its heading to sort by it. It starts unticked, so your columns stay as they are until you tick it.", 1, true) ~= nil,
+	check(top:find("\nNew:\n- A Pawn column for List view (Settings > Bag Columns or Bank Columns, with Pawn installed). Beside a green arrow it shows how much of an upgrade Pawn says each item is for you, such as +15%, or the arrow alone when Pawn gives no number. Click its heading to sort by it. It starts unticked, right after Item in the list, so your columns stay as they are until you tick it.", 1, true) ~= nil,
 		"New: the Pawn column, where it is and what it shows")
 	check(top:find("\n- With Sections: By Bag, each bag's section shows that bag's icon beside its name.", 1, true) ~= nil, "New: the bag's icon on By Bag sections")
 	check(not top:find("\226\128\148") and not top:find("\226\128\147"), "no em or en dashes")

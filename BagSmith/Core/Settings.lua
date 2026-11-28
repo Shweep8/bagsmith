@@ -153,7 +153,8 @@ local DEFAULTS = {
 	replaceBank = true,           -- stand in for Blizzard's bank window too
 	-- columns, lanes, tabs
 	cols = { "c", "t", "bd", "v", "w", "age", "fv", "cc", "jk" },
-	colOrder = { "c", "n", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah", "pawn" },
+	-- (1.12.0-beta2, Shweep: "default position should be after item name") Pawn's column right after Item, in both windows
+	colOrder = { "c", "n", "pawn", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
 	colWidths = {},            -- key -> pixels, set by dragging header edges
 	-- (1.6.0-beta6, Shweep) the columns a narrow window may set aside, first to go first; the rest shrink to fit instead
 	-- (1.6.0-beta8, Shweep) every column ticked; wide text columns go first, the small icon columns last. Qty and Item
@@ -161,9 +162,10 @@ local DEFAULTS = {
 	colAside = { "t", "age", "v", "ah", "w", "sl", "rq", "il", "bd", "pawn", "fv", "cc", "jk" },
 	bankColAside = { "t", "age", "v", "ah", "w", "sl", "rq", "il", "bd", "pawn", "fv", "cc", "jk" },
 	pawnColAside = true,       -- (1.12.0-beta1) the Pawn column has joined this profile's Narrow Windows lists once
+	pawnColPlace = true,       -- (1.12.0-beta2) and has been given its place in this profile's column orders once
 	-- The bank window's own column layout (the Bank tab in the bags window uses the bags layout).
 	bankCols = { "c", "t", "bd", "v", "w", "age", "fv", "cc", "jk" },
-	bankColOrder = { "c", "n", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah", "pawn" },
+	bankColOrder = { "c", "n", "pawn", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
 	fvccCols = true,           -- the Favorite and Currency columns have been added to this profile's columns once (0.13)
 	favItems = {},             -- favorited items (item IDs), shown in the Favorites section
 	customSections = {},       -- your own sections: { id = "c1", name = "Professions" }, ...; (1.10.0-beta1) in priority order,
@@ -829,6 +831,26 @@ local function validateProfile(saved)
 			end
 		end
 		saved.pawnColAside = true
+	end
+	-- (1.12.0-beta2, Shweep: "default position should be after item name") The Pawn column takes its place in a
+	-- profile's column orders once: right after Item, wherever Item sits in the saved order, the rest untouched. For a
+	-- profile from before 1.12 (the key isn't in its order: without this step the load check would append it at the
+	-- end) and for one that loaded 1.12.0-beta1 (the key is last, where beta1's load check put it; only a beta1 tester
+	-- can be in that state, since no release has had the key). Anywhere else, the player put it there: left alone. An
+	-- order with no Item in it is left to the load check, which appends both in the default's order. The column is
+	-- still unticked, so nothing a player sees moves.
+	if type(saved) == "table" and saved.pawnColPlace == nil then
+		for _, key in ipairs({ "colOrder", "bankColOrder" }) do
+			local list = saved[key]
+			if type(list) == "table" and ns.IndexOf(list, "n") then
+				local at = ns.IndexOf(list, "pawn")
+				if not at or at == #list then
+					if at then table.remove(list, at) end
+					table.insert(list, ns.IndexOf(list, "n") + 1, "pawn")
+				end
+			end
+		end
+		saved.pawnColPlace = true
 	end
 	-- 0.13: the Junk column joins each profile's columns once (players can
 	-- turn it off afterwards; the flag stops it coming back).
