@@ -52,6 +52,11 @@ local clicked              -- { bag, slot, id, t }: a bag just clicked and relea
 -- (1.12.0-beta5, the beta4 audit's B4-2) which bag the game's error was for, when the error comes before the slot is
 -- released: { bag, slot, id, t }. beta4 kept only the time, so any bag released next could claim it.
 local errored
+-- (1.12.0-beta6, the beta5 re-audit's B5-1) Which attempt is the current one: raised each time a bag's slot locks. A
+-- refused click carries the number it was made under (c.gen), and an offer from an earlier attempt is no offer
+-- (Hint:OfferOK), whether it is still waiting to be shown or already on screen. beta5 withdrew only a menu that was
+-- showing: one still waiting on its next-frame timer opened for the older bag after a newer one had been clicked.
+local attempt = 0
 
 local function info(bag, slot)
 	return C_Container and C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bag, slot)
@@ -563,7 +568,7 @@ ns:On("ITEM_LOCK_CHANGED", function(bag, slot)
 				ns:Debug("Swap hint: forgot the bag (back in its slot, nothing on the cursor)")
 				-- (1.12.0-beta3) It may be a right-click the game has just refused, or is about to: see Hint:ClickRefused
 				-- (1.12.0-beta5, B4-2) the error-first order is claimed only by the bag the error was for
-				local c = { bag = bag, slot = slot, id = i.itemID, t = GetTime() }
+				local c = { bag = bag, slot = slot, id = i.itemID, t = GetTime(), gen = attempt }
 				local e = errored
 				errored = nil
 				if e and e.bag == bag and e.slot == slot and e.id == i.itemID and c.t - e.t <= CLICK_WINDOW then Hint:ClickRefused(c) else clicked = c end
@@ -586,6 +591,7 @@ ns:On("ITEM_LOCK_CHANGED", function(bag, slot)
 		-- earlier error still waiting for its release, and a menu still open for an earlier bag are all the past: the
 		-- next error and the next release belong to this bag.
 		clicked, errored = nil, nil
+		attempt = attempt + 1   -- (1.12.0-beta6, B5-1) and an offer queued for an earlier bag, not yet shown, is void too
 		if Hint.RetireOffer then Hint:RetireOffer("another bag was picked up") end
 	elseif held then
 		if pickup then ns:Debug("Swap hint: forgot the bag (another item was picked up)") end
@@ -711,6 +717,7 @@ end
 -- (1.12.0-beta5, the beta4 audit's B4-1) Everything that has to be true for an offer, in one place, because it has
 -- to be true twice: when the menu opens and again when a row is picked. Returns the choices, or nil.
 function Hint:OfferOK(c)
+	if c.gen ~= attempt then return nil end   -- (1.12.0-beta6, B5-1) made under an earlier attempt: a newer bag has been clicked since
 	if self.swapping or InCombatLockdown() or atAWindow() or CursorHasItem() then return nil end
 	local i = info(c.bag, c.slot)
 	if not (i and i.itemID == c.id and not i.isLocked and isBag(c.id)) then return nil end

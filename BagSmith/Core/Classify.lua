@@ -557,9 +557,18 @@ function ns:CurrentSorter(st, sortMode)
 	local cs = st.colSort
 	-- (1.12.0-beta1) a registered column (Core/Columns.lua) sorts by the number it gives for an item
 	local get = cs and colValue[cs.key]
+	-- (1.12.0-beta6, the beta5 re-audit's B5-2) Each record is asked once for the life of this comparator, and that
+	-- answer is the one every later comparison uses. A column can switch itself off part way through a sort (its
+	-- fifth failure): asked again, the records already compared would then all read 0, the order being sorted would
+	-- stop being one order, and table.sort fails on that. A comparator is made afresh for each layout, so nothing here
+	-- outlives it.
 	if cs and not get and ns.Columns and ns.Columns:Get(cs.key) then
-		local key = cs.key
-		get = function(r) return ns.Columns:SortValue(key, r) end
+		local key, seen = cs.key, {}
+		get = function(r)
+			local v = seen[r]
+			if v == nil then v = ns.Columns:SortValue(key, r); seen[r] = v end
+			return v
+		end
 	end
 	if not get then return ns:Sorter(sortMode or ns.db.sort) end
 	local asc = cs.dir == "asc"

@@ -109,6 +109,10 @@ function Columns:Failed(d, err)
 	if d.fails >= self.MAX_FAILS and not d.off then
 		d.off = true
 		ns:Debug("Columns: %s failed %d times and is off until a reload (%s)", d.key, d.fails, tostring(err))
+		-- (1.12.0-beta6, B5-2) It can no longer show: the windows are laid out again on the next frame, after whatever
+		-- sort or fill this happened in has finished, so its heading and cells go without another action and an open
+		-- Bag Columns page greys its row.
+		self:AvailabilityChanged(d.key)
 	end
 end
 function Columns:SortValue(key, rec)
