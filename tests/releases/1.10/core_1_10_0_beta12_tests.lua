@@ -39,7 +39,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	local S0 = skin .. ": "
 	local n, M = boot({ skin = skin, seen = "1.9.8" })
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[3]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e = WN.ENTRIES[4]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	-- (by design since 1.10.0-beta16, Shweep, 23 Nov: "our what's new card is not player friendly, it's more technical
 	-- than sells the new features"; on the rewrite: "rest looks better tho, ty". Seven bullets that lead with what the
 	-- player gets, where there were nine that read like a list of features. The checks below follow the new text.)

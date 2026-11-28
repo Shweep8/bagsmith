@@ -379,7 +379,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 		return n, M, n.WhatsNew
 	end
 	local n, M, WN = boot("1.9.8")
-	local e = WN.ENTRIES[3]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e = WN.ENTRIES[4]   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	check(e.v == "1.10.0" and #e.items == 7, S0 .. "the 1.10 card has seven bullets")
 	for i, want in ipairs(CARD) do check(e.items[i] == want, S0 .. "bullet " .. i .. ", word for word, as Shweep approved it: " .. (want:match("^|cfffac775(.-):|r") or "?")) end
 	local text = table.concat(e.items, " ")
@@ -427,7 +427,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	-- the reminder is not lost
 	check(e.remind and e.remind.before == "1.9.8" and e.remind.text == REMINDER and #WN:Items(e) == 7, S0 .. "the reminder is still on the entry; someone coming from 1.9.8 doesn't get it")
 	local n2, M2, WN2 = boot("1.9.7")
-	local items = WN2:Items(WN2.ENTRIES[3])   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local items = WN2:Items(WN2.ENTRIES[4])   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	check(#items == 8 and items[8] == REMINDER and items[7] == CARD[7], S0 .. "someone coming from 1.9.7 gets it as the eighth and last bullet")
 	n2.Window:Show(); M2.runTimers(); M2.runTimers()
 	local c2 = WN2.Card()

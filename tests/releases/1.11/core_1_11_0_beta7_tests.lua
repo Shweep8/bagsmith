@@ -525,7 +525,7 @@ end
 do
 	-- the What's New bullet says where the switch is now
 	local n = hBoot(function(M) put(M, 1, BOOTS) end)
-	local items = n.WhatsNew.ENTRIES[1].items
+	local items = n.WhatsNew.ENTRIES[2].items   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	check(#items == 8 and items[8]:find("click the Held Back line at the end of its list", 1, true) and not items[8]:find("Show beside", 1, true), "the card's eighth bullet points at the Held Back line: " .. plain(items[8]))
 end
 

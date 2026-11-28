@@ -145,7 +145,7 @@ end)()
 	check(row and row.help.text == "Tidies your bags each time you open them, except in combat, at the bank or at a vendor.", "the setting's description names the vendor, word for word")
 	-- (by design since 1.9.8-beta1: 1.9.7 was published without a What's New entry, which Shweep wanted; 1.9.8 adds
 	-- it, so this set, running as 1.9.7, sees none newer than 1.9.6's, and the entry itself is checked in 1.9.8's set)
-	check(n.WhatsNew:Latest()[1].v == "1.9.7" and n.WhatsNew.ENTRIES[5].v == "1.9.7", "1.9.7's What's New entry (added in 1.9.8) is the newest this version sees")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	check(n.WhatsNew:Latest()[1].v == "1.9.7" and n.WhatsNew.ENTRIES[6].v == "1.9.7", "1.9.7's What's New entry (added in 1.9.8) is the newest this version sees")   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	local f = io.open("BagSmith/CHANGELOG.md"); local log = f:read("*a"); f:close()
 	local section = ("\n" .. log):match("\n(## 1%.9%.7\n.-)\n## 1%.9%.6\n") or ""
 	check(section:find("Dim Junk") and section:find("at a vendor") and not section:find("\226\128\148") and not section:find("\226\128\147"), "the changelog's 1.9.7 section covers both, with no dashes")

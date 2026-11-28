@@ -116,7 +116,7 @@ end)()
 	-- the 1.9 What's New card
 	local n, M = boot()
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[12]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e = WN.ENTRIES[13]   -- (by design since 1.9.8: eight places down, after 1.9.8's, 1.9.7's, 1.9.6's, 1.9.5's, 1.9.4's, 1.9.3's, 1.9.2's and 1.9.1's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	check(e.v == "1.9.0" and e.heading == "BagSmith 1.9" and #e.items == 7, "the 1.9 card leads, with seven bullets")
 	local heads = {}
 	for _, it in ipairs(e.items) do heads[#heads + 1] = it:match("^|cfffac775(.-):|r") end

@@ -11,6 +11,9 @@ New:
 - Right-click a bag in your bags when every bag slot is full, and BagSmith offers a menu of the bags you are wearing,
   smallest first, to swap it in for. Before, the game only said there was no slot.
 
+Fixed:
+- The Disenchant Helper's Results had an empty band above its tabs. Results now starts right under the title.
+
 ## 1.11.0
 
 New:

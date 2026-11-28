@@ -314,7 +314,7 @@ end
 do
 	local M, n = boot()
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[2]
+	local e = WN.ENTRIES[3]   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	check(e.v == "1.10.1" and #e.items == 3 and not e.opens, "What's New: 1.10.1's update has three bullets and doesn't open the card")
 	check(plain(e.items[1]) == "Bags at Vendors: with the game's Use Combined Bags turned off, your bags could stay shut at vendors, the mailbox, trades and the auction house, though the bag key opened them fine. They open there now.",
 		"Bags at Vendors, word for word: " .. plain(e.items[1]))

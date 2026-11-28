@@ -368,7 +368,7 @@ end
 do
 	local M, n = boot({ profile = {} })
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[1]
+	local e = WN.ENTRIES[2]   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	-- (by design since 1.11.0-beta6: an eighth bullet, last, for the held-back rows; the seven here keep their places)
 	check(e.v == "1.11.0" and e.heading == "BagSmith 1.11" and #e.items == 8 and not e.opens and not e.remind, "What's New opens with 1.11's card: seven bullets, and beta6's eighth")
 	local WANT = {
@@ -383,7 +383,7 @@ do
 	for i, want in ipairs(WANT) do check(plain(e.items[i]) == want, ("bullet %d, word for word: %s"):format(i, plain(e.items[i] or ""))) end
 	check(not table.concat(e.items, " "):find("\226\128\148"), "no dashes")
 	-- 1.10.1's entry stays as it was written (Shweep: "Leave as history")
-	local old = WN.ENTRIES[2]
+	local old = WN.ENTRIES[3]   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	check(old.v == "1.10.1" and plain(old.items[2]) == "Auto-Close Bags I Opened: a new switch in Settings > General. Turn it off and bags you opened yourself stay open when you leave a vendor or the mailbox.", "1.10.1's entry is left as history, under it")
 	-- coming from 1.10.1 (the seed's whatsNewSeen is 1.10.0, with 1.10.1 an update under it), 1.11 is a release to show
 	check(WN:Pending() and #WN:UnseenReleases() >= 1 and WN:UnseenReleases()[1].v == "1.11.0", "someone updating has 1.11's card waiting")

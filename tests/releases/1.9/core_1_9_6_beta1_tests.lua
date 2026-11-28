@@ -397,7 +397,7 @@ end)()
 	local n = boot({ realm = "Forever" })
 	BagSmithDB.whatsNewSeen, BagSmithDB.whatsNewPatchSeen, BagSmithDB.whatsNewButtonSeen = "1.9.5", { ["1.9.5"] = true, ["1.9.4"] = true, ["1.9.3"] = true, ["1.9.2"] = true, ["1.9.1"] = true }, "1.9.5"
 	local WN = n.WhatsNew
-	local e = WN.ENTRIES[6]   -- (by design since 1.9.8: two places down, after 1.9.8's and 1.9.7's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)
+	local e = WN.ENTRIES[7]   -- (by design since 1.9.8: two places down, after 1.9.8's and 1.9.7's entries)   -- (by design since 1.10.1: one more place down, after 1.10.1's entry)   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	check(e.v == "1.9.6" and e.heading == "BagSmith 1.9.6" and #e.items == 2, "the 1.9.6 entry, two bullets")
 	check(e.items[1] == "|cfffac775Your Characters Are Back:|r a recent game update hid your other characters from tooltips, Global Inventory and your gold totals. That's fixed, and nothing was lost.", "Your Characters Are Back, word for word")
 	check(e.items[2] == "|cfffac775Catching Up:|r each character shows what it had the last time you played it before the update. Log in to it once and it's up to date again.", "Catching Up, word for word")
