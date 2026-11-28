@@ -1,7 +1,9 @@
 -- 1.6.0-beta9: the 1.6.0-beta8 audit's own probe (independent/layout_migration_extension.lua, unchanged), kept in the suite. Evidence and the report:
 -- docs/plugins/audit-1.6.0-beta8/.
 -- Independent beta8 settings persistence and enabled-column matrix. No addon source writes.
-local ALL='t,age,v,ah,w,sl,rq,il,bd,fv,cc,jk'
+-- (by design since 1.12.0-beta1: Narrow Windows' default list gained the Pawn column, after Bind. Only this constant
+-- changed: a list the player saved, legacy, empty or mixed, still loads exactly as it was saved.)
+local ALL='t,age,v,ah,w,sl,rq,il,bd,pawn,fv,cc,jk'
 local function boot(skin,prof,saved)
  package.loaded.mock=nil; local M=require('mock')
  _G.BagSmithCharDB={version=1,firstSeen={}}

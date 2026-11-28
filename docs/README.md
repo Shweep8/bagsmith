@@ -4,7 +4,7 @@ Documentation for addon authors: how to add your own marks to BagSmith's item ic
 plugin, and the API both use. These docs and the example plugin are MIT licensed (see LICENSE here), so copy
 freely.
 
-**Current API: BagSmith.API 1.1** (BagSmith 1.5.0). It only ever grows; see [API changes](API-CHANGES.md).
+**Current API: BagSmith.API 1.2** (BagSmith 1.12.0). It only ever grows; see [API changes](API-CHANGES.md).
 
 ## Start here
 

@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: BagSmith
 ## Notes: Spreadsheet-style bags for WoW Forever.
-## Version: 1.11.0
-## X-Date: 2026-11-27
+## Version: 1.12.0
+## X-Date: 2026-11-28
 ## Author: BagSmith
 ## IconTexture: Interface\AddOns\BagSmith\Media\icon.tga
 ## Category: Bags & Inventory
@@ -21,6 +21,7 @@ Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 Core\Init.lua
 Core\Settings.lua
 Core\API.lua
+Core\Columns.lua
 Core\Classify.lua
 Core\Rules.lua
 Core\ItemTree.lua

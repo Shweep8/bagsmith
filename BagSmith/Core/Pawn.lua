@@ -11,6 +11,11 @@
 	addons describe (see the comment above P:Present). Its upgrade check
 	budgets its own time, so it can answer nil ("not yet"): the last known
 	answer is kept and BagSmith asks again shortly.
+
+	(1.12.0-beta1) A Pawn column for List view (Settings > Bag Columns, Bank
+	Columns), off until ticked: how much of an upgrade Pawn says an item is.
+	It reads the answers the arrows already have and asks nothing itself
+	(see P:Amount and the column at the end of this file).
 --]]
 local ADDON, ns = ...
 local P = {}
@@ -44,8 +49,10 @@ P.memory = {}
 -- and starved the last ones (gear set sections at the bottom). Passes start
 -- where the last one left off and never give up; they slow down instead.
 local BACKOFF = { 0.25, 0.5, 1, 2, 4, 5 }   -- s between passes while items wait
+P.amount = {}   -- (1.12.0-beta1) per link, for an upgrade: Pawn's number for it, or false when it gave none (P:Amount)
 function P:Forget()
 	P.memory = {}
+	P.amount = {}
 	P.level, P.lastUnknown = 1, nil
 end
 
@@ -76,6 +83,12 @@ function P:Pass()
 	end
 	P.waiting = P.passWaiting
 	if said and #said > 0 then ns:Debug("Pawn: asked %s", table.concat(said, ", ")) end
+	-- (1.12.0-beta1) the Pawn column: rows on screen show answers that came in this pass, and a window sorted by the
+	-- column sorts again. Only when something was answered, so a pass that learned nothing redraws nothing.
+	if (P.answered or 0) ~= (P.answeredSeen or 0) then
+		P.answeredSeen = P.answered
+		if ns.Columns then ns.Columns:Changed("pawn") end
+	end
 	local mr = ns.MakeRoom
 	if mr and mr.frame and mr.frame:IsShown() then mr:Paint() end
 	-- (1.10.0-beta8) the Disenchant Helper's list, while it holds Pawn upgrades back, follows a changed answer
@@ -162,8 +175,103 @@ function P:IsUpgradeLink(link, fresh)
 	end
 	if not fresh then P.waiting[link] = nil end
 	-- (a fresh safety check answers only itself; what icons show stays as remembered)
-	if answer ~= nil and not fresh then P.memory[link] = answer end
+	if answer ~= nil and not fresh then
+		if P.memory[link] ~= answer then
+			P.answered = (P.answered or 0) + 1   -- (1.12.0-beta1) for the column, see P:Pass
+			-- (1.12.0-beta5, the beta4 audit's B4-4) Learned outside a retry pass: a row's own fill asking about a new
+			-- item, which Pawn answered at once. No pass follows an immediate answer, so nothing told the column, and a
+			-- window sorted by it kept the item where "not known yet" had put it. One notice for the next frame.
+			if not P.inPass then P:ColumnSoon() end
+		end
+		P.memory[link] = answer
+	end
 	return answer
+end
+
+-- (1.12.0-beta5, B4-4) The column is told that answers changed, once, on the next frame, however many rows learned
+-- one in this frame. What it then does (Columns:Changed: the rows on screen, and a fresh sort for a window sorted by
+-- the column) asks Pawn nothing new, since every answer it needs is remembered by then: it cannot start another.
+function P:ColumnSoon()
+	if P.columnQueued then return end
+	P.columnQueued = true
+	local function go()
+		P.columnQueued = false
+		if (P.answered or 0) ~= (P.answeredSeen or 0) then
+			P.answeredSeen = P.answered
+			if ns.Columns then ns.Columns:Changed("pawn") end
+		end
+	end
+	if C_Timer and C_Timer.After then C_Timer.After(0, go) else go() end
+end
+-- (1.12.0-beta5, the beta4 audit's B4-3) Whether Pawn's column can show (Pawn present, initialised, its bag advisor
+-- on) changing is a change to the windows' layout in its own right: the column leaves or joins the row. beta4 only
+-- passed on answers changing, so with the list open the arrows followed the advisor's switch and the column did not
+-- until something else redrew the window. Checked wherever that can change: Pawn's own refresh signal (its advisor
+-- toggled), Pawn loading or finishing its start-up, login. The saved tick is not touched.
+function P:CheckActive()
+	local now = self:Active() and true or false
+	local was = P.wasActive
+	P.wasActive = now
+	if was ~= nil and was ~= now and ns.Columns and ns.Columns.AvailabilityChanged then ns.Columns:AvailabilityChanged("pawn") end
+end
+-- (1.12.0-beta1) How much of an upgrade, for an item Pawn has already called one. Two of Pawn's own functions, both
+-- described in Pawn.lua for callers: PawnGetItemData(link) gives its record of the item, and
+-- PawnIsItemAnUpgrade(item, true) a list with one entry per scale the item is an upgrade for, each with a
+-- PercentUpgrade (0.15 is 15%); "true" asks it not to rescan the player's gear for this. The largest is kept. Pawn
+-- uses a huge number (PawnBigUpgradeThreshold, 100) when there is nothing in the slot to compare with, and gives no
+-- list at all for an item that is only a higher item level: both come back here as "an upgrade, no number".
+-- Asked once per item until Pawn's answers are forgotten (gear, level or Pawn's settings changed). Nothing of
+-- Pawn's is copied; a Pawn without these two functions gives no numbers and the column says Upgrade.
+-- Returns: a number (0.15), or true for an upgrade without one.
+function P:Amount(link)
+	if not link then return nil end
+	local known = P.amount[link]
+	if known ~= nil then return known or true end
+	local out = false
+	if type(_G.PawnGetItemData) == "function" and type(_G.PawnIsItemAnUpgrade) == "function" then
+		local ok, item = pcall(_G.PawnGetItemData, link)
+		if ok and type(item) == "table" then
+			local ok2, info = pcall(_G.PawnIsItemAnUpgrade, item, true)
+			if ok2 and type(info) == "table" then
+				local big = tonumber(_G.PawnBigUpgradeThreshold) or 100
+				for _, u in ipairs(info) do
+					local pct = type(u) == "table" and tonumber(u.PercentUpgrade) or nil
+					if pct and pct == pct and pct > 0 and pct < big and (not out or pct > out) then out = pct end
+				end
+			end
+		end
+	end
+	P.amount[link] = out
+	return out or true
+end
+-- (1.12.0-beta2, Shweep: "Think a small green up arrow beside this would be good", "Yes in the cell") The arrow the
+-- icons carry, as a picture inside the cell's text, sized by the text itself (size 0), so it follows Text Size: the
+-- game's own art when the client has it, Pawn's file otherwise, the same choice P:SetArt makes for the icons.
+function P:ArrowMarkup()
+	if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(ARROW_ATLAS) then return "|A:" .. ARROW_ATLAS .. ":0:0|a" end
+	return "|T" .. ARROW_FILE .. ":0|t"
+end
+-- The column's cell: the arrow and "+15%"; the arrow alone for an upgrade Pawn gives no number for (beta1 wrote
+-- "Upgrade" there: the word and an arrow don't both fit); empty for anything that isn't an upgrade,
+-- and nil ("not yet") while Pawn hasn't answered. It reads what the arrows already know (P.memory) and asks nothing:
+-- every row that shows this cell is also decorated (P:Decorate), which does the asking, and a pass repaints the cell
+-- when an answer comes in. Another character's saved items get nothing, as with the arrows.
+function P:ColumnText(rec)
+	if not rec or rec.empty or rec.cached or not rec.link or not self:Active() then return "" end
+	local up = P.memory[rec.link]
+	if up == nil then return nil end
+	if not up then return "" end
+	local amount = self:Amount(rec.link)
+	if type(amount) == "number" then return ("%s +%d%%"):format(self:ArrowMarkup(), math.max(1, math.floor(amount * 100 + 0.5))) end
+	return self:ArrowMarkup()
+end
+-- Sorting by the column: bigger upgrades first, then upgrades without a number, then everything else.
+function P:ColumnSort(rec)
+	if not rec or rec.empty or rec.cached or not rec.link or not self:Active() then return 0 end
+	if not P.memory[rec.link] then return 0 end
+	local amount = self:Amount(rec.link)
+	if type(amount) == "number" then return 1 + amount end
+	return 1
 end
 
 -- Registering with Pawn makes Pawn skip its own arrows on Blizzard's bags,
@@ -186,6 +294,7 @@ end
 function P:OnPawnRefresh(how)
 	ns:Debug("Pawn: refresh from Pawn (%s; answers cleared)", how or "?")
 	P:Forget()
+	P:CheckActive()   -- (1.12.0-beta5, B4-3) its advisor may have been switched: the column follows
 	P:ScheduleRecheck(true)
 end
 -- Pawn calls PawnBags:RefreshAll() on every reset (PawnResetBags) and when
@@ -284,6 +393,25 @@ function P:DecorateIcon(holder, icon, up)
 end
 function P:AddTooltipLines() end   -- Pawn adds its own
 
+-- (1.12.0-beta1) The Pawn column. Listed in Bag Columns and Bank Columns whether or not Pawn is installed (greyed
+-- without it, as AH Price is without a price addon), and unticked until the player ticks it.
+-- (1.12.0-beta2, Shweep on beta1's sentence: "This is far too long.."; his pick of three)
+P.COLUMN_TIP = "Pawn's upgrade amount."
+if ns.Columns then
+	ns.Columns:Register("pawn", {
+		label = "Pawn", owner = "Pawn", width = 64, numeric = true,   -- (beta2: 58 before the arrow; room for the arrow and "+250%")
+		color = { 0.1, 1, 0.1 },   -- the game's green, as Pawn's own upgrade lines are
+		text = function(rec) return P:ColumnText(rec) end,
+		sort = function(rec) return P:ColumnSort(rec) end,
+		available = function()
+			if not P:Present() then return false, "Shows when Pawn is installed." end
+			if not P:Active() then return false, "Pawn's bag upgrade advisor is off, so there is nothing to show. You can turn it on in Pawn's options." end
+			return true
+		end,
+		tip = P.COLUMN_TIP,
+	})
+end
+
 ns:OnSignal("ADDON_READY", function()
 	-- Gear changes change what's an upgrade.
 	ns:On("PLAYER_EQUIPMENT_CHANGED", function() if P:Present() then P:AfterGearChange(); ns:RefreshViews(true) end end)
@@ -291,8 +419,8 @@ ns:OnSignal("ADDON_READY", function()
 	-- A new level can make items usable (and upgrades) that weren't.
 	ns:On("PLAYER_LEVEL_UP", function() if P:Present() then P:AfterGearChange(); ns:RefreshViews(true) end end)
 	-- Pawn is an optional dependency, so it normally loads first; if not, register when it does.
-	P:Register(); P:HookPawn()
-	ns:On("ADDON_LOADED", function(name) if name == "Pawn" then P:Register(); P:HookPawn() end end)
-	ns:On("PLAYER_LOGIN", function() P:Register(); P:HookPawn() end)
+	P:Register(); P:HookPawn(); P:CheckActive()
+	ns:On("ADDON_LOADED", function(name) if name == "Pawn" then P:Register(); P:HookPawn(); P:CheckActive() end end)
+	ns:On("PLAYER_LOGIN", function() P:Register(); P:HookPawn(); P:CheckActive() end)
 	ns:OnSignal("SETTINGS_CHANGED", function(key) if key == nil or key == "replaceBlizzardBags" then P:Register() end end)
 end)

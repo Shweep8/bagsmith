@@ -444,10 +444,10 @@ end
 ------------------------------------------------------------------------
 do
 	local function slurp(p) local f = assert(io.open(p, "r")); local s = f:read("*a"); f:close(); return s end
-	local top = slurp("BagSmith/CHANGELOG.md"):match("^## 1%.11%.0\n(.-)\n## 1%.10%.1\n")
+	local top = ("\n" .. slurp("BagSmith/CHANGELOG.md")):match("\n## 1%.11%.0\n(.-)\n## 1%.10%.1\n")   -- (by design since 1.12.0-beta1: 1.12.0's section now leads the file, so 1.11.0's is found wherever it stands)
 	check(top and top:find("\n%- Auto%-Open and Auto%-Close %(Settings > Automations%)") and top:find("\n%- Sections on a Sheet %(Settings > Custom Sections, or a section's menu in your bags%)"),
 		"the changelog's 1.11.0 has Auto-Open and Auto-Close, and Sections on a Sheet")
 	check(top and top:find("\nChanged:\n%- Auto%-Close Bags I Opened, from 1%.10%.1, is now the When I Leave choice on Automations%."), "and says where 1.10.1's switch went")
 	check(top and not top:find("\226\128\148"), "no dashes")
-	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.11%.0"), "the TOC version is 1.11.0's (the exact one is pinned in tests/run.lua)")
+	check(slurp("BagSmith/BagSmith.toc"):find("## Version: 1%.1[1-9]%.%d"), "the TOC version is 1.11.0's or later (by design since 1.12.0-beta1; the exact one is pinned in tests/run.lua)")
 end

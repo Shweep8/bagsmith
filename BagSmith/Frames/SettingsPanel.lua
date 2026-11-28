@@ -1771,6 +1771,8 @@ pages.addons = function(self, db)
 		local active = present and P:Active()
 		self:Head("Pawn", { noIcon = true, state = not present and "Not installed" or (active and "Installed" or "Installed, bag upgrade advisor off"), stateOn = active and true or false })
 		self:Text("Knows which gear is an upgrade for you. Its green arrows show on your icons.")
+		-- (1.12.0-beta1) where its column is
+		self:Text("In List view it can have a column of its own, showing how much of an upgrade each item is: tick Pawn in Settings > Bag Columns or Bank Columns.")
 		if present then
 			if not active then self:Text("Pawn's bag upgrade advisor is off, so it marks no upgrades for now. You can turn it on in Pawn's options.") end
 			self:Check("makeRoomHoldPawn", "Hold Back in the Loot Helper", "Won't offer a piece Pawn says is an upgrade.")
@@ -2366,7 +2368,13 @@ local function columnsPage(self, db, bank)
 			local ok = ns.AH:Available()
 			colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil, disabled = not ok,
 				tip = ok and (ns.AH:ColumnText() .. " Shows the stack's value, or \"-\" when an item hasn't been scanned. Auction Price Source is in Settings > Addon Sources.") or ns.AH.INSTALL_HINT }
-		else colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil } end
+		elseif ns.Columns:Get(id) then
+			-- (1.12.0-beta1) a column that shows another addon's answer (Pawn's): always listed, greyed while it has
+			-- nothing to show, saying why; its tick is kept either way
+			local ok, why = ns.Columns:Available(id)
+			colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil, disabled = not ok,
+				tip = ok and ns.Columns:Get(id).tip or why }
+		elseif ns.COL_LABEL[id] then colItems[#colItems + 1] = { id = id, label = ns.COL_LABEL[id], checked = ns.IndexOf(cols, id) ~= nil } end
 	end
 	self:List(colItems,
 		function(id, on)
@@ -2387,7 +2395,7 @@ local function columnsPage(self, db, bank)
 	local need, base = ns.View.MinWidthFor(bank)
 	if need > base then self:Text(("With these columns kept, the %s window can't be narrower than %d pixels."):format(bank and "bank" or "bags", need)) end
 	local shown = {}
-	for _, id in ipairs(order) do if id ~= "n" and id ~= "c" and ns.IndexOf(cols, id) and (id ~= "ah" or ns.AH:Available()) then shown[#shown + 1] = id end end
+	for _, id in ipairs(order) do if id ~= "n" and id ~= "c" and ns.IndexOf(cols, id) and ns.COL_LABEL[id] and ns.Columns:Usable(id) then shown[#shown + 1] = id end end
 	local ticked = {}
 	for _, id in ipairs(aside) do if ns.IndexOf(shown, id) then ticked[#ticked + 1] = id end end
 	local asideItems = {}

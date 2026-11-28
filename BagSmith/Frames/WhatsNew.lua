@@ -24,6 +24,14 @@ ns.WhatsNew = WN
 -- Newest first. Only notable releases get an entry; keep a handful of short
 -- bullets that say what it is and where to turn it on.
 WN.ENTRIES = {
+	-- (1.12.0-beta4) the 1.12 card, drafted with the candidate for Shweep to keep, change or strike. Four bullets, each
+	-- leading with what the player gets, as 1.11's.
+	{ v = "1.12.0", heading = "BagSmith 1.12", items = {
+		"|cfffac775A Pawn Column:|r in List view, see how much of an upgrade Pawn says each item is, beside a green arrow, and sort by it. Tick Pawn in Settings > Bag Columns or Bank Columns.",
+		"|cfffac775Swap Bags With a Right-Click:|r right-click a bag when every bag slot is full, and pick which of the bags you're wearing it should replace.",
+		"|cfffac775Columns From Other Addons:|r other addons can add their own columns to List view now. Tick one in Settings > Bag Columns like any other.",
+		"|cfffac775Bag Icons on By Bag Sections:|r with Sections: By Bag, each bag's section shows that bag's icon beside its name.",
+	} },
 	-- (1.11.0-beta4) the 1.11 card, drafted for Shweep to keep, change or strike. Seven bullets (eight since beta6), each leading with what
 	-- the player gets, as 1.10's. The third is his ask ("Leave as history and make sure new one speaks to it being
 	-- changed"): 1.10.1's entry below stays as it was written, and this one says where its switch went.

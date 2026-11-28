@@ -1,6 +1,7 @@
-# BagSmith.API 1.1 reference
+# BagSmith.API 1.2 reference
 
-1.1 (BagSmith 1.5.0) adds icon corner widgets; everything from 1.0 is unchanged.
+1.2 (BagSmith 1.12.0) adds List view columns; 1.1 (BagSmith 1.5.0) added icon corner widgets. Everything from 1.0
+is unchanged.
 
 `BagSmith.API` (also `_G.BagSmith.API`) is the only supported surface. Everything else is unsupported.
 No method performs an item action. Every failure is `nil` (or `false`) followed by a stable code from
@@ -249,6 +250,57 @@ the calls take the same arguments and return values. BagSmith's calls accept a d
 
 See [EXAMPLES.md](EXAMPLES.md): a single badge, several badges in one corner, a ring or glow around the whole slot,
 List rows, and combat.
+
+## List view columns (1.2)
+
+An addon can add a column to BagSmith's List view: a short text per item, with a heading the player can click to
+sort by. The column is listed in Settings > Bag Columns and Bank Columns, **unticked**, at the end; the player ticks
+it, and can then move it, resize it, sort by it and let a narrow window set it aside, like BagSmith's own columns.
+An addon doesn't need to register as a plugin to add a column.
+
+```lua
+local api = BagSmith and BagSmith.API
+if api and api.RegisterColumn then
+  api.RegisterColumn("My Addon: Score", "myaddon_score",
+    function(details)                         -- once per item, then remembered
+      local score = MyAddon.ScoreFor(details.itemLink)
+      if score == nil then return nil end     -- not ready yet: ask again after RefreshColumn
+      if score == 0 then return "" end        -- an empty cell
+      return tostring(score), score           -- the cell's text, and a number to sort by
+    end,
+    { width = 60, align = "RIGHT", tooltip = "My Addon's score for the item." })
+end
+```
+
+| Function | |
+|---|---|
+| `RegisterColumn(label, id, onUpdate, options)` | Returns true, or false if refused: a missing label, an id that isn't letters, digits, `_`, `-` or `.` (40 at most), no `onUpdate`, an id already registered, or more than eight columns from addons. A refusal is said once in chat. |
+| `RefreshColumn(id)` | Your answers changed. BagSmith forgets what it kept for the column and asks again for the rows on screen; a window sorted by the column sorts again. Any number of calls in one frame make one redraw. Returns false for an id that isn't registered. |
+| `IsColumnShown(id)` | True when the player has the column ticked, for the bags or the bank (in the active profile). |
+
+Each accepts a dot or a colon call.
+
+- **label** is the heading's text and the column's name in Settings: plain text, 40 characters at most.
+- **onUpdate(details)** gets the same `details` table as a corner widget's onUpdate (`itemLink`, `itemID`,
+  `quality`, `itemLevel`, `isBound`, `itemCount`, `icon`, `isJunk`, `classID`, `subClassID`, `itemName`, and for the
+  player's own items `bagID`, `slotID` and `itemLocation`). It returns the cell's text and, optionally, a number to
+  sort by (0 without one). `""` or `false` is an empty cell. `nil` means "not ready yet": the cell keeps what it
+  showed for the same item and nothing is remembered, so call `RefreshColumn` when you can answer. The text may
+  carry a color code or a small picture's markup. It is one line; text over 200 bytes is cut, between characters,
+  so keep markup short: a color code or a picture's markup cut in the middle shows as plain text.
+- **An answer is remembered per item** (its place, link and count) until you call `RefreshColumn`, so onUpdate runs
+  once per item, not on every redraw and not for every comparison of a sort. If your answers depend on something
+  else (the player's gear, your own settings), call `RefreshColumn` when that changes. BagSmith cannot know that
+  it did: until you call it, the old answers stay on screen.
+- **options**, all optional: `width` (pixels, 30 to 400; 60 without one, until the player drags it), `align`
+  (`"LEFT"`, the default, or `"RIGHT"`), `tooltip` (a sentence for the heading's tooltip and the Settings row's),
+  `otherCharacters` (true: also asked about another character's saved items, where `bagID` and `slotID` are nil;
+  without it those cells are empty and onUpdate isn't called).
+- **Errors.** onUpdate runs protected. After five failures, while drawing or while sorting, the column is switched
+  off until the next reload, and its row in Settings says so.
+- **What the player keeps.** Their tick, the column's place and its width are saved under your id. If your addon
+  isn't loaded for a session, they are kept for when it is.
+- The column is never shown in Global Inventory.
 
 ## Discovery and status (read-only, for tooling)
 

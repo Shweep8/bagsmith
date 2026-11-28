@@ -406,7 +406,7 @@ do
 	click(f2.empty.heldShow)
 	check(f2.offer:IsShown() and not f2.offer:IsEnabled() and f2.offer.offName == "Disenchant Anyway" and f2.offer.offReason == "ItemTree hasn't answered about it yet. This clears by itself in a moment.", "a piece that can't be chosen greys Disenchant Anyway, with the reason")
 	-- What's New's bullet names the button
-	local items = n2.WhatsNew.ENTRIES[1].items
+	local items = n2.WhatsNew.ENTRIES[2].items   -- (by design since 1.12.0-beta4: one more place down, after the 1.12 card)
 	check(items[8]:find("Disenchant Anyway puts one in the list", 1, true) and not items[8]:find("Offer Anyway", 1, true), "the What's New bullet names Disenchant Anyway")
 	check((n.errors or 0) == 0 and (n2.errors or 0) == 0, "no errors")
 end

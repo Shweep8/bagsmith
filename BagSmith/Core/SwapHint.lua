@@ -46,6 +46,17 @@ local HOLD, FADE = 8, 1.5   -- the on-screen message: full strength, then fading
 local pickup          -- { bag, slot, itemID, t } of the bag picked up from a container
 local refused         -- (1.7.1-beta4) { bag, slot, id, t, taken }: a refusal just noticed (route 1), for the bag button
 local lastShown = -math.huge
+-- (1.12.0-beta3) for the menu a refused right-click gets (the end of this file)
+local CLICK_WINDOW = 0.5   -- seconds between a clicked bag's release and the game's error, whichever comes first
+local clicked              -- { bag, slot, id, t }: a bag just clicked and released in place, nothing on the cursor
+-- (1.12.0-beta5, the beta4 audit's B4-2) which bag the game's error was for, when the error comes before the slot is
+-- released: { bag, slot, id, t }. beta4 kept only the time, so any bag released next could claim it.
+local errored
+-- (1.12.0-beta6, the beta5 re-audit's B5-1) Which attempt is the current one: raised each time a bag's slot locks. A
+-- refused click carries the number it was made under (c.gen), and an offer from an earlier attempt is no offer
+-- (Hint:OfferOK), whether it is still waiting to be shown or already on screen. beta5 withdrew only a menu that was
+-- showing: one still waiting on its next-frame timer opened for the older bag after a newer one had been clicked.
+local attempt = 0
 
 local function info(bag, slot)
 	return C_Container and C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bag, slot)
@@ -220,7 +231,11 @@ local function seen(id, bag, slot)
 	local i = info(bag, slot)
 	return i and i.itemID == id and not i.isLocked or false
 end
-function Hint:SwapIn(x, inv, srcSlot, newID)
+-- (1.12.0-beta3) srcBag: the container the new bag sits in, when that isn't X itself (the menu a refused right-click
+-- gets: the player picks which worn bag to replace). The new bag is then already outside X, so nothing is moved
+-- first: its own slot stands in for the free slot (y, ys) and the swap starts at step 3. Without srcBag everything
+-- is as it was.
+function Hint:SwapIn(x, inv, srcSlot, newID, srcBag)
 	if self.swapping then return true end
 	if InCombatLockdown() then say(Hint.IN_COMBAT, true); return true end
 	inv = inv or invSlotOf(x)
@@ -233,7 +248,10 @@ function Hint:SwapIn(x, inv, srcSlot, newID)
 		say(Hint.SAME:format(nName), true)
 		return true
 	end
-	local y, ys = swapRoom(x)
+	local sb = srcBag or x          -- where the new bag is now
+	local direct = sb ~= x          -- already outside X
+	local y, ys
+	if direct then y, ys = sb, srcSlot else y, ys = swapRoom(x) end
 	if not y then
 		if cursorItem() == newID then pcall(ClearCursor) end   -- (its own: back where it came from)
 		say(Hint.NO_ROOM:format(nName, xName), true)
@@ -260,7 +278,7 @@ function Hint:SwapIn(x, inv, srcSlot, newID)
 	end
 	-- the new bag's place, named only where BagSmith sees it: the free slot it used, or its own slot
 	local function withNew(text)
-		local w = (seen(newID, y, ys) and bagLabel(y)) or (seen(newID, x, srcSlot) and bagLabel(x))
+		local w = (seen(newID, y, ys) and bagLabel(y)) or (seen(newID, sb, srcSlot) and bagLabel(sb))
 		return w and (text .. " " .. ("%s is in your %s now."):format(nName, w)) or text
 	end
 	-- (1.7.1-beta2, the audit's advisory A) one way out after an error: said once, kept for /bs errors (ns:Guard),
@@ -299,8 +317,9 @@ function Hint:SwapIn(x, inv, srcSlot, newID)
 	-- 1. N back in its own slot
 	local function step1()
 		if cursorItem() == newID then holding = newID; ClearCursor(); holding = nil end
-		await(function() return located(newID, x, srcSlot) and not info(x, srcSlot).isLocked and not CursorHasItem() end, step2,
-			function() finish(("Couldn't swap in %s: it didn't settle back in your %s."):format(nName, bagLabel(x)), true) end)
+		await(function() return located(newID, sb, srcSlot) and not info(sb, srcSlot).isLocked and not CursorHasItem() end,
+			function() if direct then return step3() end return step2() end,
+			function() finish(("Couldn't swap in %s: it didn't settle back in your %s."):format(nName, bagLabel(sb)), true) end)
 	end
 	-- 2. N to the free slot in another bag
 	step2 = function()
@@ -547,6 +566,12 @@ ns:On("ITEM_LOCK_CHANGED", function(bag, slot)
 				-- nothing is remembered for the ten seconds that follow.
 				pickup = nil
 				ns:Debug("Swap hint: forgot the bag (back in its slot, nothing on the cursor)")
+				-- (1.12.0-beta3) It may be a right-click the game has just refused, or is about to: see Hint:ClickRefused
+				-- (1.12.0-beta5, B4-2) the error-first order is claimed only by the bag the error was for
+				local c = { bag = bag, slot = slot, id = i.itemID, t = GetTime(), gen = attempt }
+				local e = errored
+				errored = nil
+				if e and e.bag == bag and e.slot == slot and e.id == i.itemID and c.t - e.t <= CLICK_WINDOW then Hint:ClickRefused(c) else clicked = c end
 			end
 		end
 		return
@@ -562,6 +587,12 @@ ns:On("ITEM_LOCK_CHANGED", function(bag, slot)
 	if isBag(i.itemID) then
 		pickup = { bag = bag, slot = slot, itemID = i.itemID, t = GetTime() }
 		ns:Debug("Swap hint: remembered the bag from bag %d slot %d", bag, slot)
+		-- (1.12.0-beta5, B4-2) A bag locking is a new attempt. An earlier click still waiting for its error, an
+		-- earlier error still waiting for its release, and a menu still open for an earlier bag are all the past: the
+		-- next error and the next release belong to this bag.
+		clicked, errored = nil, nil
+		attempt = attempt + 1   -- (1.12.0-beta6, B5-1) and an offer queued for an earlier bag, not yet shown, is void too
+		if Hint.RetireOffer then Hint:RetireOffer("another bag was picked up") end
 	elseif held then
 		if pickup then ns:Debug("Swap hint: forgot the bag (another item was picked up)") end
 		pickup = nil
@@ -580,9 +611,187 @@ local function onError(errType, message)
 	if not Hint.swapping and sameSlot(target, srcBag) then Hint:Show() end   -- (1.7.1-beta2, F1) explained only
 end
 ns:On("UI_ERROR_MESSAGE", function(errType, message)
+	-- (1.12.0-beta3) a bag clicked and released in place a moment ago, nothing on the cursor: the refused right-click
+	-- (1.12.0-beta5, the beta4 audit's B4-2) One error, one bag. A bag whose slot is locked right now with nothing on
+	-- the cursor is the attempt in progress, and the error is its own (the error-first order: its release claims
+	-- it); an older click that was released without an error is not this error's. Only with no bag locked does a
+	-- released click take the error. beta4 gave it to the released click first.
+	if not cursorItem() then
+		local p = pickup
+		local live = p and GetTime() - p.t <= CLICK_WINDOW and info(p.bag, p.slot)
+		if live and live.isLocked and live.itemID == p.itemID then
+			-- (no older released click can be waiting here: a bag locking forgot it, above)
+			errored = { bag = p.bag, slot = p.slot, id = p.itemID, t = GetTime() }
+		elseif clicked then
+			local c = clicked
+			clicked = nil
+			if GetTime() - c.t <= CLICK_WINDOW then
+				ns:Debug("Swap menu: game error %q (%s) right after the bag in bag %d slot %d was clicked", tostring(message), tostring(errType), c.bag, c.slot)
+				Hint:ClickRefused(c)
+				return
+			end
+		end
+	end
 	local dragging = (pickup and GetTime() - pickup.t <= WINDOW) or cursorItem() ~= nil
 	if not dragging then return end
 	ns:Debug("Swap hint: game error %q (%s)", tostring(message), tostring(errType))
 	local ok, err = pcall(onError, errType, message)
 	if not ok then ns:Debug("Swap hint: error route failed: %s", tostring(err)) end
 end)
+
+------------------------------------------------------------------------
+-- (1.12.0-beta3, Shweep, 26 Nov: "I like option A actually. that would be helpful") A bag right-clicked in the bags
+-- with every bag slot full. The game only equips a bag into an empty bag slot, so it refuses with its own red line
+-- and nothing happens. BagSmith then offers a short menu at the pointer: which worn bag to swap it in for, smallest
+-- first, each with its size and how full it is. A choice runs Hint:SwapIn above, the only thing here that moves
+-- anything; opening the menu moves nothing.
+--
+-- Recognised without reading the game's words (the rule of this file): a bag item's slot locked and unlocked again
+-- with nothing on the cursor (a click, not a drag), a game error within CLICK_WINDOW of that, either order, no
+-- vendor, mailbox, trade, auction house or bank open (a right-click does something else there), and no empty bag
+-- slot (with one, the game would have equipped the bag: its refusal was about something else).
+--
+-- What a row can't know: how many slots the new bag has. The game gives an addon the size of a worn bag only, so
+-- "its contents won't fit" can't be greyed beforehand; the game refuses that swap itself and Hint.REFUSED says so,
+-- the new bag back where it was. Greyed with their reason: the same kind of bag; the bag the new one is inside,
+-- when no other bag has a free slot to set it down in first; and, for a special bag (a quiver, a herb bag), a worn
+-- bag holding things that can't go in it.
+------------------------------------------------------------------------
+Hint.MENU_TITLE = "Swap in %s for:"
+Hint.MENU_ROW = "%s (%d slots, %d used)"
+Hint.WHY_SAME = "It is the same kind of bag."
+Hint.WHY_INSIDE = "The new bag is inside this one, and no other bag has a free slot to set it down in first."
+Hint.WHY_KIND = "It holds things that can't go in that kind of bag."
+Hint.MENU_STALE = "Your bags changed while the menu was open, so nothing was swapped."
+-- (the bank by BagSmith's own word, ns.atBank: the game's BankFrame is BagSmith's to hide or keep while it stands in for it)
+local AWAY = { "MerchantFrame", "MailFrame", "TradeFrame", "AuctionHouseFrame", "AuctionFrame", "GuildBankFrame" }
+local function atAWindow()
+	if ns.atBank then return true end
+	for _, name in ipairs(AWAY) do
+		local f = _G[name]
+		if type(f) == "table" and f.IsShown and f:IsShown() then return true end
+	end
+	return false
+end
+local function familyOf(id)
+	local get = (C_Item and C_Item.GetItemFamily) or GetItemFamily
+	if type(get) ~= "function" or not id then return 0 end
+	local ok, fam = pcall(get, id)
+	return ok and tonumber(fam) or 0
+end
+-- Does a worn bag hold anything that can't go in a special bag of this family?
+local function holdsOther(bag, size, family)
+	local band = bit and bit.band
+	if not band then return false end   -- can't tell: left to the game
+	for slot = 1, size do
+		local i = info(bag, slot)
+		if i and i.itemID and band(familyOf(i.itemID), family) == 0 then return true end
+	end
+	return false
+end
+-- The worn bags a bag item could go in for, smallest first: { bag, inv, id, name, size, used, why }. nil when a bag
+-- slot is empty.
+function Hint:SlotChoices(srcBag, srcSlot, newID)
+	local list = {}
+	local family = familyOf(newID)
+	for _, bag in ipairs(ns.BAGS or { 0, 1, 2, 3, 4 }) do
+		if bag ~= 0 and bag ~= ns.KEYRING and not (ns.IsReagentBag and ns:IsReagentBag(bag)) then
+			local inv = invSlotOf(bag)
+			if inv then
+				local oldID = equipped(inv)
+				if not oldID then return nil end
+				local size = C_Container.GetContainerNumSlots(bag) or 0
+				local okF, free = pcall(C_Container.GetContainerNumFreeSlots, bag)
+				free = okF and tonumber(free) or 0
+				local c = { bag = bag, inv = inv, id = oldID, name = itemName(oldID), size = size, used = math.max(0, size - free) }
+				if oldID == newID then c.why = Hint.WHY_SAME
+				elseif bag == srcBag and not swapRoom(bag) then c.why = Hint.WHY_INSIDE
+				elseif family ~= 0 and holdsOther(bag, size, family) then c.why = Hint.WHY_KIND end
+				list[#list + 1] = c
+			end
+		end
+	end
+	table.sort(list, function(a, b) if a.size ~= b.size then return a.size < b.size end return a.bag < b.bag end)
+	return list
+end
+-- (1.12.0-beta5, the beta4 audit's B4-1) Everything that has to be true for an offer, in one place, because it has
+-- to be true twice: when the menu opens and again when a row is picked. Returns the choices, or nil.
+function Hint:OfferOK(c)
+	if c.gen ~= attempt then return nil end   -- (1.12.0-beta6, B5-1) made under an earlier attempt: a newer bag has been clicked since
+	if self.swapping or InCombatLockdown() or atAWindow() or CursorHasItem() then return nil end
+	local i = info(c.bag, c.slot)
+	if not (i and i.itemID == c.id and not i.isLocked and isBag(c.id)) then return nil end
+	local list = self:SlotChoices(c.bag, c.slot, c.id)
+	if not list or #list == 0 then return nil end
+	return list
+end
+-- An offer that is no longer good is retired: its menu is closed if it is still the one showing (the shared menu
+-- keeps the list it was given: m.items), and its rows do nothing from then on (Hint.offered is what a pick checks).
+function Hint:RetireOffer(why)
+	local c = self.offered
+	if not c then return end
+	self.offered = nil
+	local m = ns.menuFrame
+	if m and m.IsShown and m:IsShown() and m.items == c.items then m:Hide() end
+	ns:Debug("Swap menu: withdrawn (%s)", tostring(why))
+end
+-- The offer is looked at again whenever something it rests on may have changed, and retired if it no longer holds.
+function Hint:RecheckOffer(why)
+	local c = self.offered
+	if not c then return end
+	local m = ns.menuFrame
+	if not (m and m.IsShown and m:IsShown() and m.items == c.items) then self.offered = nil; return end   -- its menu is gone already
+	if not self:OfferOK(c) then self:RetireOffer(why) end
+end
+-- The menu. False when there is nothing to offer (and nothing is shown).
+-- (A newer offer needs no separate retiring of the older: Hint.offered becomes the new one, which is all a pick of
+-- an old row checks, and the shared menu shows the new rows.)
+function Hint:OfferSlots(c)
+	local list = self:OfferOK(c)
+	if not list or not ns.ShowMenu then return false end
+	local items = { { text = Hint.MENU_TITLE:format(itemName(c.id)), title = true } }
+	for _, w in ipairs(list) do
+		items[#items + 1] = { text = Hint.MENU_ROW:format(w.name, w.size, w.used), disabled = w.why ~= nil, tip = w.why,
+			onClick = function() Hint:SwapFromMenu(c, w) end }
+	end
+	ns:Debug("Swap menu: offered for the bag in bag %d slot %d (%d worn bags)", c.bag, c.slot, #list)
+	ns.ShowMenu(items)
+	c.items = items
+	Hint.offered = c
+	return true
+end
+-- A row was picked: everything is looked at again, since the bags may have changed while the menu was open.
+-- (1.12.0-beta5, the beta4 audit's B4-1) beta4 looked again at the two slots only, so a pick still swapped after a
+-- vendor had opened or a bag slot had emptied with the menu up. Now: the offer must be the current one (not retired,
+-- not replaced), everything the menu needed to open must still hold (Hint:OfferOK, which also works the choices out
+-- afresh), and the row picked must still be among them, the same bag in the same slot, and not greyed.
+-- (Combat in between gets Hint.IN_COMBAT, as from Hint:SwapIn.)
+function Hint:SwapFromMenu(c, w)
+	if InCombatLockdown() and self.offered == c then self.offered = nil; say(Hint.IN_COMBAT, true); return false end
+	local list = self.offered == c and self:OfferOK(c) or nil
+	local now
+	for _, x in ipairs(list or {}) do if x.bag == w.bag then now = x end end
+	self.offered = nil
+	if not (now and now.inv == w.inv and now.id == w.id and not now.why and equipped(w.inv) == w.id) then
+		say(Hint.MENU_STALE, true)
+		return false
+	end
+	ns:Debug("Swap menu: swapping the bag in bag %d slot %d in for bag %d", c.bag, c.slot, w.bag)
+	return self:SwapIn(w.bag, w.inv, c.slot, c.id, c.bag) and true or false
+end
+-- A clicked bag the game refused: offered a frame later, outside the game's own click handler, shielded.
+function Hint:ClickRefused(c)
+	local function go() ns:Guard("Bag swap menu", Hint.OfferSlots, Hint, c) end
+	if C_Timer and C_Timer.After then C_Timer.After(0, go) else go() end
+end
+
+-- (1.12.0-beta5, the beta4 audit's B4-1) What retires an open offer: a place opening where a right-click on a bag
+-- means something else, combat, and the bags or the worn bags changing under it. (The guild bank has no event
+-- BagSmith listens to here; a pick there is refused by Hint:OfferOK all the same.)
+for _, ev in ipairs({ "MERCHANT_SHOW", "MAIL_SHOW", "TRADE_SHOW", "AUCTION_HOUSE_SHOW" }) do
+	ns:On(ev, function() Hint:RetireOffer("a vendor, mailbox, trade or auction house opened") end)
+end
+ns:OnSignal("BANK_OPENED", function() Hint:RetireOffer("the bank opened") end)
+ns:OnSignal("COMBAT_STARTED", function() Hint:RetireOffer("combat started") end)
+ns:OnSignal("ITEMS_CHANGED", function() Hint:RecheckOffer("the bags changed") end)
+ns:On("BAG_UPDATE", function() Hint:RecheckOffer("a bag changed") end)

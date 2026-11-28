@@ -36,6 +36,17 @@ ns.COLS = { { "c", "Qty" }, { "il", "iLvl" }, { "rq", "Req lvl" }, { "t", "Type"
 ns.COL_LABEL = {}
 for _, c in ipairs(ns.COLS) do ns.COL_LABEL[c[1]] = c[2] end
 ns.COL_LABEL.who = "Who"   -- (1.9.0-beta2) Global Inventory's own column (not offered in Bag Columns)
+-- (1.12.0-beta1) Columns that show another addon's answer about an item (Core/Columns.lua; each is registered by its
+-- own module, which also gives its label). Their keys are saved in the same lists as the columns above, so the load
+-- check below has to know them before any module has registered: listed here. Not in ns.COLS: nothing about them is
+-- fixed but the key.
+ns.EXTRA_COLS = { "pawn" }
+-- (1.12.0-beta3) A column another addon registers through BagSmith.API (1.2, Core/Columns.lua) is saved under "x:"
+-- and its id, so it can never be one of BagSmith's own keys, now or later. Its key stays in a saved list whether or
+-- not that addon is loaded this session (a session without it must not cost the player their layout), up to
+-- ns.ADDON_COLS_KEPT of them in any one list.
+ns.ADDON_COLS_KEPT = 16
+function ns.AddonColKey(key) return type(key) == "string" and #key <= 42 and key:match("^x:[%w_%-%.]+$") ~= nil end
 -- (1.9.0-beta6) the columns Global Inventory can show besides its fixed ones: not Age, Favorite, Currency or Junk,
 -- which are about one character's items. (beta7, Shweep: "allow AH to be turned off ... Vendor always") Item, Who,
 -- Where and Vendor are fixed; AH Price is one of these, greyed without a price source as in Bag Columns.
@@ -148,16 +159,19 @@ local DEFAULTS = {
 	replaceBank = true,           -- stand in for Blizzard's bank window too
 	-- columns, lanes, tabs
 	cols = { "c", "t", "bd", "v", "w", "age", "fv", "cc", "jk" },
-	colOrder = { "c", "n", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
+	-- (1.12.0-beta2, Shweep: "default position should be after item name") Pawn's column right after Item, in both windows
+	colOrder = { "c", "n", "pawn", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
 	colWidths = {},            -- key -> pixels, set by dragging header edges
 	-- (1.6.0-beta6, Shweep) the columns a narrow window may set aside, first to go first; the rest shrink to fit instead
 	-- (1.6.0-beta8, Shweep) every column ticked; wide text columns go first, the small icon columns last. Qty and Item
 	-- are never set aside.
-	colAside = { "t", "age", "v", "ah", "w", "sl", "rq", "il", "bd", "fv", "cc", "jk" },
-	bankColAside = { "t", "age", "v", "ah", "w", "sl", "rq", "il", "bd", "fv", "cc", "jk" },
+	colAside = { "t", "age", "v", "ah", "w", "sl", "rq", "il", "bd", "pawn", "fv", "cc", "jk" },
+	bankColAside = { "t", "age", "v", "ah", "w", "sl", "rq", "il", "bd", "pawn", "fv", "cc", "jk" },
+	pawnColAside = true,       -- (1.12.0-beta1) the Pawn column has joined this profile's Narrow Windows lists once
+	pawnColPlace = true,       -- (1.12.0-beta2) and has been given its place in this profile's column orders once
 	-- The bank window's own column layout (the Bank tab in the bags window uses the bags layout).
 	bankCols = { "c", "t", "bd", "v", "w", "age", "fv", "cc", "jk" },
-	bankColOrder = { "c", "n", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
+	bankColOrder = { "c", "n", "pawn", "t", "bd", "v", "w", "age", "fv", "cc", "jk", "il", "rq", "sl", "ah" },
 	fvccCols = true,           -- the Favorite and Currency columns have been added to this profile's columns once (0.13)
 	favItems = {},             -- favorited items (item IDs), shown in the Favorites section
 	customSections = {},       -- your own sections: { id = "c1", name = "Professions" }, ...; (1.10.0-beta1) in priority order,
@@ -246,6 +260,24 @@ local function ordered(allowed, all) return function(v)
 	for _, x in ipairs(out) do seen[x] = true end
 	for _, x in ipairs(all) do if not seen[x] then out[#out + 1] = x end end
 	return out end end
+-- (1.12.0-beta3) A list of column keys: BagSmith's own (allowed) and other addons' ("x:<id>", see ns.AddonColKey),
+-- each once, the addons' kept up to ns.ADDON_COLS_KEPT. orderedCols also appends BagSmith's own that are missing.
+local function colList(allowed) return function(v)
+	if type(v) ~= "table" then return nil end
+	local out, seen, extra = {}, {}, 0
+	for _, x in ipairs(v) do
+		if type(x) == "string" and not seen[x] then
+			if allowed[x] then out[#out + 1] = x; seen[x] = true
+			elseif ns.AddonColKey(x) and extra < ns.ADDON_COLS_KEPT then out[#out + 1] = x; seen[x] = true; extra = extra + 1 end
+		end
+	end
+	return out end end
+local function orderedCols(allowed, all) return function(v)
+	local out = colList(allowed)(v) or {}
+	local seen = {}
+	for _, x in ipairs(out) do seen[x] = true end
+	for _, x in ipairs(all) do if not seen[x] then out[#out + 1] = x end end
+	return out end end
 local ANCHORS = { TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true, CENTER = true, RIGHT = true, BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true }
 local function finite(n) return type(n) == "number" and n == n and n > -1e6 and n < 1e6 end
 local function pointV(v)
@@ -254,6 +286,7 @@ local function pointV(v)
 end
 local COL_SET, LANE_SET = {}, {}
 for _, c in ipairs(ns.COLS) do COL_SET[c[1]] = true end
+for _, key in ipairs(ns.EXTRA_COLS) do COL_SET[key] = true end   -- (1.12.0-beta1) and so the order, aside and width checks below
 local ORDER_SET = { n = true }
 local ASIDE_SET = {}   -- (1.6.0-beta8) the columns Narrow Windows may set aside: all but Qty (and Item, which isn't in COL_SET)
 for k in pairs(COL_SET) do if k ~= "c" then ASIDE_SET[k] = true end end
@@ -450,11 +483,18 @@ local validators = {
 	fixW = num(440, 1400, true), bankW = num(500, 1400, true), bankH = num(300, 1200, true), fixH = num(300, 1200, true), iconSize = num(24, 48, true), rowHeight = num(20, 32, true),
 	minimapAngle = num(0, 360), point = pointV, bankPoint = pointV, settingsPoint = pointV,
 	makeRoomPos = function(v) if v == false then return false end return pointV(v) end,
-	cols = strList(COL_SET), colOrder = ordered(ORDER_SET, DEFAULTS.colOrder), colAside = strList(ASIDE_SET),
+	cols = colList(COL_SET), colOrder = orderedCols(ORDER_SET, DEFAULTS.colOrder), colAside = colList(ASIDE_SET),
 	colWidths = function(v)
 		if type(v) ~= "table" then return nil end
-		local out = {}
-		for k, w in pairs(v) do if COL_SET[k] and type(w) == "number" then out[k] = clamp(math.floor(w), 30, 400) end end
+		local out, extra = {}, {}
+		for k, w in pairs(v) do
+			if type(w) == "number" then
+				if COL_SET[k] then out[k] = clamp(math.floor(w), 30, 400)
+				elseif ns.AddonColKey(k) then extra[#extra + 1] = k end   -- (1.12.0-beta3) another addon's column
+			end
+		end
+		table.sort(extra)   -- (which ones are kept must not depend on the order a table happens to be walked in)
+		for i = 1, math.min(#extra, ns.ADDON_COLS_KEPT) do out[extra[i]] = clamp(math.floor(v[extra[i]]), 30, 400) end
 		return out
 	end, iconCorners = function(v)
 		if type(v) ~= "table" then return nil end
@@ -771,6 +811,9 @@ local function renameClashingSheets(saved)
 	end
 end
 
+-- (1.12.0-beta1) Narrow Windows' default list as every profile had it from 1.6.0-beta8 to 1.11.0, for the one-time
+-- step below that adds the Pawn column to a list nobody has touched.
+local OLD_ASIDE = { "t", "age", "v", "ah", "w", "sl", "rq", "il", "bd", "fv", "cc", "jk" }
 local function validateProfile(saved)
 	renameClashingSheets(saved)
 	-- (1.11.0-beta2) 1.10.1's Auto-Close Bags I Opened is the "when I leave" choice now: off becomes Close If
@@ -802,6 +845,43 @@ local function validateProfile(saved)
 			end
 		end
 		saved.fvccCols = true
+	end
+	-- (1.12.0-beta1) The Pawn column joins a profile's Narrow Windows lists once, and only a list that is still exactly
+	-- the default of 1.6.0 to 1.11 (every column, never touched): it goes where a new profile has it, after Bind and
+	-- before the three icon columns, so a narrow window sets Pawn's aside like the rest. A list the player changed in
+	-- any way is theirs and is left as it is (the 1.6.0-beta8 audit's rule for these lists: loading never rewrites a
+	-- saved one); Pawn's column is then kept by a narrow window until they tick it there.
+	-- (Its place in the column order needs no step: the load check appends a column the saved order doesn't have.)
+	if type(saved) == "table" and saved.pawnColAside == nil then
+		for _, key in ipairs({ "colAside", "bankColAside" }) do
+			local list = saved[key]
+			if type(list) == "table" and #list == #OLD_ASIDE then
+				local same = true
+				for i, id in ipairs(OLD_ASIDE) do if list[i] ~= id then same = false; break end end
+				if same then table.insert(list, ns.IndexOf(list, "fv"), "pawn") end
+			end
+		end
+		saved.pawnColAside = true
+	end
+	-- (1.12.0-beta2, Shweep: "default position should be after item name") The Pawn column takes its place in a
+	-- profile's column orders once: right after Item, wherever Item sits in the saved order, the rest untouched. For a
+	-- profile from before 1.12 (the key isn't in its order: without this step the load check would append it at the
+	-- end) and for one that loaded 1.12.0-beta1 (the key is last, where beta1's load check put it; only a beta1 tester
+	-- can be in that state, since no release has had the key). Anywhere else, the player put it there: left alone. An
+	-- order with no Item in it is left to the load check, which appends both in the default's order. The column is
+	-- still unticked, so nothing a player sees moves.
+	if type(saved) == "table" and saved.pawnColPlace == nil then
+		for _, key in ipairs({ "colOrder", "bankColOrder" }) do
+			local list = saved[key]
+			if type(list) == "table" and ns.IndexOf(list, "n") then
+				local at = ns.IndexOf(list, "pawn")
+				if not at or at == #list then
+					if at then table.remove(list, at) end
+					table.insert(list, ns.IndexOf(list, "n") + 1, "pawn")
+				end
+			end
+		end
+		saved.pawnColPlace = true
 	end
 	-- 0.13: the Junk column joins each profile's columns once (players can
 	-- turn it off afterwards; the flag stops it coming back).

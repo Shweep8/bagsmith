@@ -276,8 +276,9 @@ function View:ColumnPlan()
 	if narrow then order = { "n", "c" } else
 		local cols = self:Pref("cols")
 		for _, key in ipairs(self:Pref("colOrder")) do
-			-- AH Price only while Auctionator is installed (the tick is kept).
-			if key == "n" or (ns.IndexOf(cols, key) and (key ~= "ah" or ns.AH:Available())) then order[#order + 1] = key end
+			-- AH Price only while Auctionator is installed (the tick is kept). (1.12.0-beta1) And a registered column
+			-- (Core/Columns.lua: Pawn's) only while it can show something; a key nothing answers for is passed over.
+			if key == "n" or (ns.IndexOf(cols, key) and ns.COL_LABEL[key] and ns.Columns:Usable(key)) then order[#order + 1] = key end
 		end
 		if not ns.IndexOf(order, "n") then table.insert(order, 1, "n") end
 	end
@@ -297,7 +298,9 @@ function View:ColumnPlan()
 	local widths, fixed = {}, 0
 	for _, key in ipairs(order) do
 		if key ~= "n" then
-			local w = self:Pref("colWidths")[key] or ((key == "jk" or key == "fv" or key == "cc") and 30) or math.floor(width * (narrow and 0.18 or COLW[key]))
+			-- (1.12.0-beta1) a registered column starts at the width it asked for, in pixels
+			local w = self:Pref("colWidths")[key] or ((key == "jk" or key == "fv" or key == "cc") and 30) or ns.Columns:Width(key)
+				or math.floor(width * (narrow and 0.18 or COLW[key]))
 			widths[key] = w
 			fixed = fixed + w
 		end
@@ -328,7 +331,11 @@ function View:ColumnPlan()
 		if key == "n" then
 			plan[#plan + 1] = { key = "n", fs = "colName", x = x + 26 + K, width = w - 26 - K - COLPAD, iconX = x + 2 + K, kebabX = x, colX = x, colW = w }
 		else
-			plan[#plan + 1] = { key = key, fs = COLKEY[key], x = x + 4, width = w - 4 - COLPAD, colX = x, colW = w }
+			-- (1.12.0-beta1) reg: a registered column, whose cell a row makes the first time it is placed; numeric: right
+			-- aligned, for BagSmith's own number columns and a registered one that asked for it
+			local reg = ns.Columns:Get(key) ~= nil
+			plan[#plan + 1] = { key = key, fs = COLKEY[key] or (reg and ns.Columns:Field(key)) or nil, x = x + 4, width = w - 4 - COLPAD, colX = x, colW = w,
+				reg = reg or nil, numeric = (NUMERIC[key] or (reg and ns.Columns:Numeric(key))) and true or nil }
 		end
 		x = x + w
 	end
@@ -349,11 +356,19 @@ function View:LayoutHeader(plan)
 	local narrowHeader = not self.big
 	for i, col in ipairs(plan) do
 		local b = self.headerLabels[col.key]
+		-- (1.12.0-beta1) a column registered after this window was made gets its heading the first time it is laid
+		-- out, in the color the others have now
+		if not b and col.reg and self.MakeHeaderLabel then
+			b = self.MakeHeaderLabel(col.key, ns.COL_LABEL[col.key] or col.key)
+			local like = self.headerLabels.n
+			if like and like.text.GetTextColor then local r, g, bl = like.text:GetTextColor(); if r then b.text:SetTextColor(r, g, bl) end end
+			b:SetHeight(headerH)
+		end
 		if b then
 			b:ClearAllPoints()
 			b:SetPoint("LEFT", self.header, "LEFT", col.key == "n" and col.colX + 4 or col.x, 0)
 			b:SetWidth(col.width)
-			b.text:SetJustifyH(NUMERIC[col.key] and "RIGHT" or "LEFT")
+			b.text:SetJustifyH((col.numeric or NUMERIC[col.key]) and "RIGHT" or "LEFT")
 			local cs = self.st.colSort
 			local iconCol = col.key == "jk" or col.key == "fv" or col.key == "cc"
 			b.text:SetText(iconCol and "" or ns.COL_LABEL[col.key] or "Item")
@@ -378,7 +393,7 @@ function View:LayoutHeader(plan)
 				b.sortIcon:SetVertexColor(Skins:Accent())
 				b.sortIcon:ClearAllPoints()
 				if iconCol then b.sortIcon:SetPoint("LEFT", b.junkIcon, "RIGHT", 1, 0)   -- beside the icon, not over it
-				elseif NUMERIC[col.key] then b.sortIcon:SetPoint("LEFT", b, "LEFT", 0, 0)
+				elseif col.numeric or NUMERIC[col.key] then b.sortIcon:SetPoint("LEFT", b, "LEFT", 0, 0)
 				else b.sortIcon:SetPoint("LEFT", b, "LEFT", b.text:GetStringWidth() + 4, 0) end
 				b.sortIcon:Show()
 			else
@@ -1289,7 +1304,7 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 		for _, lane in ipairs(lanes) do byLane[lane.id] = lane end
 		-- Sort: Off (1.4.0-beta4): the grid follows the bags as they are, so empty slots go where they really are
 		-- (into the main list even when it carries its "All Items" title), instead of after the items.
-		local offOrder = self:Pref("sort") == "off" and not self.st.colSort
+		local offOrder = self:Pref("sort") == "off" and not ns:ActiveColSort(self.st)   -- (1.12.0-beta7, B6-A1)
 		local touched = {}
 		for index, bag in ipairs(bags) do
 			local size = ns.bagInfo[bag] and ns.bagInfo[bag].size or 0
@@ -1534,6 +1549,12 @@ function View:Layout(shown, all, plan, width, bagInfo, bank, cached)
 			-- "Gear Set:" before the name, so it never looks like a regular section.
 			local setIcon = lane.gearSet and not cached and ns.GearSets and ns.GearSets:Find(lane.gearSet)
 			setIcon = setIcon and (setIcon.icon or 134400) or nil
+			-- (1.12.0-beta1, Shweep: "be nice to add that") a By Bag section's title: its bag's icon, the same way.
+			-- Your own bags as they are now; another character's saved bags, and a slot with no picture, stay text.
+			if not setIcon and not cached and type(lane.id) == "string" then
+				local bag = tonumber(lane.id:match("^bag:(%-?%d+)$"))
+				if bag then setIcon = ns:BagIcon(bag) end
+			end
 			if setIcon then
 				if not h.setIcon then
 					h.setIcon = h:CreateTexture(nil, "OVERLAY")

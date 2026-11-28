@@ -421,7 +421,7 @@ function View.MinWidthFor(bank)
 	local kept = 0
 	for _, key in ipairs(type(cols) == "table" and cols or {}) do
 		local canGo = key ~= "c" and type(aside) == "table" and ns.IndexOf(aside, key) ~= nil   -- (Qty never goes)
-		if not canGo and (key ~= "ah" or (ns.AH and ns.AH:Available())) then kept = kept + 1 end
+		if not canGo and ns.Columns:Usable(key) then kept = kept + 1 end   -- (1.12.0-beta1: AH Price, and a registered column, only while it can show)
 	end
 	local need = PAD * 2 + BAR_ROOM + (View.ITEM_MIN or 90) + kept * (View.COL_MIN or 30)
 	return math.max(base, need), base
@@ -863,6 +863,9 @@ function View:Build()
 			GameTooltip:SetOwner(btn, "ANCHOR_TOP")
 			ns.TipText(GameTooltip, "Click to sort by " .. text)
 			if key == "age" then ns.TipLine(GameTooltip, "Time since BagSmith first saw the item in your bags", 0.6, 0.6, 0.6) end
+			-- (1.12.0-beta1) a registered column says what it shows (Pawn's: how much of an upgrade)
+			local reg = ns.Columns:Get(key)
+			if reg and reg.tip then ns.TipLine(GameTooltip, reg.tip, 0.6, 0.6, 0.6) end
 			ns.TipLine(GameTooltip, "Drag the gold line on either side to resize", 0.6, 0.6, 0.6)
 			-- (1.6.0-beta6) what a narrow window has set aside, and where to choose
 			local aside = self:AsideText()
@@ -881,6 +884,10 @@ function View:Build()
 	headerLabel("n", "Item")
 	for _, c in ipairs(ns.COLS) do headerLabel(c[1], c[2]) end
 	headerLabel("who", "Who")   -- (1.9.0-beta2) Global Inventory's own column
+	-- (1.12.0-beta1) the registered columns there are now (Pawn's); one registered later gets its heading when it is
+	-- first laid out (View:LayoutHeader)
+	for _, key in ipairs(ns.Columns.keys) do headerLabel(key, ns.COL_LABEL[key] or key) end
+	self.MakeHeaderLabel = headerLabel
 
 	-- Sheet tabs (main and bank)
 	if self.big then
@@ -1199,7 +1206,8 @@ end
 -- (1.6.0) The toolbar's narrowest step: the Sort button without "Sort:", the Sections button naming the choice.
 local SORT_NAME = { quality = "Quality", name = "Name", ilvl = "iLvl", newest = "Newest", oldest = "Oldest", off = "Off" }
 function View:SyncSortLabel()
-	local name = self.st.colSort and (ns.COL_LABEL[self.st.colSort.key] or "Item") or (SORT_NAME[self:Pref("sort")] or self:Pref("sort"))
+	local cs = ns:ActiveColSort(self.st)   -- (1.12.0-beta7, B6-A1: not a column that has left the row)
+	local name = cs and (ns.COL_LABEL[cs.key] or "Item") or (SORT_NAME[self:Pref("sort")] or self:Pref("sort"))
 	self.btnSort.label:SetText(((self.toolsLevel or 0) >= 4) and name or ("Sort: " .. name))
 end
 function View:SyncGrpMenu()
@@ -1797,7 +1805,7 @@ function View:SyncTools()
 	if self.btnReagent then self.btnReagent:SetActive(sr and true or false) end
 	self:SyncSortLabel()
 	if self.btnGrpMenu then self:SyncGrpMenu() end
-	self.btnSort:SetActive(self.st.colSort ~= nil)
+	self.btnSort:SetActive(ns:ActiveColSort(self.st) ~= nil)   -- (1.12.0-beta7, B6-A1)
 	local ids, collapsedSet = self.laneIds or {}, {}
 	for _, id in ipairs(self:CollapsedList()) do collapsedSet[id] = true end
 	local all = #ids > 0

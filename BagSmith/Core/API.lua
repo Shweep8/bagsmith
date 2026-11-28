@@ -21,7 +21,8 @@
 	No method performs an item action.
 ]]
 local ADDON, ns = ...
-local API = { VERSION = { major = 1, minor = 1 } }   -- 1.1 (BagSmith 1.5.0): icon corner widgets (Core/Corners.lua)
+-- 1.1 (BagSmith 1.5.0): icon corner widgets (Core/Corners.lua). 1.2 (BagSmith 1.12.0): List view columns (Core/Columns.lua)
+local API = { VERSION = { major = 1, minor = 2 } }
 ns.API = API
 _G.BagSmith = _G.BagSmith or {}
 _G.BagSmith.API = API

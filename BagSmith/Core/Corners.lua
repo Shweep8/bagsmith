@@ -299,6 +299,13 @@ end
 -- The details a widget reads, from BagSmith's own record of the item (the field names widgets already use).
 function C:Details(b, rec)
 	if b.cornerDetails and b.cornerDetailsFor == b.cornerFill then return b.cornerDetails end
+	local d = self:DetailsFor(rec)
+	b.cornerDetails, b.cornerDetailsFor = d, b.cornerFill
+	return d
+end
+-- (1.12.0-beta3) The same details from the record alone, for a caller with no item button: a column another addon
+-- registered (Core/Columns.lua).
+function C:DetailsFor(rec)
 	local d = {
 		itemLink = rec.link, itemID = rec.itemID, quality = rec.quality, itemLevel = rec.ilvl,
 		isBound = rec.isBound and true or false, itemCount = rec.count or 1, icon = rec.icon,
@@ -329,7 +336,6 @@ function C:Details(b, rec)
 			return info
 		end
 	end })
-	b.cornerDetails, b.cornerDetailsFor = d, b.cornerFill
 	return d
 end
 

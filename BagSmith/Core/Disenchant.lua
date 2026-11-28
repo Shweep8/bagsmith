@@ -1548,7 +1548,12 @@ function DE:Frame()
 	f.resultsBtn = ns.TextButton(f, "Results", 70, function() DE:ToggleResults() end); f.resultsBtn:SetHeight(22); f.resultsBtn:SetPoint("BOTTOMLEFT", 12, 10)
 	f.resultsBtn.tip = "What your disenchants gave you"
 	f.resultsBtn.tipSub = "This session and all time. Click again for the list."
-	f.results = CreateFrame("Frame", nil, f); f.results:SetPoint("TOPLEFT", 12, -52); f.results:SetPoint("BOTTOMRIGHT", -12, 40); f.results:Hide()
+	-- (1.12.0-beta4, Shweep: "we have excess space at top in DE helper when in results screen") Results starts right
+	-- under the title, where the count line is in the list view (that line is hidden here, and Results began 18 px
+	-- below it: an empty band). -34 clears the title in the Modern look and the window's own title bar in Classic
+	-- (26 px); the room goes to the results themselves.
+	DE.RESULTS_TOP = -34
+	f.results = CreateFrame("Frame", nil, f); f.results:SetPoint("TOPLEFT", 12, DE.RESULTS_TOP); f.results:SetPoint("BOTTOMRIGHT", -12, 40); f.results:Hide()
 	do
 		local R = f.results
 		R.tabSession = ns.TextButton(R, "This Session", 100, function() DE:SetResultsTab("session") end); R.tabSession:SetHeight(22); R.tabSession:SetPoint("TOPLEFT", 0, 0)

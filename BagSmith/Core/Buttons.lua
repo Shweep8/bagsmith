@@ -518,6 +518,24 @@ local function addText(b)
 	-- lays out that column (Buttons.EnsureCell), not for every button.
 end
 
+-- (1.12.0-beta1) The text of a registered column (Core/Columns.lua), made the first time a row lays that column
+-- out, like the three icon cells below. In the column's own color when it has one; b.xfields lists every such cell
+-- this button has, for hiding the ones a later plan leaves out and for Dim Junk Items.
+function Buttons.EnsureText(b, field, key)
+	if b[field] then return b[field] end
+	local s = b:CreateFontString(nil, "OVERLAY", ns.Fonts:Name("GameFontHighlightSmall"))
+	s:SetWordWrap(false)
+	local r, g, bl = 1, 1, 1
+	if s.GetTextColor then local cr, cg, cb = s:GetTextColor(); if cr then r, g, bl = cr, cg, cb end end
+	local def = ns.Columns:Get(key)
+	if def and def.color then r, g, bl = def.color[1], def.color[2], def.color[3]; s:SetTextColor(r, g, bl) end
+	s.baseColor = { r, g, bl }
+	b[field] = s
+	b.xfields = b.xfields or {}
+	b.xfields[field] = true
+	return s
+end
+
 -- The clickable icon for a Junk, Favorite or Currency column, made once.
 function Buttons.EnsureCell(b, key)
 	if key == "jk" then
@@ -618,6 +636,8 @@ local function applyMode(b, mode, size)
 		b.newDot:SetSize(10, 10)
 		b.newDot:ClearAllPoints(); b.newDot:SetPoint("BOTTOM", icon, "BOTTOM", 0, 1)
 		for _, key in ipairs(COL_KEYS) do b[key]:Hide() end
+		for field in pairs(b.xfields or {}) do b[field]:Hide(); b[field]:SetText("") end   -- (1.12.0-beta1) registered columns' cells too (beta5: emptied)
+		b.xcols = nil
 		if b.kebab and not InCombatLockdown() then b.kebab:Hide(); b.kebabOn = nil end
 		if b.colJunk then b.colJunk:Hide() end
 		if b.colFav then b.colFav:Hide() end
@@ -791,9 +811,14 @@ function Buttons:ApplyColumns(b, plan, rowH)
 	Buttons:FitCountdown(b)   -- (1.4.2-beta2) the number fits the row's icon
 	b.seps = b.seps or {}
 	local si = 0
+	local xcols   -- (1.12.0-beta1) this row's registered columns, for Columns:Fill
 	for i, col in ipairs(plan) do
 		if col.key == "jk" or col.key == "fv" or col.key == "cc" then
 			Buttons.EnsureCell(b, col.key)
+		elseif col.reg then
+			Buttons.EnsureText(b, col.fs, col.key)
+			xcols = xcols or {}
+			xcols[#xcols + 1] = { key = col.key, fs = col.fs }
 		end
 		local fs = b[col.fs]
 		inPlan[col.fs] = true
@@ -802,7 +827,7 @@ function Buttons:ApplyColumns(b, plan, rowH)
 			fs:ClearAllPoints(); fs:SetPoint("CENTER", b, "LEFT", col.colX + col.colW / 2, 0)
 		else
 			fs:ClearAllPoints(); fs:SetPoint("LEFT", b, "LEFT", col.x, 0); fs:SetWidth(math.max(10, col.width))
-			fs:SetJustifyH(NUMERIC[col.key] and "RIGHT" or "LEFT")
+			fs:SetJustifyH((col.numeric or NUMERIC[col.key]) and "RIGHT" or "LEFT")
 			fs:Show()
 		end
 		if col.key == "n" then
@@ -826,6 +851,10 @@ function Buttons:ApplyColumns(b, plan, rowH)
 	end
 	for j = si + 1, #b.seps do b.seps[j]:Hide() end
 	for _, key in ipairs(COL_KEYS) do if not inPlan[key] then b[key]:Hide() end end
+	-- (1.12.0-beta5, with the beta4 audit's B4-3) a registered column's cell that has left the row is emptied as well
+	-- as hidden, so nothing stale is left in it for when the column comes back
+	for field in pairs(b.xfields or {}) do if not inPlan[field] then b[field]:Hide(); b[field]:SetText("") end end
+	b.xcols = xcols
 	b.junkColumn = inPlan.colJunk and true or false
 	if not inPlan.colJunk and b.colJunk then b.colJunk:Hide() end
 	b.favColumn, b.currColumn = inPlan.colFav and true or false, inPlan.colCurr and true or false
@@ -1555,6 +1584,8 @@ function Buttons:Fill(b, rec, opts)
 	Buttons:LinkMark(b, rec)
 	if ns.Marks then ns.Marks:Decorate(b, rec) end
 	if ns.Pawn then ns.Pawn:Decorate(b, rec) end
+	-- (1.12.0-beta1) registered columns' cells, after the marks: Pawn's reads what its arrow just asked
+	if b.xcols and b.mode == "row" then ns.Columns:Fill(b, rec) end
 	b.inFill = nil
 	if ns.Corners then ns.Corners:Apply(b, true) end   -- (1.5.0) icon corners: which mark shows where
 	self:BagGlow(b, rec)   -- (1.8.0-beta5)
@@ -1649,6 +1680,7 @@ function Buttons:Blank(b, rec)
 		if normal then normal:SetAlpha(0) end
 	end
 	for _, key in ipairs(COL_KEYS) do b[key]:SetText("") end
+	if b.xcols then ns.Columns:Clear(b) end
 	b.newDot:Hide()
 	b:SetAlpha(1)
 	if b.kebab and not InCombatLockdown() then b.kebab:Hide() end

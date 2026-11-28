@@ -85,6 +85,23 @@ function ns:IsBankBag(bag)
 	return bag > ns.NUM_BAGS and bag <= ns.NUM_BAGS + ns.NUM_BANK_BAGS
 end
 
+-- (1.12.0-beta1) The picture of the bag in a container slot, for a By Bag section's heading: the backpack's own, or
+-- the icon of the bag worn there now (a bank bag's through its tab's slot, as ns:BagName finds its name). nil for
+-- the keyring, the bank's own slots, an empty bag slot and anything the game gives no picture for: the heading then
+-- stays text only, as before.
+ns.BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
+function ns:BagIcon(bag)
+	if type(bag) ~= "number" then return nil end
+	if bag == ns.BACKPACK then return ns.BACKPACK_ICON end
+	if bag == ns.KEYRING or bag == ns.BANK then return nil end
+	local ok, invID = pcall(C_Container.ContainerIDToInventoryID, bag)
+	if not ok then invID = nil end
+	if not invID and ns:IsBankBag(bag) and ns.Bank and ns.Bank.InvSlot then invID = ns.Bank:InvSlot(bag - ns.NUM_BAGS) end
+	if not invID or type(GetInventoryItemTexture) ~= "function" then return nil end
+	local okT, tex = pcall(GetInventoryItemTexture, "player", invID)
+	if okT and tex and tex ~= "" then return tex end
+	return nil
+end
 function ns:BagName(bag)
 	if bag == ns.BACKPACK then return BACKPACK_TOOLTIP or "Backpack" end
 	if bag == ns.KEYRING then return KEYRING or "Keyring" end

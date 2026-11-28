@@ -316,7 +316,7 @@ for _, skin in ipairs({ "modern", "classic" }) do
 	-- (by design since 1.10.0-beta10, Shweep: "None are required (not: none is needed)"; "can we call it Addon Sources";
 	-- "let's move plugins above advanced": the page's first line, its name, and its place in the list)
 	local INTRO = "\"BagSmith works with these addons when you have them. None are required.\""
-	local PRICES, TREE, PAWN = "\"Used for the AH Price column, item tooltips and both Helpers.\"", "\"Knows what your items are for on this character.\"", "\"Knows which gear is an upgrade for you. Its green arrows show on your icons.\""
+	local PRICES, TREE, PAWN = "\"Used for the AH Price column, item tooltips and both Helpers.\"", "\"Knows what your items are for on this character.\"", "\"Knows which gear is an upgrade for you. Its green arrows show on your icons.\" \"In List view it can have a column of its own, showing how much of an upgrade each item is: tick Pawn in Settings > Bag Columns or Bank Columns.\""   -- (by design since 1.12.0-beta1: the card says where the Pawn column is)
 
 	-- nothing installed: three cards, each its heading, state and sentence
 	local n, M, P = open()

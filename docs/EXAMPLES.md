@@ -35,3 +35,24 @@ end
 
 **Combat:** onInit isn't called in combat (BagSmith waits). If your own data changes during combat, call
 `RequestItemButtonsRefresh()` once it ends.
+
+## A List view column (BagSmith.API 1.2)
+
+The same mark as a column of its own: text per item, and a number so the player can sort by it. The full contract
+is in [API.md](API.md).
+
+```lua
+local api = BagSmith and BagSmith.API
+if api and api.RegisterColumn then
+  api.RegisterColumn("My Addon: Score", "myaddon_score",
+    function(details)
+      local score = MyAddon.ScoreFor(details.itemLink)
+      if score == nil then return nil end   -- not ready yet
+      if score == 0 then return "" end
+      return ("|cff40ff40%d|r"):format(score), score
+    end,
+    { width = 60, align = "RIGHT", tooltip = "My Addon's score for the item." })
+end
+-- when your scores change:
+if api and api.RefreshColumn then api.RefreshColumn("myaddon_score") end
+```
