@@ -95,21 +95,27 @@ function Columns:Value(key, rec)
 	if not d or d.off or not rec then return "" end
 	local ok, text = pcall(d.text, rec)
 	if not ok then
-		d.fails = d.fails + 1
-		if d.fails >= self.MAX_FAILS then
-			d.off = true
-			ns:Debug("Columns: %s failed %d times and is off until a reload (%s)", key, d.fails, tostring(text))
-		end
+		self:Failed(d, text)
 		return ""
 	end
 	if text == nil then return nil end
 	if text == false then return "" end
 	return tostring(text)
 end
+-- (1.12.0-beta5, the beta4 audit's advisory) A failure here counts toward MAX_FAILS like one in Columns:Value: the
+-- docs say five failures switch a column off, and a column that only ever failed while sorting was never counted.
+function Columns:Failed(d, err)
+	d.fails = d.fails + 1
+	if d.fails >= self.MAX_FAILS and not d.off then
+		d.off = true
+		ns:Debug("Columns: %s failed %d times and is off until a reload (%s)", d.key, d.fails, tostring(err))
+	end
+end
 function Columns:SortValue(key, rec)
 	local d = self.defs[key]
 	if not d or d.off or not d.sort or not rec then return 0 end
 	local ok, v = pcall(d.sort, rec)
+	if not ok then self:Failed(d, v) end
 	v = ok and tonumber(v) or nil
 	if not v or v ~= v then return 0 end
 	return v
@@ -139,6 +145,24 @@ function Columns:Clear(b)
 	end
 end
 
+-- (1.12.0-beta5, the beta4 audit's B4-3) A column became able or unable to show (Pawn's advisor switched, Pawn
+-- loading late): it leaves or joins the row, which is a layout change whatever the window is sorted by. The windows
+-- are laid out again on the next frame (once, however often this is called in a frame), their narrowest width
+-- follows (the column counts toward it only while it can show), and an open Bag Columns page is drawn again so its
+-- row greys or comes back. Nothing saved changes.
+function Columns:AvailabilityChanged(key)
+	if not self.defs[key] or self.layoutQueued then return end
+	self.layoutQueued = true
+	local function go()
+		Columns.layoutQueued = false
+		if not ns.ready then return end
+		for _, v in pairs(ns.views or {}) do if v.big and v.ApplyMinWidth then v:ApplyMinWidth() end end
+		if ns.RefreshViews then ns:RefreshViews(true) end
+		local P = ns.SettingsPanel
+		if P and P.frame and P.frame:IsShown() and P.Refresh then P:Refresh() end
+	end
+	if C_Timer and C_Timer.After then C_Timer.After(0, go) else go() end
+end
 -- A column's answers changed after the rows were drawn (Pawn answering late): the rows on screen show the new ones,
 -- and a window sorted by that column sorts again.
 function Columns:Changed(key)
@@ -212,7 +236,16 @@ local function answer(d, rec)
 	if text == nil then return nil, 0 end
 	if text == false then text = "" end
 	text = (tostring(text):gsub("%c", " "))
-	if #text > Columns.TEXT_MAX then text = text:sub(1, Columns.TEXT_MAX) end
+	if #text > Columns.TEXT_MAX then
+		-- (1.12.0-beta5, the beta4 audit's advisory) cut between characters, never inside one: step back while the
+		-- next byte is the middle of a UTF-8 character. (Markup cut in half shows as text: the docs ask for short markup.)
+		local n = Columns.TEXT_MAX
+		while n > 0 do
+			local b = text:byte(n + 1)
+			if b and b >= 128 and b < 192 then n = n - 1 else break end
+		end
+		text = text:sub(1, n)
+	end
 	sort = tonumber(sort)
 	if not sort or sort ~= sort then sort = 0 end
 	if d.cached >= Columns.CACHE_MAX then d.cache, d.cached = {}, 0 end

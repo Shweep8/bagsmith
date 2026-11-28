@@ -286,16 +286,18 @@ Each accepts a dot or a colon call.
   player's own items `bagID`, `slotID` and `itemLocation`). It returns the cell's text and, optionally, a number to
   sort by (0 without one). `""` or `false` is an empty cell. `nil` means "not ready yet": the cell keeps what it
   showed for the same item and nothing is remembered, so call `RefreshColumn` when you can answer. The text may
-  carry a color code or a small picture's markup; it is one line, 200 bytes at most.
+  carry a color code or a small picture's markup. It is one line; text over 200 bytes is cut, between characters,
+  so keep markup short: a color code or a picture's markup cut in the middle shows as plain text.
 - **An answer is remembered per item** (its place, link and count) until you call `RefreshColumn`, so onUpdate runs
   once per item, not on every redraw and not for every comparison of a sort. If your answers depend on something
-  else (the player's gear, your own settings), call `RefreshColumn` when that changes.
+  else (the player's gear, your own settings), call `RefreshColumn` when that changes. BagSmith cannot know that
+  it did: until you call it, the old answers stay on screen.
 - **options**, all optional: `width` (pixels, 30 to 400; 60 without one, until the player drags it), `align`
   (`"LEFT"`, the default, or `"RIGHT"`), `tooltip` (a sentence for the heading's tooltip and the Settings row's),
   `otherCharacters` (true: also asked about another character's saved items, where `bagID` and `slotID` are nil;
   without it those cells are empty and onUpdate isn't called).
-- **Errors.** onUpdate runs protected. After five failures the column is switched off until the next reload, and
-  its row in Settings says so.
+- **Errors.** onUpdate runs protected. After five failures, while drawing or while sorting, the column is switched
+  off until the next reload, and its row in Settings says so.
 - **What the player keeps.** Their tick, the column's place and its width are saved under your id. If your addon
   isn't loaded for a session, they are kept for when it is.
 - The column is never shown in Global Inventory.

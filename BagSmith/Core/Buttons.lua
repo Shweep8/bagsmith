@@ -636,7 +636,7 @@ local function applyMode(b, mode, size)
 		b.newDot:SetSize(10, 10)
 		b.newDot:ClearAllPoints(); b.newDot:SetPoint("BOTTOM", icon, "BOTTOM", 0, 1)
 		for _, key in ipairs(COL_KEYS) do b[key]:Hide() end
-		for field in pairs(b.xfields or {}) do b[field]:Hide() end   -- (1.12.0-beta1) registered columns' cells too
+		for field in pairs(b.xfields or {}) do b[field]:Hide(); b[field]:SetText("") end   -- (1.12.0-beta1) registered columns' cells too (beta5: emptied)
 		b.xcols = nil
 		if b.kebab and not InCombatLockdown() then b.kebab:Hide(); b.kebabOn = nil end
 		if b.colJunk then b.colJunk:Hide() end
@@ -851,7 +851,9 @@ function Buttons:ApplyColumns(b, plan, rowH)
 	end
 	for j = si + 1, #b.seps do b.seps[j]:Hide() end
 	for _, key in ipairs(COL_KEYS) do if not inPlan[key] then b[key]:Hide() end end
-	for field in pairs(b.xfields or {}) do if not inPlan[field] then b[field]:Hide() end end
+	-- (1.12.0-beta5, with the beta4 audit's B4-3) a registered column's cell that has left the row is emptied as well
+	-- as hidden, so nothing stale is left in it for when the column comes back
+	for field in pairs(b.xfields or {}) do if not inPlan[field] then b[field]:Hide(); b[field]:SetText("") end end
 	b.xcols = xcols
 	b.junkColumn = inPlan.colJunk and true or false
 	if not inPlan.colJunk and b.colJunk then b.colJunk:Hide() end
