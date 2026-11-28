@@ -55,7 +55,8 @@
 	-- version and readiness
 	local S = boot()
 	local major, minor = S.API:GetVersion()
-	check(major == 1 and minor == 1 and BagSmith.API == S.API and S.API:IsReady(), "the API is 1.1 (1.5.0: icon corner widgets), exposed as BagSmith.API, and ready after login")
+	-- (by design since 1.12.0-beta3: the API is 1.2, which adds List view columns; 1.1 added icon corner widgets)
+	check(major == 1 and minor == 2 and BagSmith.API == S.API and S.API:IsReady(), "the API is 1.2 (1.12.0: List view columns), exposed as BagSmith.API, and ready after login")
 	-- registration: validation
 	local h, code, msg = S.API:RegisterPlugin("nope")
 	check(h == nil and code == "invalid-manifest", "a non-table manifest is invalid")

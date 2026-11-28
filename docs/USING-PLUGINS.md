@@ -1,7 +1,7 @@
 # Using plugins in BagSmith
 
 BagSmith plugins are separate, optional addons that extend BagSmith through a small public interface,
-`BagSmith.API` (version 1.1). BagSmith itself is complete without any plugin: inventory scanning,
+`BagSmith.API` (version 1.2). BagSmith itself is complete without any plugin: inventory scanning,
 sections, sorting, layouts, item buttons, skins, profiles, mouse and keyboard, opening and closing its
 windows all live in core and work with no plugin installed.
 

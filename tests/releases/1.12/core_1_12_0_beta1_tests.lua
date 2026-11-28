@@ -535,5 +535,6 @@ do
 	check(toc:find("\n## Version: 1%.12%.0"), "the TOC version is 1.12.0's (the exact one is pinned in tests/run.lua)")
 	local a, b, c = toc:find("\nCore\\Settings.lua\n", 1, true), toc:find("\nCore\\Columns.lua\n", 1, true), toc:find("\nCore\\Pawn.lua\n", 1, true)
 	check(a and b and c and a < b and b < c, "Core/Columns.lua loads after the settings and before Pawn's module, which registers the first column")
-	check(slurp("BagSmith/Core/API.lua"):find("local API = { VERSION = { major = 1, minor = 1 } }", 1, true) ~= nil, "the public API is still 1.1: columns from other addons are not offered through it yet")
+	-- (by design since 1.12.0-beta3: columns from other addons are offered now, as API 1.2; in beta1 this read 1.1)
+	check(slurp("BagSmith/Core/API.lua"):find("local API = { VERSION = { major = 1, minor = 2 } }", 1, true) ~= nil, "the public API is 1.2, which offers columns from other addons")
 end

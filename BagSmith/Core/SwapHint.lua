@@ -46,6 +46,10 @@ local HOLD, FADE = 8, 1.5   -- the on-screen message: full strength, then fading
 local pickup          -- { bag, slot, itemID, t } of the bag picked up from a container
 local refused         -- (1.7.1-beta4) { bag, slot, id, t, taken }: a refusal just noticed (route 1), for the bag button
 local lastShown = -math.huge
+-- (1.12.0-beta3) for the menu a refused right-click gets (the end of this file)
+local CLICK_WINDOW = 0.5   -- seconds between a clicked bag's release and the game's error, whichever comes first
+local clicked              -- { bag, slot, id, t }: a bag just clicked and released in place, nothing on the cursor
+local erroredAt            -- when the game last raised an error with a bag just locked and nothing on the cursor
 
 local function info(bag, slot)
 	return C_Container and C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bag, slot)
@@ -220,7 +224,11 @@ local function seen(id, bag, slot)
 	local i = info(bag, slot)
 	return i and i.itemID == id and not i.isLocked or false
 end
-function Hint:SwapIn(x, inv, srcSlot, newID)
+-- (1.12.0-beta3) srcBag: the container the new bag sits in, when that isn't X itself (the menu a refused right-click
+-- gets: the player picks which worn bag to replace). The new bag is then already outside X, so nothing is moved
+-- first: its own slot stands in for the free slot (y, ys) and the swap starts at step 3. Without srcBag everything
+-- is as it was.
+function Hint:SwapIn(x, inv, srcSlot, newID, srcBag)
 	if self.swapping then return true end
 	if InCombatLockdown() then say(Hint.IN_COMBAT, true); return true end
 	inv = inv or invSlotOf(x)
@@ -233,7 +241,10 @@ function Hint:SwapIn(x, inv, srcSlot, newID)
 		say(Hint.SAME:format(nName), true)
 		return true
 	end
-	local y, ys = swapRoom(x)
+	local sb = srcBag or x          -- where the new bag is now
+	local direct = sb ~= x          -- already outside X
+	local y, ys
+	if direct then y, ys = sb, srcSlot else y, ys = swapRoom(x) end
 	if not y then
 		if cursorItem() == newID then pcall(ClearCursor) end   -- (its own: back where it came from)
 		say(Hint.NO_ROOM:format(nName, xName), true)
@@ -260,7 +271,7 @@ function Hint:SwapIn(x, inv, srcSlot, newID)
 	end
 	-- the new bag's place, named only where BagSmith sees it: the free slot it used, or its own slot
 	local function withNew(text)
-		local w = (seen(newID, y, ys) and bagLabel(y)) or (seen(newID, x, srcSlot) and bagLabel(x))
+		local w = (seen(newID, y, ys) and bagLabel(y)) or (seen(newID, sb, srcSlot) and bagLabel(sb))
 		return w and (text .. " " .. ("%s is in your %s now."):format(nName, w)) or text
 	end
 	-- (1.7.1-beta2, the audit's advisory A) one way out after an error: said once, kept for /bs errors (ns:Guard),
@@ -299,8 +310,9 @@ function Hint:SwapIn(x, inv, srcSlot, newID)
 	-- 1. N back in its own slot
 	local function step1()
 		if cursorItem() == newID then holding = newID; ClearCursor(); holding = nil end
-		await(function() return located(newID, x, srcSlot) and not info(x, srcSlot).isLocked and not CursorHasItem() end, step2,
-			function() finish(("Couldn't swap in %s: it didn't settle back in your %s."):format(nName, bagLabel(x)), true) end)
+		await(function() return located(newID, sb, srcSlot) and not info(sb, srcSlot).isLocked and not CursorHasItem() end,
+			function() if direct then return step3() end return step2() end,
+			function() finish(("Couldn't swap in %s: it didn't settle back in your %s."):format(nName, bagLabel(sb)), true) end)
 	end
 	-- 2. N to the free slot in another bag
 	step2 = function()
@@ -547,6 +559,9 @@ ns:On("ITEM_LOCK_CHANGED", function(bag, slot)
 				-- nothing is remembered for the ten seconds that follow.
 				pickup = nil
 				ns:Debug("Swap hint: forgot the bag (back in its slot, nothing on the cursor)")
+				-- (1.12.0-beta3) It may be a right-click the game has just refused, or is about to: see Hint:ClickRefused
+				local c = { bag = bag, slot = slot, id = i.itemID, t = GetTime() }
+				if erroredAt and c.t - erroredAt <= CLICK_WINDOW then erroredAt = nil; Hint:ClickRefused(c) else clicked = c end
 			end
 		end
 		return
@@ -580,9 +595,130 @@ local function onError(errType, message)
 	if not Hint.swapping and sameSlot(target, srcBag) then Hint:Show() end   -- (1.7.1-beta2, F1) explained only
 end
 ns:On("UI_ERROR_MESSAGE", function(errType, message)
+	-- (1.12.0-beta3) a bag clicked and released in place a moment ago, nothing on the cursor: the refused right-click
+	if clicked and not cursorItem() then
+		local c = clicked
+		clicked = nil
+		if GetTime() - c.t <= CLICK_WINDOW then
+			ns:Debug("Swap menu: game error %q (%s) right after the bag in bag %d slot %d was clicked", tostring(message), tostring(errType), c.bag, c.slot)
+			Hint:ClickRefused(c)
+			return
+		end
+	end
+	-- (the other order: the error first, the slot's release right after it)
+	if pickup and not cursorItem() and GetTime() - pickup.t <= CLICK_WINDOW then erroredAt = GetTime() end
 	local dragging = (pickup and GetTime() - pickup.t <= WINDOW) or cursorItem() ~= nil
 	if not dragging then return end
 	ns:Debug("Swap hint: game error %q (%s)", tostring(message), tostring(errType))
 	local ok, err = pcall(onError, errType, message)
 	if not ok then ns:Debug("Swap hint: error route failed: %s", tostring(err)) end
 end)
+
+------------------------------------------------------------------------
+-- (1.12.0-beta3, Shweep, 26 Nov: "I like option A actually. that would be helpful") A bag right-clicked in the bags
+-- with every bag slot full. The game only equips a bag into an empty bag slot, so it refuses with its own red line
+-- and nothing happens. BagSmith then offers a short menu at the pointer: which worn bag to swap it in for, smallest
+-- first, each with its size and how full it is. A choice runs Hint:SwapIn above, the only thing here that moves
+-- anything; opening the menu moves nothing.
+--
+-- Recognised without reading the game's words (the rule of this file): a bag item's slot locked and unlocked again
+-- with nothing on the cursor (a click, not a drag), a game error within CLICK_WINDOW of that, either order, no
+-- vendor, mailbox, trade, auction house or bank open (a right-click does something else there), and no empty bag
+-- slot (with one, the game would have equipped the bag: its refusal was about something else).
+--
+-- What a row can't know: how many slots the new bag has. The game gives an addon the size of a worn bag only, so
+-- "its contents won't fit" can't be greyed beforehand; the game refuses that swap itself and Hint.REFUSED says so,
+-- the new bag back where it was. Greyed with their reason: the same kind of bag; the bag the new one is inside,
+-- when no other bag has a free slot to set it down in first; and, for a special bag (a quiver, a herb bag), a worn
+-- bag holding things that can't go in it.
+------------------------------------------------------------------------
+Hint.MENU_TITLE = "Swap in %s for:"
+Hint.MENU_ROW = "%s (%d slots, %d used)"
+Hint.WHY_SAME = "It is the same kind of bag."
+Hint.WHY_INSIDE = "The new bag is inside this one, and no other bag has a free slot to set it down in first."
+Hint.WHY_KIND = "It holds things that can't go in that kind of bag."
+Hint.MENU_STALE = "Your bags changed while the menu was open, so nothing was swapped."
+-- (the bank by BagSmith's own word, ns.atBank: the game's BankFrame is BagSmith's to hide or keep while it stands in for it)
+local AWAY = { "MerchantFrame", "MailFrame", "TradeFrame", "AuctionHouseFrame", "AuctionFrame", "GuildBankFrame" }
+local function atAWindow()
+	if ns.atBank then return true end
+	for _, name in ipairs(AWAY) do
+		local f = _G[name]
+		if type(f) == "table" and f.IsShown and f:IsShown() then return true end
+	end
+	return false
+end
+local function familyOf(id)
+	local get = (C_Item and C_Item.GetItemFamily) or GetItemFamily
+	if type(get) ~= "function" or not id then return 0 end
+	local ok, fam = pcall(get, id)
+	return ok and tonumber(fam) or 0
+end
+-- Does a worn bag hold anything that can't go in a special bag of this family?
+local function holdsOther(bag, size, family)
+	local band = bit and bit.band
+	if not band then return false end   -- can't tell: left to the game
+	for slot = 1, size do
+		local i = info(bag, slot)
+		if i and i.itemID and band(familyOf(i.itemID), family) == 0 then return true end
+	end
+	return false
+end
+-- The worn bags a bag item could go in for, smallest first: { bag, inv, id, name, size, used, why }. nil when a bag
+-- slot is empty.
+function Hint:SlotChoices(srcBag, srcSlot, newID)
+	local list = {}
+	local family = familyOf(newID)
+	for _, bag in ipairs(ns.BAGS or { 0, 1, 2, 3, 4 }) do
+		if bag ~= 0 and bag ~= ns.KEYRING and not (ns.IsReagentBag and ns:IsReagentBag(bag)) then
+			local inv = invSlotOf(bag)
+			if inv then
+				local oldID = equipped(inv)
+				if not oldID then return nil end
+				local size = C_Container.GetContainerNumSlots(bag) or 0
+				local okF, free = pcall(C_Container.GetContainerNumFreeSlots, bag)
+				free = okF and tonumber(free) or 0
+				local c = { bag = bag, inv = inv, id = oldID, name = itemName(oldID), size = size, used = math.max(0, size - free) }
+				if oldID == newID then c.why = Hint.WHY_SAME
+				elseif bag == srcBag and not swapRoom(bag) then c.why = Hint.WHY_INSIDE
+				elseif family ~= 0 and holdsOther(bag, size, family) then c.why = Hint.WHY_KIND end
+				list[#list + 1] = c
+			end
+		end
+	end
+	table.sort(list, function(a, b) if a.size ~= b.size then return a.size < b.size end return a.bag < b.bag end)
+	return list
+end
+-- The menu. False when there is nothing to offer (and nothing is shown).
+function Hint:OfferSlots(c)
+	if self.swapping or InCombatLockdown() or atAWindow() or CursorHasItem() then return false end
+	local i = info(c.bag, c.slot)
+	if not (i and i.itemID == c.id and not i.isLocked and isBag(c.id)) then return false end
+	local list = self:SlotChoices(c.bag, c.slot, c.id)
+	if not list or #list == 0 or not ns.ShowMenu then return false end
+	local items = { { text = Hint.MENU_TITLE:format(itemName(c.id)), title = true } }
+	for _, w in ipairs(list) do
+		items[#items + 1] = { text = Hint.MENU_ROW:format(w.name, w.size, w.used), disabled = w.why ~= nil, tip = w.why,
+			onClick = function() Hint:SwapFromMenu(c, w) end }
+	end
+	ns:Debug("Swap menu: offered for the bag in bag %d slot %d (%d worn bags)", c.bag, c.slot, #list)
+	ns.ShowMenu(items)
+	Hint.offered = c
+	return true
+end
+-- A row was picked: everything is looked at again, since the bags may have changed while the menu was open.
+-- (Combat is Hint:SwapIn's own check, with its own line: not repeated here.)
+function Hint:SwapFromMenu(c, w)
+	local i = info(c.bag, c.slot)
+	if self.swapping or CursorHasItem() or not (i and i.itemID == c.id and not i.isLocked) or equipped(w.inv) ~= w.id or invSlotOf(w.bag) ~= w.inv then
+		say(Hint.MENU_STALE, true)
+		return false
+	end
+	ns:Debug("Swap menu: swapping the bag in bag %d slot %d in for bag %d", c.bag, c.slot, w.bag)
+	return self:SwapIn(w.bag, w.inv, c.slot, c.id, c.bag) and true or false
+end
+-- A clicked bag the game refused: offered a frame later, outside the game's own click handler, shielded.
+function Hint:ClickRefused(c)
+	local function go() ns:Guard("Bag swap menu", Hint.OfferSlots, Hint, c) end
+	if C_Timer and C_Timer.After then C_Timer.After(0, go) else go() end
+end

@@ -83,6 +83,7 @@ end
 -- A ticked column that can show now: AH Price needs a price addon, a registered column has its own say, the rest
 -- always can. (The tick itself is kept either way.)
 function Columns:Usable(key)
+	if not ns.COL_LABEL[key] then return false end   -- (1.12.0-beta3) a saved key nobody answers for: an addon's column, the addon not loaded
 	if key == "ah" then return ns.AH and ns.AH:Available() or false end
 	if self.defs[key] then return (self:Available(key)) end
 	return true
@@ -153,4 +154,137 @@ function Columns:Changed(key)
 		if cs and cs.key == key and (not v.IsShown or v:IsShown()) then sorted = true end
 	end
 	if sorted and ns.RefreshViews then ns:RefreshViews(true) end
+end
+
+------------------------------------------------------------------------
+-- (1.12.0-beta3) Columns from other addons: BagSmith.API 1.2
+------------------------------------------------------------------------
+-- No plugin registration is needed, as for an icon corner mark: an addon that already draws one can add a column in
+-- a few lines.
+--   RegisterColumn(label, id, onUpdate, options) -> true, or false if refused (said once in chat)
+--     label     the heading's text, and the column's name in Settings (plain text, 40 characters at most)
+--     id        letters, digits, _ - . (40 at most). The player's column lists save it as "x:<id>".
+--     onUpdate(details) -> text, sortValue
+--               details: the table a corner widget's onUpdate gets (Core/Corners.lua, C:DetailsFor): itemLink,
+--               itemID, quality, itemLevel, isBound, itemCount, icon, isJunk, classID, subClassID, itemName, and,
+--               for the player's own items, bagID, slotID and itemLocation.
+--               text: a string; "" or false for an empty cell; nil for "not ready yet" (the cell keeps what it
+--               showed for the same item and nothing is remembered: call RefreshColumn when you can answer).
+--               sortValue: a number to sort by when the player clicks the heading (0 without one).
+--     options   width (pixels, 30 to 400; 60 without one), align ("LEFT", the default, or "RIGHT"), tooltip (a
+--               sentence for the heading's tooltip and the Settings row's), otherCharacters (true: also asked about
+--               another character's saved items; without it those cells are empty and onUpdate isn't called)
+--   RefreshColumn(id) -> true, or false for an id that isn't registered. Your answers changed: BagSmith forgets
+--     what it kept for the column and asks again for the rows on screen. Any number of calls in one frame make one
+--     redraw.
+--   IsColumnShown(id) -> whether the player has it ticked, in the bags or the bank.
+-- An answer is kept per item (its place, link and count) until RefreshColumn, so onUpdate runs once per item, not
+-- once per redraw or per comparison in a sort. Each function accepts a dot or a colon call.
+-- The column is listed in Settings > Bag Columns and Bank Columns, unticked, at the end; the player ticks, moves,
+-- resizes and sorts by it like any other. It is never shown in Global Inventory.
+Columns.MAX_ADDON = 8        -- columns from other addons, in all
+Columns.CACHE_MAX = 4000     -- answers kept for one column before they are all forgotten and asked again
+Columns.TEXT_MAX = 200       -- bytes of a cell's text kept (room for a color code or a small picture's markup)
+Columns.ADDON_TIP = "Added by another addon."
+local addonCount = 0
+local refusedSaid = {}
+local function refuse(id, why)
+	local key = tostring(id) .. "|" .. why
+	if ns.Debug then ns:Debug("RegisterColumn refused: %s", why) end
+	if not refusedSaid[key] and ns.Print then
+		refusedSaid[key] = true
+		ns:Print("An addon's column (%s) couldn't be added to Bag Columns: %s.", type(id) == "string" and id ~= "" and id or "no id", why)
+	end
+	return false
+end
+local function cacheKey(rec)
+	return (rec.cached and "o" or "") .. tostring(rec.bag) .. ":" .. tostring(rec.slot) .. ":" .. tostring(rec.link or rec.itemID) .. ":" .. tostring(rec.count or 1)
+end
+-- The addon's answer for one item, asked once and then kept: the text (nil for "not ready yet") and the sort value.
+-- An error in onUpdate is the caller's pcall's (Columns:Value counts it; Columns:SortValue sorts the item as 0).
+local function answer(d, rec)
+	if rec.cached and not d.others then return "", 0 end
+	local ck = cacheKey(rec)
+	local hit = d.cache[ck]
+	if hit then return hit[1], hit[2] end
+	local details = (ns.Corners and ns.Corners.DetailsFor) and ns.Corners:DetailsFor(rec) or { itemLink = rec.link, itemID = rec.itemID }
+	local text, sort = d.onUpdate(details)
+	if text == nil then return nil, 0 end
+	if text == false then text = "" end
+	text = (tostring(text):gsub("%c", " "))
+	if #text > Columns.TEXT_MAX then text = text:sub(1, Columns.TEXT_MAX) end
+	sort = tonumber(sort)
+	if not sort or sort ~= sort then sort = 0 end
+	if d.cached >= Columns.CACHE_MAX then d.cache, d.cached = {}, 0 end
+	d.cache[ck] = { text, sort }
+	d.cached = d.cached + 1
+	return text, sort
+end
+
+function Columns:RegisterAddon(label, id, onUpdate, options)
+	if type(label) ~= "string" or label:match("^%s*$") or type(id) ~= "string" or id == "" or #id > 40 or not id:match("^[%w_%-%.]+$")
+		or type(onUpdate) ~= "function" then
+		return refuse(id, "it needs a label, an id (letters, digits, _ - .) and onUpdate")
+	end
+	local key = "x:" .. id
+	if self.defs[key] then return refuse(id, ("%q is already registered"):format(id)) end
+	if addonCount >= self.MAX_ADDON then return refuse(id, ("BagSmith takes %d columns from other addons, and already has them"):format(self.MAX_ADDON)) end
+	options = type(options) == "table" and options or {}
+	label = (label:gsub("[%c|]", " ")):sub(1, 40)
+	local tip = type(options.tooltip) == "string" and options.tooltip ~= "" and (options.tooltip:gsub("%c", " ")):sub(1, 200) or self.ADDON_TIP
+	local d
+	if not self:Register(key, {
+		label = label, owner = label, width = options.width, numeric = options.align == "RIGHT", tip = tip,
+		text = function(rec) return (answer(d, rec)) end,
+		sort = function(rec) local _, v = answer(d, rec); return v end,
+	}) then return refuse(id, "BagSmith couldn't add it") end
+	d = self.defs[key]
+	d.addon, d.id, d.onUpdate, d.others, d.cache, d.cached = true, id, onUpdate, options.otherCharacters == true, {}, 0
+	addonCount = addonCount + 1
+	self:PlaceAddonColumns()
+	if ns.db and ns.Fire then ns:Fire("SETTINGS_CHANGED", "colOrder") end   -- (an open Settings page and the windows follow)
+	return true
+end
+-- A registered column that isn't in the profile's column orders yet joins them at the end, unticked. Nothing else
+-- of the player's lists is touched: it isn't ticked, and it isn't added to Narrow Windows (a saved list there is the
+-- player's). Run when one registers, when settings are ready and on every profile switch.
+function Columns:PlaceAddonColumns()
+	local db = ns.db
+	if not db then return end
+	for _, key in ipairs(self.keys) do
+		if self.defs[key].addon then
+			for _, name in ipairs({ "colOrder", "bankColOrder" }) do
+				local list = db[name]
+				if type(list) == "table" and not ns.IndexOf(list, key) then list[#list + 1] = key end
+			end
+		end
+	end
+end
+function Columns:RefreshAddon(id)
+	local d = type(id) == "string" and self.defs["x:" .. id] or nil
+	if not (d and d.addon) then return false end
+	d.cache, d.cached = {}, 0
+	if d.refreshQueued then return true end
+	d.refreshQueued = true
+	local function go() d.refreshQueued = false; Columns:Changed(d.key) end
+	if C_Timer and C_Timer.After then C_Timer.After(0, go) else go() end
+	return true
+end
+function Columns:AddonShown(id)
+	local key = type(id) == "string" and ("x:" .. id) or nil
+	local db = ns.db
+	if not (key and self.defs[key] and db) then return false end
+	return (ns.IndexOf(db.cols or {}, key) or ns.IndexOf(db.bankCols or {}, key)) and true or false
+end
+
+local API = _G.BagSmith and _G.BagSmith.API
+local function args(first, ...) if first == API then return ... end return first, ... end
+if API then
+	API.RegisterColumn = function(...) return Columns:RegisterAddon(args(...)) end
+	API.RefreshColumn = function(...) return Columns:RefreshAddon((args(...))) end
+	API.IsColumnShown = function(...) return Columns:AddonShown((args(...))) end
+end
+if ns.OnSignal then
+	ns:OnSignal("ADDON_READY", function() Columns:PlaceAddonColumns() end)
+	ns:OnSignal("PROFILE_ACTIVATED", function() Columns:PlaceAddonColumns() end)
 end

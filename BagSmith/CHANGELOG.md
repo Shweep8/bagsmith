@@ -6,6 +6,10 @@ New:
   number. Click its heading to sort by it. It starts unticked, right after Item in the list, so your columns stay as
   they are until you tick it.
 - With Sections: By Bag, each bag's section shows that bag's icon beside its name.
+- Other addons can add columns to List view. One that does shows up in Settings > Bag Columns and Bank Columns,
+  unticked, for you to tick, move, resize and sort by like any other. (For addon authors: BagSmith.API 1.2.)
+- Right-click a bag in your bags when every bag slot is full, and BagSmith offers a menu of the bags you are wearing,
+  smallest first, to swap it in for. Before, the game only said there was no slot.
 
 ## 1.11.0
 

@@ -61,7 +61,8 @@
 
 	-- ---- the API: registration rules, both call styles
 	local API = BagSmith.API
-	check(select(2, API:GetVersion()) == 1, "the API is 1.1")
+	-- (by design since 1.12.0-beta3: the API is 1.2, which adds List view columns; corner widgets came with 1.1 and are unchanged)
+	check(select(2, API:GetVersion()) == 2, "the API is 1.2")
 	local inits, updates = 0, 0
 	local answer = true
 	local function onInit(b) inits = inits + 1; local t = b:CreateTexture(nil, "OVERLAY"); t.padding = 1; return t end

@@ -34,6 +34,12 @@ active through the API.
 names, the profile table) are unsupported and may change in any release without notice. They remain
 present for existing integrations; no new integration should depend on them.
 
+## API 1.2 (BagSmith 1.12.0)
+
+Adds List view columns (`RegisterColumn`, `RefreshColumn`, `IsColumnShown`). Purely additive: a plugin declaring
+`X-BagSmith-API-Minor: 0` or `1` activates as before. Check for `api.RegisterColumn` (or a minor of 2 or more)
+before calling it. BagSmith's own release number is separate: BagSmith 1.12 provides API 1.2.
+
 ## API 1.1 (BagSmith 1.5.0)
 
 Adds icon corner widgets (`RegisterCornerWidget`, `IsCornerWidgetActive`, `GetCurrentCornerForWidget`,

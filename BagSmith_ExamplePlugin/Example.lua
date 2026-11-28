@@ -92,4 +92,15 @@ f:SetScript("OnEvent", function(_, _, name)
 			end,
 			{ corner = "top_right", priority = 2 }, true)
 	end
+	-- A List view column (API 1.2, BagSmith 1.12.0): each item's ID, right-aligned, sortable. It starts unticked in
+	-- Settings > Bag Columns and Bank Columns; BagSmith remembers each answer, so this runs once per item. Optional
+	-- too: an addon can register a column without registering as a plugin.
+	if api.RegisterColumn then
+		api.RegisterColumn("Example: Item ID", "bagsmith-example-id",
+			function(details)
+				if not details.itemID then return "" end
+				return tostring(details.itemID), details.itemID   -- the cell's text, and a number to sort by
+			end,
+			{ width = 64, align = "RIGHT", tooltip = "The item's ID, from the BagSmith example plugin." })
+	end
 end)
